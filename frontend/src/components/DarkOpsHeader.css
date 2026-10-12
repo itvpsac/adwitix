@@ -1,0 +1,10 @@
+.doh-header { position: sticky; top: 0; z-index: 60; background: var(--color-bg-dark); border-bottom: 1px solid var(--color-dark-border); }
+.doh-header__inner { margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; min-width: 0; }
+.doh-header__logo { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; overflow: hidden; color: inherit; }
+.doh-header__icon { height: 34px; width: 34px; display: block; flex-shrink: 0; }
+.doh-header__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: #fff; }
+.doh-header__wordmark-accent { color: var(--color-accent); }
+.doh-header__nav { display: flex; gap: 4px; background: var(--color-dark-panel); padding: 4px; border-radius: var(--radius-pill); flex-shrink: 0; }
+.doh-header__nav-link { font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: var(--radius-pill); color: var(--color-dark-text-soft); }
+.doh-header__nav-link--active { color: #fff; background: var(--color-accent); }
+@media (max-width: 640px) { .doh-header__nav { display: none; } }

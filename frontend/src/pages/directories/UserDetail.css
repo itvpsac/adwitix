@@ -1,0 +1,27 @@
+.udet-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
+.udet-main { max-width: 820px; margin: 0 auto; padding: 36px 20px 100px; }
+.udet-title { font-family: var(--font-serif); font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 6px; }
+.udet-meta { font-size: 12.5px; color: var(--color-text-faint); margin: 0 0 20px; font-family: var(--font-mono); }
+.udet-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+.udet-stat-card { background: #fff; border: 1px solid var(--color-border); border-radius: 14px; padding: 16px 18px; }
+.udet-stat-num { font-family: var(--font-serif); font-size: 22px; font-weight: 800; }
+.udet-stat-label { font-size: 11px; color: var(--color-text-faint); }
+.udet-delisted { background: var(--color-danger-bg); border: 1px solid #F2CFC6; border-radius: 10px; padding: 12px 16px; margin-bottom: 20px; font-size: 13px; color: var(--color-danger); }
+.udet-h3 { font-family: var(--font-display); font-size: 14px; font-weight: 800; margin: 0 0 10px; }
+.udet-roles { font-size: 13px; color: var(--color-text-muted); padding-left: 18px; margin: 0 0 22px; }
+.udet-roles li { margin-bottom: 4px; }
+.udet-promote-card { background: #fff; border: 1px solid var(--color-border); border-radius: 14px; padding: 18px 20px; margin-bottom: 24px; }
+.udet-promote-title { font-size: 13.5px; font-weight: 700; margin-bottom: 4px; }
+.udet-promote-note { font-size: 11.5px; color: var(--color-text-faint); margin: 0 0 12px; }
+.udet-promote-row { display: flex; gap: 8px; }
+.udet-promote-select { flex: 1; padding: 9px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 12.5px; outline: none; font-family: inherit; background: #fff; }
+.udet-grant-btn { font-size: 12.5px; font-weight: 700; padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer; }
+.udet-granted-note { font-size: 12px; color: var(--color-success); margin: 10px 0 0; }
+.udet-table { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; margin-bottom: 22px; }
+.udet-table--last { margin-bottom: 0; }
+.udet-table-row { padding: 10px 18px; border-bottom: 1px solid var(--color-border-soft); font-size: 12.5px; }
+.udet-table-row--3col { display: grid; grid-template-columns: 1fr 100px 100px; }
+.udet-table-row--4col { display: grid; grid-template-columns: 1fr 100px 100px 90px; }
+.udet-cell-muted { color: var(--color-text-muted); }
+.udet-cell-faint { color: var(--color-text-faint); }
+@media (max-width: 640px) { .udet-stats { grid-template-columns: 1fr; } }

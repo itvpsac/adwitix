@@ -1,0 +1,5 @@
+import { CATEGORIES, SUBCATEGORIES, MICROCATEGORIES } from './data/classification.js';
+
+export const CATEGORY_MAP = CATEGORIES;
+export const SUBCATEGORY_MAP = SUBCATEGORIES;
+export const MICROCATEGORY_MAP = MICROCATEGORIES;

@@ -1,0 +1,57 @@
+.cul-page { background: var(--color-bg-dark); color: #fff; font-family: var(--font-sans); min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+.cul-main { max-width: 440px; width: 100%; padding: 32px; }
+.cul-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.cul-brand__icon { height: 34px; width: 34px; display: block; }
+.cul-brand__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: #fff; }
+.cul-brand__wordmark-accent { color: var(--color-accent); }
+
+.cul-title { font-family: var(--font-serif); font-size: 22px; font-weight: 800; margin: 0 0 10px; color: #fff; }
+.cul-desc { font-size: 13.5px; color: #DADCE8; margin: 0 0 22px; line-height: 1.6; }
+.cul-label { font-size: 11.5px; font-weight: 700; color: #B7BBCE; letter-spacing: 0.3px; text-transform: uppercase; }
+.cul-input {
+  width: 100%; padding: 12px 14px; margin: 8px 0 16px; border: 1px solid var(--color-dark-input-border);
+  border-radius: var(--radius-sm); background: #fff; color: #14161c !important; font-size: 14px; outline: none;
+  -webkit-text-fill-color: #14161c;
+  caret-color: #14161c;
+}
+.cul-input::placeholder { color: #6b7080; }
+/* Chrome/Safari/Edge force their own autofill colors (often white-on-
+   white or yellow) unless overridden explicitly, per-field. */
+.cul-input:-webkit-autofill,
+.cul-input:-webkit-autofill:hover,
+.cul-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #14161c;
+  -webkit-box-shadow: 0 0 0 1000px #fff inset;
+  caret-color: #14161c;
+}
+.cul-input--password { margin-bottom: 20px; }
+.cul-input--totp { margin-bottom: 12px; font-size: 16px; letter-spacing: 4px; text-align: center; font-family: var(--font-mono); }
+.cul-error { font-size: 12.5px; color: #FF9B7A; margin: -6px 0 16px; font-weight: 600; }
+.cul-success { font-size: 12.5px; color: #7FD9A8; background: rgba(127,217,168,0.1); border: 1px solid rgba(127,217,168,0.3); border-radius: 8px; padding: 10px 12px; margin: 0 0 16px; }
+.cul-error--tight { margin: 0 0 16px; }
+
+.cul-btn {
+  display: block; width: 100%; text-align: center; font-size: 14px; font-weight: 700; padding: 13px;
+  border-radius: var(--radius-sm); border: none; cursor: pointer;
+}
+.cul-btn--active { background: var(--color-accent); color: var(--color-bg-dark); }
+.cul-btn--disabled { background: var(--color-dark-input-border); color: #7A80A0; cursor: not-allowed; }
+.cul-btn--spaced { margin-bottom: 14px; }
+.cul-btn--link { text-decoration: none; }
+
+.cul-link { display: block; text-align: center; font-size: 12.5px; color: #ADB2C8; margin-bottom: 10px; }
+.cul-link:hover { color: #fff; }
+.cul-link-inline { display: inline; background: none; border: none; padding: 0; font-size: inherit; color: #ADB2C8; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.cul-link--muted { color: #7A80A0; font-size: 11.5px; margin-top: 4px; }
+.cul-hint { font-size: 11px; color: #7A80A0; text-align: center; margin: -4px 0 6px; line-height: 1.5; }
+
+.cul-tabs { display: flex; gap: 4px; background: var(--color-dark-panel); padding: 4px; border-radius: 100px; margin-bottom: 20px; }
+.cul-tab { flex: 1; font-size: 12.5px; font-weight: 700; padding: 9px 10px; border-radius: 100px; border: none; cursor: pointer; background: transparent; color: #ADB2C8; }
+.cul-tab--active { background: var(--color-accent); color: var(--color-bg-dark); }
+
+.cul-mobile-row { display: flex; align-items: center; border: 1px solid var(--color-dark-input-border); border-radius: 8px; overflow: hidden; margin: 8px 0 16px; }
+.cul-mobile-prefix { padding: 12px 12px; background: var(--color-dark-panel); font-size: 14px; font-weight: 600; color: #ADB2C8; border-right: 1px solid var(--color-dark-input-border); }
+.cul-mobile-input { flex: 1; border: none; padding: 12px 14px; font-size: 14px; outline: none; font-family: var(--font-mono); background: #fff; color: #14161c !important; -webkit-text-fill-color: #14161c; caret-color: #14161c; }
+.cul-mobile-input::placeholder { color: #6b7080; }
+
+.cul-legacy { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--color-dark-input-border); }

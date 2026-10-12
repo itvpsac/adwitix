@@ -1,0 +1,7 @@
+.mw-list { display: flex; flex-direction: column; gap: 12px; }
+.mw-row { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px 18px; }
+.mw-row__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.mw-title { font-size: 14.5px; font-weight: 700; }
+.mw-meta { font-size: 12px; color: var(--color-text-faint); font-family: var(--font-mono); }
+.mw-photos { font-size: 12px; font-weight: 700; color: var(--color-warning); }
+.mw-reason { font-size: 13px; color: var(--color-text-muted); line-height: 1.5; margin-bottom: 12px; }

@@ -1,0 +1,9 @@
+.acv-sub { font-size: 13px; color: var(--color-text-muted); margin: 0 0 22px; line-height: 1.6; }
+.acv-run-btn { margin-bottom: 20px; font-size: 13px; font-weight: 700; padding: 11px 20px; border-radius: 8px; border: none; background: var(--color-bg-dark); color: #fff; cursor: pointer; }
+.acv-result { border-radius: 14px; padding: 20px; }
+.acv-result--clean { background: var(--color-success-bg); border: 1px solid #CBE0D1; }
+.acv-result--broken { background: var(--color-danger-bg); border: 1px solid #F2CFC6; }
+.acv-result__title { font-size: 14px; font-weight: 800; margin-bottom: 6px; }
+.acv-result--clean .acv-result__title, .acv-result--clean .acv-result__body { color: #38724A; }
+.acv-result--broken .acv-result__title, .acv-result--broken .acv-result__body { color: #A93F2A; }
+.acv-result__body { font-size: 12.5px; margin: 0; }

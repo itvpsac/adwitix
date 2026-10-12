@@ -1,0 +1,50 @@
+.tcc-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
+.tcc-header { position: sticky; top: 0; z-index: 60; background: var(--color-bg-dark); border-bottom: 1px solid var(--color-dark-border); }
+.tcc-header__inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; }
+.tcc-logo { display: flex; align-items: center; gap: 12px; }
+.tcc-logo__icon { height: 34px; width: 34px; display: block; }
+.tcc-logo__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: #fff; }
+.tcc-logo__wordmark-accent { color: var(--color-accent); }
+.tcc-nav { display: flex; gap: 4px; background: var(--color-dark-panel); padding: 4px; border-radius: 100px; }
+.tcc-nav__link { font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 100px; color: var(--color-dark-text-soft); }
+.tcc-nav__link--active { color: #fff; background: var(--color-accent); }
+.tcc-main { max-width: 1000px; margin: 0 auto; padding: 40px 20px 100px; }
+.tcc-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.tcc-title { font-family: var(--font-serif); font-size: 28px; font-weight: 800; letter-spacing: -0.6px; margin: 0; }
+.tcc-info-btn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--color-text-faint); background: #fff; color: var(--color-text-muted); font-size: 12px; font-weight: 700; font-family: var(--font-serif); font-style: italic; cursor: pointer; flex-shrink: 0; }
+.tcc-sub { font-size: 14px; color: var(--color-text-muted); margin: 0 0 6px; max-width: 680px; line-height: 1.6; }
+.tcc-lot-line { font-size: 12px; color: var(--color-text-faint); margin: 0 0 16px; }
+.tcc-info-box { background: #FBF8F0; border: 1px solid #E9DCC0; border-radius: 10px; padding: 14px 16px; margin: 0 0 20px; font-size: 13px; color: #6B5D3F; line-height: 1.6; max-width: 680px; }
+.tcc-info-close { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; color: #9C874C; background: none; border: none; cursor: pointer; padding: 0; }
+.tcc-tabs { display: flex; gap: 4px; background: #E9EBF2; padding: 4px; border-radius: 100px; width: fit-content; margin-bottom: 24px; flex-wrap: wrap; }
+.tcc-tab { font-size: 12.5px; font-weight: 700; padding: 8px 16px; border-radius: 100px; border: none; cursor: pointer; background: transparent; color: var(--color-text-muted); }
+.tcc-tab--active { background: var(--color-bg-dark); color: #fff; }
+.tcc-card { background: #fff; border: 1px solid var(--color-border); border-radius: 16px; padding: 22px 24px; margin-bottom: 18px; }
+.tcc-card__title { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
+.tcc-card__note { font-size: 12.5px; color: var(--color-text-faint); margin: 0 0 14px; }
+.tcc-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.tcc-input { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; background: #fff; }
+.tcc-input--grow { flex: 1; min-width: 160px; }
+.tcc-primary-btn { font-size: 12.5px; font-weight: 700; padding: 10px 18px; border-radius: 8px; border: none; cursor: pointer; }
+.tcc-table { background: #fff; border: 1px solid var(--color-border); border-radius: 16px; overflow: hidden; margin-bottom: 18px; }
+.tcc-table-head { display: grid; padding: 0 20px; font-size: 10px; text-transform: uppercase; color: var(--color-text-faint); font-weight: 700; letter-spacing: 0.4px; border-bottom: 1px solid var(--color-border-soft); }
+.tcc-table-head > div { padding: 12px 0; }
+.tcc-table-row { display: grid; padding: 0 20px; border-bottom: 1px solid var(--color-border-soft); align-items: center; font-size: 12.5px; min-height: 52px; }
+.tcc-cols-invitees { grid-template-columns: 1fr 130px 100px 1fr 90px; gap: 10px; }
+.tcc-cols-emd { grid-template-columns: 1fr 110px 140px 110px 100px; gap: 10px; }
+.tcc-cols-offers { grid-template-columns: 1fr 130px 100px; gap: 10px; }
+.tcc-cell-strong { font-weight: 700; }
+.tcc-cell-mono-faint { font-size: 11px; color: var(--color-text-faint); font-family: var(--font-mono); }
+.tcc-ellipsis { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tcc-row-actions { display: flex; gap: 6px; }
+.tcc-mini-btn { border: 1px solid var(--color-border); background: #fff; border-radius: 6px; padding: 5px 8px; font-size: 11px; cursor: pointer; }
+.tcc-mini-btn--danger { border-color: #F2CFC6; background: var(--color-danger-bg); color: var(--color-danger); }
+.tcc-doc-list { display: flex; flex-direction: column; gap: 10px; }
+.tcc-doc-row { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tcc-doc-meta { font-size: 11px; color: var(--color-text-faint); }
+.tcc-doc-status { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; padding: 5px 12px; border-radius: 100px; }
+.tcc-awarded-card { background: var(--color-success-bg); border: 1px solid #CBE0D1; border-radius: 16px; padding: 22px 24px; }
+.tcc-awarded-title { font-size: 14px; font-weight: 800; color: #38724A; margin-bottom: 6px; }
+.tcc-awarded-body { font-size: 12.5px; color: #38724A; margin: 0 0 14px; line-height: 1.6; }
+.tcc-awarded-cta { font-size: 13px; font-weight: 700; padding: 9px 18px; border-radius: 8px; background: #38724A; color: #fff; display: inline-block; }
+@media (max-width: 640px) { .tcc-nav { display: none; } }

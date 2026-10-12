@@ -1,0 +1,13 @@
+.wt-sub { font-size: 13.5px; color: var(--color-text-muted); margin: 0 0 22px; line-height: 1.6; }
+.wt-form { background: #fff; border: 1px solid var(--color-border); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+.wt-label { font-size: 11.5px; font-weight: 700; color: #9096AC; letter-spacing: 0.3px; text-transform: uppercase; }
+.wt-input { width: 100%; padding: 11px 13px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13.5px; outline: none; font-family: inherit; margin-top: 6px; background: #fff; }
+.wt-input--mono { font-family: var(--font-mono); }
+.wt-tier-note { font-size: 11.5px; color: var(--color-text-faint); margin: 4px 0 6px; }
+.wt-submit-btn { margin-top: 20px; width: 100%; font-size: 14px; font-weight: 700; padding: 13px; border-radius: 8px; border: none; cursor: pointer; }
+.wt-success { background: var(--color-success-bg); border: 1px solid #CBE0D1; border-radius: 16px; padding: 32px; text-align: center; }
+.wt-success__title { font-size: 15px; font-weight: 800; color: #38724A; margin-bottom: 8px; }
+.wt-success__body { font-size: 13px; color: #38724A; margin: 0 0 4px; line-height: 1.6; }
+.wt-success__domain { font-family: var(--font-mono); }
+.wt-success__next { font-size: 12.5px; color: #38724A; margin: 0 0 18px; }
+.wt-success__cta { font-size: 13px; font-weight: 700; padding: 10px 20px; border-radius: 8px; background: #38724A; color: #fff; display: inline-block; }

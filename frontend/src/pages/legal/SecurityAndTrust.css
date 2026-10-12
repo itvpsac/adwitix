@@ -1,0 +1,21 @@
+.sat-page { min-height: 100vh; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }
+.sat-main { max-width: 1020px; margin: 0 auto; padding: 40px 20px 90px; }
+.legal-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--color-accent); margin: 0 0 10px; }
+.sat-title { font-family: var(--font-serif); font-size: 32px; font-weight: 800; letter-spacing: -0.7px; margin: 0 0 10px; }
+.sat-desc { font-size: 14.5px; color: var(--color-text-muted); margin: 0 0 24px; max-width: 640px; line-height: 1.6; }
+.sat-badges { display: flex; gap: 22px; flex-wrap: wrap; padding: 16px 0 28px; border-bottom: 1px solid var(--color-border); margin-bottom: 28px; }
+.sat-badges span { font-size: 12.5px; color: var(--color-text); font-weight: 600; }
+.sat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.sat-card { background: #fff; border: 1px solid var(--color-border); border-radius: 14px; padding: 24px 24px 22px; display: flex; flex-direction: column; gap: 14px; }
+.sat-card__head { display: flex; align-items: flex-start; gap: 14px; }
+.sat-card__icon { width: 44px; height: 44px; border-radius: 10px; background: #F3E3D6; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 19px; }
+.sat-card__num { font-size: 11px; letter-spacing: 0.6px; color: var(--color-text-faint); margin-bottom: 4px; }
+.sat-card__head h3 { font-family: var(--font-serif); font-weight: 700; font-size: 17px; color: var(--color-text); margin: 0; }
+.sat-card__intro { font-size: 13.5px; line-height: 1.6; color: var(--color-text-muted); margin: 0; }
+.sat-card__points { display: flex; flex-direction: column; gap: 9px; }
+.sat-card__points div { display: flex; gap: 8px; align-items: flex-start; }
+.sat-card__points span:first-child { color: var(--color-navy-deep); flex-shrink: 0; }
+.sat-card__points span:last-child { font-size: 13px; line-height: 1.55; color: var(--color-text); }
+.sat-footer { border-top: 1px solid var(--color-border); padding: 24px 20px; text-align: center; }
+.sat-footer p { font-size: 12.5px; color: var(--color-text-faint); margin: 0 0 4px; }
+.sat-footer a { color: var(--color-accent); }

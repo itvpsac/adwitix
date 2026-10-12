@@ -1,0 +1,27 @@
+.cv-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
+.cv-header { border-bottom: 1px solid var(--color-border); background: #fff; }
+.cv-header__inner { max-width: 760px; margin: 0 auto; padding: 20px; display: flex; align-items: center; gap: 12px; }
+.cv-logo__icon { height: 34px; width: 34px; display: block; }
+.cv-logo__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: var(--color-navy-deep); }
+.cv-logo__wordmark-accent { color: var(--color-accent); }
+.cv-main { max-width: 760px; margin: 0 auto; padding: 36px 20px 100px; }
+.cv-title { font-family: var(--font-serif); font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 6px; }
+.cv-intro-note { font-size: 12px; color: var(--color-text-faint); margin: 0 0 18px; line-height: 1.5; }
+.cv-body-text { font-size: 13.5px; color: var(--color-text-muted); margin: 0 0 20px; line-height: 1.65; }
+.cv-verify-box { border: 1px solid; border-radius: 10px; padding: 14px 16px; margin-bottom: 22px; }
+.cv-verify-box p { font-size: 13px; margin: 0; }
+.cv-facts-card { background: #fff; border: 1px solid var(--color-border); border-radius: 14px; padding: 20px 22px; margin-bottom: 22px; }
+.cv-fact-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--color-border-soft); font-size: 13px; }
+.cv-fact-row:last-child { border-bottom: none; }
+.cv-fact-label { color: var(--color-text-faint); }
+.cv-fact-value { font-weight: 700; font-family: var(--font-mono); }
+.cv-download-btn { display: inline-block; font-size: 13px; font-weight: 700; padding: 11px 22px; border-radius: 8px; background: var(--color-bg-dark); color: #fff; margin-bottom: 32px; }
+.cv-h3 { font-family: var(--font-display); font-size: 15px; font-weight: 800; margin: 0 0 10px; }
+.cv-list-card { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; padding: 6px 18px; margin-bottom: 24px; }
+.cv-list-row { padding: 10px 0; border-bottom: 1px solid var(--color-border-soft); font-size: 12.5px; }
+.cv-list-row:last-child { border-bottom: none; }
+.cv-list-row--muted { padding: 9px 0; font-size: 12px; color: var(--color-text-muted); }
+.cv-mono { font-family: var(--font-mono); color: var(--color-text-faint); }
+.cv-chain-note { font-size: 11px; color: var(--color-text-faint); margin: 0 0 28px; }
+.cv-faint-p { font-size: 12px; color: var(--color-text-faint); margin: 0 0 20px; line-height: 1.6; }
+.cv-domain { font-size: 11px; color: var(--color-text-faint); padding-top: 16px; border-top: 1px solid var(--color-border); }

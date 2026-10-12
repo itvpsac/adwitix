@@ -1,0 +1,133 @@
+#--------------------------------------------------------------------
+# Example Environment Configuration file
+#
+# This file can be used as a starting point for your own
+# custom .env files, and contains most of the possible settings
+# available in a default install.
+#
+# By default, all of the settings are commented out. If you want
+# to override the setting, you must un-comment it by removing the '#'
+# at the beginning of the line.
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# ENVIRONMENT
+#--------------------------------------------------------------------
+
+# CI_ENVIRONMENT = production
+
+#--------------------------------------------------------------------
+# APP
+#--------------------------------------------------------------------
+
+# app.baseURL = ''
+# If you have trouble with `.`, you could also use `_`.
+# app_baseURL = ''
+# app.forceGlobalSecureRequests = false
+# app.CSPEnabled = false
+
+#--------------------------------------------------------------------
+# DATABASE
+#--------------------------------------------------------------------
+
+# database.default.hostname = localhost
+# database.default.database = ci4
+# database.default.username = root
+# database.default.password = root
+# database.default.DBDriver = MySQLi
+# database.default.DBPrefix =
+# database.default.port = 3306
+
+# If you use MySQLi as tests, first update the values of Config\Database::$tests.
+# database.tests.hostname = localhost
+# database.tests.database = ci4_test
+# database.tests.username = root
+# database.tests.password = root
+# database.tests.DBDriver = MySQLi
+# database.tests.DBPrefix =
+# database.tests.charset = utf8mb4
+# database.tests.DBCollat = utf8mb4_general_ci
+# database.tests.port = 3306
+
+#--------------------------------------------------------------------
+# ENCRYPTION
+#--------------------------------------------------------------------
+
+# encryption.key =
+
+#--------------------------------------------------------------------
+# SESSION
+#--------------------------------------------------------------------
+
+# session.driver = 'CodeIgniter\Session\Handlers\FileHandler'
+# session.savePath = null
+
+#--------------------------------------------------------------------
+# LOGGER
+#--------------------------------------------------------------------
+
+# logger.threshold = 4
+
+#--------------------------------------------------------------------
+# EXTERNAL SERVICES
+#--------------------------------------------------------------------
+
+# BR-46: AI Listing Quality Pre-Audit. Get a key from Google AI Studio
+# (https://aistudio.google.com/apikey) or Vertex AI. Until this is
+# set, the pre-audit is fully wired but returns "not currently
+# available" -- it never silently fakes a result.
+# GEMINI_API_KEY =
+# GEMINI_MODEL = gemini-2.0-flash
+
+# Custodian (Super Admin) forgot-password/mPIN-reset OTP is email-only
+# (project owner's explicit request — no mobile SMS for this flow), sent
+# via CI4's own Email service (EmailNotificationService) through this
+# Google Workspace account. Get an "App Password" for office@vpsinghal.com
+# from https://myaccount.google.com/apppasswords (regular account
+# password will NOT work with SMTP AUTH) and set it below.
+# email.fromEmail = office@vpsinghal.com
+# email.fromName = AdwitiX Custodian
+# email.protocol = smtp
+# email.SMTPHost = smtp.gmail.com
+# email.SMTPUser = office@vpsinghal.com
+# email.SMTPPass =
+# email.SMTPPort = 465
+# email.SMTPCrypto = ssl
+
+# SMS OTP delivery (2Factor.in "SMS with your own OTP" API), used for
+# every mobile-OTP purpose (registration, login, mPIN reset, payout-bank
+# change, forgot-password) via AuthService::requestOtp() ->
+# SmsNotificationService. Defaults to the project owner's own key if
+# left unset -- override here for a different 2Factor.in account/deploy.
+# SMS.twoFactorApiKey = e05e2067-06ec-11eb-9fa5-0200cd936042
+# SMS.twoFactorTemplate = 'Claimsmitra Phone Verification'
+
+#--------------------------------------------------------------------
+# SUPER ADMIN (CUSTODIAN) LOGIN -- D-128
+#--------------------------------------------------------------------
+
+# D-128: TEMPORARY toggle, at the project owner's explicit request, to
+# swap Super Admin/Custodian login's second factor from an
+# authenticator app (TOTP, BR-04's real requirement) to a one-time
+# code emailed to the account's recovery_email instead -- meant for
+# testing the login flow before committing to TOTP, not a permanent
+# replacement. Leave commented out (defaults to 'totp' in code, see
+# SuperAdminAuthService::twoFactorMode()) for the normal, secure
+# behavior. Set to 'email_otp' only deliberately, and revert once
+# testing is done.
+# admin.twoFactorMode = totp
+
+# TEMPORARY, project owner's explicit request: while the Custodian login
+# method is being redesigned, this flag skips ALL credential checks for
+# the entire Custodian/admin area (JwtSuperAdminFilter, and the
+# "Skip login (testing mode)" link on /admin-login.html) -- anyone who
+# reaches the app gets in as the first party holding the super_admin
+# role, no mobile number, MPIN, password, or authenticator code at all.
+# Defaults to OFF (commented out / anything other than 'true') so a
+# normal deploy is completely unaffected. Set to 'true' ONLY on an
+# environment that is not reachable by the public while you test the
+# new login method, and turn it back off (or delete this line and the
+# code paths that check it -- see JwtSuperAdminFilter's docblock) once
+# real Custodian authentication is in place. NEVER set this to 'true' on
+# a deployment the public, or anyone other than your own team, can reach.
+# admin.authBypass = true

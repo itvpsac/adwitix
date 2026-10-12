@@ -1,0 +1,217 @@
+<?php
+
+namespace App\Libraries;
+
+use App\Models\PartyModel;
+use App\Models\OtpVerificationModel;
+
+class AuthService
+{
+    private const OTP_EXPIRY_MINUTES = 10;
+    // Not explicitly specified in BR-02 — a reasonable security default,
+    // flagged here rather than silently treated as a settled business rule.
+    private const OTP_MAX_ATTEMPTS = 5;
+    private const MPIN_FAILURE_LOCKOUT_THRESHOLD = 3; // BR-02: exact figure, confirmed
+
+    private PartyModel $partyModel;
+    private OtpVerificationModel $otpModel;
+    private SmsNotificationService $sms;
+
+    public function __construct()
+    {
+        $this->partyModel = new PartyModel();
+        $this->otpModel = new OtpVerificationModel();
+        $this->sms = new SmsNotificationService();
+    }
+
+    // BR-03: 10-digit Indian mobile numbers with +91
+    public static function isValidIndianMobile(string $mobileNumber): bool
+    {
+        return (bool) preg_match('/^\+91[6-9]\d{9}$/', $mobileNumber);
+    }
+
+    // Generates and stores an OTP, and sends it via the real SMS provider
+    // (SmsNotificationService, 2Factor.in). Still returns the PLAIN OTP —
+    // kept as a dev/testing on-screen fallback (dev_otp in every
+    // controller response) since SmsNotificationService fails closed
+    // rather than throwing when delivery fails (no network route,
+    // provider outage, invalid number, ...). Every OTP purpose in the
+    // app (registration, api_login, mpin_reset, payout_bank_change, and
+    // the Custodian/User forgot-password flows) shares this one method,
+    // so wiring the real send here covers all of them at once.
+    public function requestOtp(string $mobileNumber, string $purpose): string
+    {
+        if (!self::isValidIndianMobile($mobileNumber)) {
+            throw new \RuntimeException('BR-03 violation: invalid Indian mobile number format (expected +91XXXXXXXXXX)');
+        }
+        // 'api_login': UserAuthApiService's REST/JWT login flow — a single
+        // mobile-OTP purpose shared by both new and returning users, since
+        // that flow doesn't branch on mPIN/registration state the way the
+        // browser session flow does.
+        if (!in_array($purpose, ['registration', 'mpin_reset', 'payout_bank_change', 'api_login'], true)) {
+            throw new \RuntimeException("Unknown OTP purpose: {$purpose}");
+        }
+
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = (new \DateTimeImmutable())->modify('+' . self::OTP_EXPIRY_MINUTES . ' minutes');
+
+        $this->otpModel->createOtp(
+            Uuid::v4(), $mobileNumber, password_hash($otp, PASSWORD_BCRYPT),
+            $purpose, $expiresAt->format('Y-m-d H:i:s')
+        );
+
+        $this->sms->sendOtp($mobileNumber, $otp, $purpose);
+
+        return $otp;
+    }
+
+    // Returns true/false rather than throwing, so the controller can show
+    // a clean "incorrect OTP" message without a stack trace.
+    public function verifyOtp(string $mobileNumber, string $purpose, string $submittedOtp): bool
+    {
+        return $this->verifyOtpWithReason($mobileNumber, $purpose, $submittedOtp) === 'ok';
+    }
+
+    // Same check as verifyOtp(), but tells the CALLER why it failed instead
+    // of collapsing every case into one generic false — the "Incorrect or
+    // expired OTP" message every failure used to share made it impossible
+    // to tell "you typed the wrong code" apart from "you requested a new
+    // OTP after this one, so it's stale" or "this OTP already got used" or
+    // "you've been locked out after 5 wrong tries". Returns one of:
+    //   'ok', 'no_active_otp', 'expired', 'locked_out', 'wrong_code'
+    public function verifyOtpWithReason(string $mobileNumber, string $purpose, string $submittedOtp): string
+    {
+        $record = $this->otpModel->findActive($mobileNumber, $purpose);
+        if (!$record) {
+            // Either no OTP was ever requested for this mobile+purpose, or
+            // the most recent one for it was already verified (e.g. a
+            // second /otp/request call superseded it, or a duplicate
+            // /otp/verify was retried after the first one already
+            // succeeded).
+            return 'no_active_otp';
+        }
+        if (new \DateTimeImmutable() > new \DateTimeImmutable($record['expires_at'])) {
+            return 'expired';
+        }
+        if ((int) $record['attempts'] >= self::OTP_MAX_ATTEMPTS) {
+            return 'locked_out';
+        }
+
+        if (!password_verify($submittedOtp, $record['otp_hash'])) {
+            $this->otpModel->incrementAttempts($record['id']);
+            return 'wrong_code';
+        }
+
+        $this->otpModel->markVerified($record['id']);
+        return 'ok';
+    }
+
+    // Dual-channel mPIN reset — email side. Deliberately separate from
+    // requestOtp() rather than reusing it with a bypassed validation
+    // check, since mixing "this must be a valid Indian mobile number"
+    // and "this must be an email" into one method invites exactly the
+    // kind of silent-wrong-validation bug this project has hit before.
+    // Same dev-stub caveat as requestOtp — real email sending isn't
+    // connected yet, this returns the plain OTP for on-screen display.
+    //
+    // $purpose defaults to the original 'mpin_reset_email' caller
+    // (forgot-mPIN) for backward compatibility; D-128 added a second
+    // caller (admin_login_email, SuperAdminAuthService's temporary
+    // email-2FA toggle) that passes its own purpose explicitly so the
+    // two flows' OTPs stay scoped apart in otp_verification, same as
+    // the mobile-number requestOtp()/verifyOtp() pair above already
+    // does across their own multiple purposes.
+    public function requestEmailOtp(string $email, string $purpose = 'mpin_reset_email'): string
+    {
+        if (!in_array($purpose, ['mpin_reset_email', 'admin_login_email'], true)) {
+            throw new \RuntimeException("Unknown email OTP purpose: {$purpose}");
+        }
+
+        $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $expiresAt = (new \DateTimeImmutable())->modify('+' . self::OTP_EXPIRY_MINUTES . ' minutes');
+
+        $this->otpModel->createOtp(
+            Uuid::v4(), $email, password_hash($otp, PASSWORD_BCRYPT),
+            $purpose, $expiresAt->format('Y-m-d H:i:s')
+        );
+
+        return $otp;
+    }
+
+    public function verifyEmailOtp(string $email, string $submittedOtp, string $purpose = 'mpin_reset_email'): bool
+    {
+        $record = $this->otpModel->findActive($email, $purpose);
+        if (!$record) {
+            return false;
+        }
+        if (new \DateTimeImmutable() > new \DateTimeImmutable($record['expires_at'])) {
+            return false;
+        }
+        if ((int) $record['attempts'] >= self::OTP_MAX_ATTEMPTS) {
+            return false;
+        }
+        if (!password_verify($submittedOtp, $record['otp_hash'])) {
+            $this->otpModel->incrementAttempts($record['id']);
+            return false;
+        }
+        $this->otpModel->markVerified($record['id']);
+        return true;
+    }
+
+    // BR-02: registration — call only after verifyOtp() succeeded for
+    // purpose='registration'. Creates the party if one doesn't already exist.
+    public function completeRegistration(string $mobileNumber, string $entityType = 'individual'): array
+    {
+        $existing = $this->partyModel->findByMobile($mobileNumber);
+        if ($existing) {
+            return $existing;
+        }
+        $party = $this->partyModel->createParty($mobileNumber, $entityType);
+        $this->partyModel->update($party['id'], ['mobile_verified_at' => date('Y-m-d H:i:s')]);
+        (new \App\Models\PartyRoleModel())->grantRole($party['id'], 'buyer');
+        return $this->partyModel->find($party['id']);
+    }
+
+    // BR-02: 4-digit mPIN, stored as a hash
+    public function setMpin(string $partyId, string $mpin): void
+    {
+        if (!preg_match('/^\d{4}$/', $mpin)) {
+            throw new \RuntimeException('mPIN must be exactly 4 digits');
+        }
+        $this->partyModel->setMpinHash($partyId, password_hash($mpin, PASSWORD_BCRYPT));
+        $this->partyModel->resetFailedMpinAttempts($partyId);
+    }
+
+    // BR-02: mPIN authentication with 3-consecutive-failure lockout.
+    // Returns ['status' => 'ok', 'party' => ...] on success,
+    // ['status' => 'invalid_mpin', 'attemptsRemaining' => n] on a bad
+    // attempt that hasn't hit the threshold yet, or
+    // ['status' => 'otp_required'] once the 3rd consecutive failure lands
+    // — per BR-02, an SMS OTP must then be verified before mPIN reset or
+    // re-authentication can proceed.
+    public function authenticateWithMpin(string $mobileNumber, string $mpin): array
+    {
+        $party = $this->partyModel->findByMobile($mobileNumber);
+        if (!$party || !$party['mpin_hash']) {
+            throw new \RuntimeException('No registered party with a set mPIN for this mobile number');
+        }
+
+        if (password_verify($mpin, $party['mpin_hash'])) {
+            $this->partyModel->resetFailedMpinAttempts($party['id']);
+            return ['status' => 'ok', 'party' => $this->partyModel->find($party['id'])];
+        }
+
+        $attempts = $this->partyModel->incrementFailedMpinAttempts($party['id']);
+        if ($attempts >= self::MPIN_FAILURE_LOCKOUT_THRESHOLD) {
+            return ['status' => 'otp_required', 'partyId' => $party['id']];
+        }
+
+        return ['status' => 'invalid_mpin', 'attemptsRemaining' => self::MPIN_FAILURE_LOCKOUT_THRESHOLD - $attempts];
+    }
+
+    // BR-02: after OTP verification post-lockout, mPIN can be reset.
+    public function resetMpinAfterOtp(string $partyId, string $newMpin): void
+    {
+        $this->setMpin($partyId, $newMpin);
+    }
+}

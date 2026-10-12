@@ -1,0 +1,281 @@
+<?php
+
+namespace App\Commands;
+
+use CodeIgniter\CLI\BaseCommand;
+use CodeIgniter\CLI\CLI;
+use App\Models\PartyModel;
+use App\Models\TenantModel;
+use App\Models\ListingModel;
+use App\Models\SaleEventModel;
+use App\Models\EmdHoldModel;
+use App\Models\PartyRoleModel;
+use App\Models\SuperAdminCredentialModel;
+use App\Libraries\SuperAdminAuthService;
+use App\Libraries\BiddingService;
+use App\Libraries\OfferService;
+
+class TestTier3 extends BaseCommand
+{
+    protected $group       = 'Testing';
+    protected $name        = 'test:tier3';
+    protected $description = 'Runs Super Admin TOTP auth and conflict-of-interest blocks against real data.';
+
+    private int $pass = 0;
+    private int $fail = 0;
+
+    public function run(array $params)
+    {
+        $partyModel = new PartyModel();
+        $tenantModel = new TenantModel();
+        $listingModel = new ListingModel();
+        $saleEventModel = new SaleEventModel();
+        $emdHoldModel = new EmdHoldModel();
+        $roleModel = new PartyRoleModel();
+        $superAdminAuth = new SuperAdminAuthService();
+
+        CLI::write('=== BR-04: TOTP setup and login ===', 'yellow');
+        // Custodian login no longer uses party.mpin_hash: the legacy
+        // login() path is email + password (super_admin_credential) +
+        // TOTP, and the default path is mobile + an admin mPIN stored on
+        // that same credential row (see SuperAdminAuthService).
+        $credentialModel = new SuperAdminCredentialModel();
+        $adminEmail = 'tier3-custodian@example.test';
+        $admin = $partyModel->createParty('+919222801001');
+        $roleModel->grantRole($admin['id'], 'super_admin', null);
+        $credentialModel->setCredential($admin['id'], $adminEmail, password_hash('Tier3-Passw0rd', PASSWORD_BCRYPT));
+
+        $rejected = false;
+        try {
+            $superAdminAuth->login($adminEmail, 'Tier3-Passw0rd', '000000');
+        } catch (\RuntimeException $e) {
+            $rejected = str_contains($e->getMessage(), 'not been set up');
+        }
+        $this->assert($rejected, 'Login correctly blocked before TOTP is set up at all');
+
+        $setup = $superAdminAuth->beginTotpSetup($admin['id']);
+        $this->assert(strlen($setup['secret']) > 0, 'TOTP secret generated');
+        $this->assert(str_starts_with($setup['provisioningUri'], 'otpauth://totp/'), 'Valid otpauth:// provisioning URI generated');
+
+        // Phase 3D: confirmTotpSetup now returns the plain-text backup
+        // codes on success (null on failure) rather than a bare bool,
+        // so the caller can show them exactly once.
+        $wrongConfirm = $superAdminAuth->confirmTotpSetup($admin['id'], '000000');
+        $this->assert($wrongConfirm === null, 'Wrong code correctly rejected during setup confirmation');
+
+        $validCode = $this->computeTotpCode($setup['secret']);
+        $confirmed = $superAdminAuth->confirmTotpSetup($admin['id'], $validCode);
+        $this->assert(is_array($confirmed) && count($confirmed) === 10, 'Correct code confirms TOTP setup and returns 10 real backup codes');
+
+        $wrongPassword = false;
+        try {
+            $superAdminAuth->login($adminEmail, 'not-the-password', $validCode);
+        } catch (\RuntimeException $e) {
+            $wrongPassword = str_contains($e->getMessage(), 'Incorrect email or password');
+        }
+        $this->assert($wrongPassword, 'Wrong password correctly rejected even with a valid TOTP code');
+
+        $loggedIn = $superAdminAuth->login($adminEmail, 'Tier3-Passw0rd', $validCode);
+        $this->assert($loggedIn['id'] === $admin['id'], 'Full login succeeds with correct email + password + TOTP code');
+
+        // PR-17 fallback: a real backup code stands in for the
+        // authenticator when it's unavailable, and is single-use.
+        $backupLogin = $superAdminAuth->login($adminEmail, 'Tier3-Passw0rd', $confirmed[0]);
+        $this->assert($backupLogin['id'] === $admin['id'], 'Login succeeds using a valid backup code in place of the TOTP code');
+        $backupReuseBlocked = false;
+        try {
+            $superAdminAuth->login($adminEmail, 'Tier3-Passw0rd', $confirmed[0]);
+        } catch (\RuntimeException $e) {
+            $backupReuseBlocked = str_contains($e->getMessage(), 'Invalid or expired');
+        }
+        $this->assert($backupReuseBlocked, 'A backup code cannot be reused after being consumed once');
+
+        $nonAdmin = $partyModel->createParty('+919222801002');
+        $credentialModel->setCredential($nonAdmin['id'], 'tier3-not-custodian@example.test', password_hash('Other-Passw0rd', PASSWORD_BCRYPT));
+        $notSuperAdmin = false;
+        try {
+            $superAdminAuth->login('tier3-not-custodian@example.test', 'Other-Passw0rd', '123456');
+        } catch (\RuntimeException $e) {
+            $notSuperAdmin = str_contains($e->getMessage(), 'Super Admin access');
+        }
+        $this->assert($notSuperAdmin, 'A regular party without the super_admin role is correctly blocked, regardless of TOTP');
+
+        CLI::write("\n=== Custodian mobile + mPIN login (default method) ===", 'yellow');
+        $methods = $superAdminAuth->loginMethods('+919222801001');
+        $this->assert($methods['mpin_enabled'] === false && $methods['totp_enabled'] === true, 'login-methods reports TOTP enabled and no admin mPIN yet');
+
+        $mpinNotSetUp = false;
+        try {
+            $superAdminAuth->authenticateWithMpin('+919222801001', '1234');
+        } catch (\RuntimeException $e) {
+            $mpinNotSetUp = str_contains($e->getMessage(), 'not been set up');
+        }
+        $this->assert($mpinNotSetUp, 'mPIN login correctly blocked before an admin mPIN is set');
+
+        $superAdminAuth->setMpin($admin['id'], '1234');
+        $this->assert($superAdminAuth->loginMethods('+919222801001')['mpin_enabled'] === true, 'login-methods reports the admin mPIN once set');
+
+        $wrongMpin = $superAdminAuth->authenticateWithMpin('+919222801001', '9999');
+        $this->assert($wrongMpin['status'] === 'invalid_mpin' && $wrongMpin['attemptsRemaining'] === 2, 'Wrong mPIN correctly rejected with attempts remaining');
+
+        $mpinLogin = $superAdminAuth->authenticateWithMpin('+919222801001', '1234');
+        $this->assert($mpinLogin['status'] === 'ok' && $mpinLogin['party']['id'] === $admin['id'], 'Correct mobile + mPIN logs the Custodian in');
+
+        $nonAdminMpin = false;
+        try {
+            $superAdminAuth->authenticateWithMpin('+919222801002', '1234');
+        } catch (\RuntimeException $e) {
+            $nonAdminMpin = str_contains($e->getMessage(), 'Incorrect mobile number or mPIN');
+        }
+        $this->assert($nonAdminMpin, 'A party without the super_admin role cannot use the Custodian mPIN login');
+
+        $totpLogin = $superAdminAuth->loginWithTotpCode('+919222801001', $this->computeTotpCode($setup['secret']));
+        $this->assert($totpLogin['id'] === $admin['id'], 'Mobile + Google Authenticator code alone logs the Custodian in');
+
+        CLI::write("\n=== BR-21: Inspector cannot bid on their own inspected listing ===", 'yellow');
+        $tenant = $tenantModel->createTenant(['name' => 'Tier3 Test Tenant', 'tenant_class' => 'general', 'subdomain' => 'tier3test']);
+        $seller = $partyModel->createParty('+919222801003');
+        $inspector = $partyModel->createParty('+919222801004');
+        $surveyor = $partyModel->createParty('+919222801007');
+        $custodian = $partyModel->createParty('+919222801008');
+        $listing = $listingModel->createListing([
+            'tenant_id' => $tenant['id'], 'seller_party_id' => $seller['id'],
+            'physical_condition' => 'Used', 'category' => 'Machinery', 'quantity' => 1,
+            'quantity_basis' => 'unit', 'yard_location_address' => 'Test Yard', 'yard_location_pin' => '600017',
+            'inspector_party_id' => $inspector['id'], 'surveyor_party_id' => $surveyor['id'], 'custodian_party_id' => $custodian['id'],
+        ]);
+        $saleEvent = $saleEventModel->createSaleEvent([
+            'listing_id' => $listing['id'], 'tenant_id' => $tenant['id'], 'ern' => 'TEST-TIER3-001',
+            'sale_format' => 'easy', 'reserve_value' => 40000, 'status' => 'active',
+        ]);
+        $emdHoldModel->createHold($saleEvent['id'], $inspector['id'], 'van', 4000);
+        $emdHoldModel->createHold($saleEvent['id'], $surveyor['id'], 'van', 4000);
+        $emdHoldModel->createHold($saleEvent['id'], $custodian['id'], 'van', 4000);
+
+        $bidding = new BiddingService();
+        $inspectorBlocked = false;
+        try {
+            $bidding->placeBid($saleEvent['id'], $inspector['id'], 45000);
+        } catch (\RuntimeException $e) {
+            $inspectorBlocked = str_contains($e->getMessage(), 'BR-21');
+        }
+        $this->assert($inspectorBlocked, 'The listing\'s own assigned Yard Inspector is blocked from bidding on it');
+
+        $surveyorBlocked = false;
+        try {
+            $bidding->placeBid($saleEvent['id'], $surveyor['id'], 45000);
+        } catch (\RuntimeException $e) {
+            $surveyorBlocked = str_contains($e->getMessage(), 'BR-21') && str_contains($e->getMessage(), 'Surveyor');
+        }
+        $this->assert($surveyorBlocked, 'The listing\'s own assigned Surveyor is blocked from bidding on it (D-44 fix — was previously unblocked)');
+
+        $custodianBlocked = false;
+        try {
+            $bidding->placeBid($saleEvent['id'], $custodian['id'], 45000);
+        } catch (\RuntimeException $e) {
+            $custodianBlocked = str_contains($e->getMessage(), 'BR-21') && str_contains($e->getMessage(), 'Custodian');
+        }
+        $this->assert($custodianBlocked, 'The listing\'s own assigned Physical Custodian is blocked from bidding on it (D-44 fix — was previously unblocked)');
+
+        CLI::write("\n=== BR-22: Tenant Admin cannot bid on their own tenant's listings ===", 'yellow');
+        $tenantAdmin = $partyModel->createParty('+919222801005');
+        $roleModel->promoteTenantAdmin($tenantAdmin['id'], $tenant['id']);
+        $emdHoldModel->createHold($saleEvent['id'], $tenantAdmin['id'], 'van', 4000);
+
+        $tenantAdminBlocked = false;
+        try {
+            $bidding->placeBid($saleEvent['id'], $tenantAdmin['id'], 45000);
+        } catch (\RuntimeException $e) {
+            $tenantAdminBlocked = str_contains($e->getMessage(), 'BR-22');
+        }
+        $this->assert($tenantAdminBlocked, 'The tenant\'s own Tenant Admin is blocked from bidding on its listings');
+
+        CLI::write("\n=== A genuinely unrelated buyer is NOT blocked ===", 'yellow');
+        $realBuyer = $partyModel->createParty('+919222801006');
+        $emdHoldModel->createHold($saleEvent['id'], $realBuyer['id'], 'van', 4000);
+        $realBid = $bidding->placeBid($saleEvent['id'], $realBuyer['id'], 45000);
+        $this->assert((float) $realBid['amount'] === 45000.0, 'A real, unrelated buyer bids successfully — the check isn\'t overly broad');
+
+        CLI::write("\n=== Same block applies to Buy-Now offers, not just Easy bidding ===", 'yellow');
+        $listing2 = $listingModel->createListing([
+            'tenant_id' => $tenant['id'], 'seller_party_id' => $seller['id'],
+            'physical_condition' => 'Used', 'category' => 'Electronics', 'quantity' => 1,
+            'quantity_basis' => 'unit', 'yard_location_address' => 'Test Yard', 'yard_location_pin' => '600018',
+        ]);
+        $saleEvent2 = $saleEventModel->createSaleEvent([
+            'listing_id' => $listing2['id'], 'tenant_id' => $tenant['id'], 'ern' => 'TEST-TIER3-002',
+            'sale_format' => 'buy_now', 'expected_value' => 50000, 'status' => 'active',
+        ]);
+        $emdHoldModel->createHold($saleEvent2['id'], $tenantAdmin['id'], 'van', 5000);
+        $offers = new OfferService();
+        $offerBlocked = false;
+        try {
+            $offers->submitOffer($saleEvent2['id'], $tenantAdmin['id'], 48000);
+        } catch (\RuntimeException $e) {
+            $offerBlocked = str_contains($e->getMessage(), 'BR-22');
+        }
+        $this->assert($offerBlocked, 'The conflict-of-interest block also applies to Buy-Now offer submission, not just Easy bidding');
+
+        CLI::write("\n=== PR-17: re-enrollment requires the isolated TOTP-gated session, not just regular login ===", 'yellow');
+        $superAdminAuth = new \App\Libraries\SuperAdminAuthService();
+        $pr17Party = $partyModel->createParty('+919222801009');
+        $roleModel->grantRole($pr17Party['id'], 'super_admin', null);
+
+        $firstSetup = $superAdminAuth->beginTotpSetup($pr17Party['id'], false);
+        $this->assert(!$firstSetup['isReEnrollment'], 'First-time setup is correctly NOT flagged as a re-enrollment');
+        $firstCode = $this->computeTotpCode($firstSetup['secret']);
+        $superAdminAuth->confirmTotpSetup($pr17Party['id'], $firstCode);
+
+        $blockedReEnrollment = false;
+        try {
+            $superAdminAuth->beginTotpSetup($pr17Party['id'], false);
+        } catch (\RuntimeException $e) {
+            $blockedReEnrollment = str_contains($e->getMessage(), 'PR-17');
+        }
+        $this->assert($blockedReEnrollment, 'Re-enrollment WITHOUT the isolated session is genuinely blocked — the real security fix, not just described');
+
+        $allowedReEnrollment = true;
+        $secondSetup = null;
+        try {
+            $secondSetup = $superAdminAuth->beginTotpSetup($pr17Party['id'], true);
+        } catch (\RuntimeException $e) {
+            $allowedReEnrollment = false;
+        }
+        $this->assert($allowedReEnrollment, 'Re-enrollment WITH the isolated session (proving you hold the old device) is correctly allowed');
+        $this->assert($secondSetup && $secondSetup['isReEnrollment'] === true, 'Re-enrollment is correctly flagged as such');
+
+        CLI::write("\n" . ($this->fail === 0 ? "🎉 ALL {$this->pass} ASSERTIONS PASSED" : "❌ {$this->fail} FAILURES, {$this->pass} passed"), $this->fail === 0 ? 'green' : 'red');
+    }
+
+    private function computeTotpCode(string $secret): string
+    {
+        $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        $bits = '';
+        foreach (str_split($secret) as $c) {
+            $pos = strpos($alphabet, $c);
+            if ($pos === false) continue;
+            $bits .= str_pad(decbin($pos), 5, '0', STR_PAD_LEFT);
+        }
+        $bytes = '';
+        foreach (str_split($bits, 8) as $b) {
+            if (strlen($b) === 8) $bytes .= chr(bindec($b));
+        }
+        $timeStep = (int) floor(time() / 30);
+        $time = pack('N*', 0) . pack('N*', $timeStep);
+        $hash = hash_hmac('sha1', $time, $bytes, true);
+        $offset = ord($hash[19]) & 0x0F;
+        $code = ((ord($hash[$offset]) & 0x7F) << 24 | (ord($hash[$offset + 1]) & 0xFF) << 16 | (ord($hash[$offset + 2]) & 0xFF) << 8 | (ord($hash[$offset + 3]) & 0xFF)) % 1000000;
+        return str_pad((string) $code, 6, '0', STR_PAD_LEFT);
+    }
+
+    private function assert(bool $cond, string $msg): void
+    {
+        if ($cond) {
+            $this->pass++;
+            CLI::write("  \xE2\x9C\x93 {$msg}", 'green');
+        } else {
+            $this->fail++;
+            CLI::write("  \xE2\x9C\x97 ASSERTION FAILED: {$msg}", 'red');
+        }
+    }
+}

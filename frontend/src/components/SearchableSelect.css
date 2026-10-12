@@ -1,0 +1,20 @@
+.ssel-root { position: relative; width: 100%; }
+.ssel-control { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 13px; border: 1px solid var(--color-border); border-radius: 9px; background: #fff; font-size: 13.5px; font-family: inherit; cursor: pointer; text-align: left; color: var(--color-text); }
+.ssel-root--disabled .ssel-control { background: var(--color-border-soft); cursor: not-allowed; color: var(--color-text-faint); }
+.ssel-control__value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ssel-control__value--placeholder { color: var(--color-text-faint); }
+.ssel-control__icons { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.ssel-clear { color: var(--color-text-faint); font-size: 15px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.ssel-clear:hover { color: var(--color-danger); }
+.ssel-caret { font-size: 9px; color: var(--color-text-faint); }
+
+.ssel-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 40; background: #fff; border: 1px solid var(--color-border); border-radius: 10px; box-shadow: var(--shadow-card); overflow: hidden; }
+.ssel-search { width: 100%; padding: 10px 13px; border: none; border-bottom: 1px solid var(--color-border-soft); font-size: 13px; outline: none; font-family: inherit; box-sizing: border-box; }
+.ssel-list { max-height: 260px; overflow-y: auto; }
+.ssel-group-header { position: sticky; top: 0; z-index: 1; background: var(--color-bg); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-text-faint); padding: 7px 13px; border-bottom: 1px solid var(--color-border-soft); }
+.ssel-option { width: 100%; display: flex; align-items: baseline; gap: 8px; padding: 9px 13px 9px 20px; border: none; background: none; text-align: left; cursor: pointer; font-size: 13px; color: var(--color-text); }
+.ssel-option:hover { background: var(--color-accent-bg); }
+.ssel-option--active { background: var(--color-accent-bg); font-weight: 700; }
+.ssel-option__code { font-size: 10.5px; font-family: var(--font-mono); color: var(--color-text-faint); flex-shrink: 0; }
+.ssel-option__label { overflow: hidden; text-overflow: ellipsis; }
+.ssel-empty { padding: 20px 13px; text-align: center; font-size: 12.5px; color: var(--color-text-faint); }

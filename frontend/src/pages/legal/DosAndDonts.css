@@ -1,0 +1,24 @@
+.dd-page { min-height: 100vh; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }
+.dd-main { max-width: 920px; margin: 0 auto; padding: 40px 20px 90px; }
+.legal-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--color-accent); margin: 0 0 10px; }
+.dd-title { font-family: var(--font-serif); font-size: 32px; font-weight: 800; letter-spacing: -0.7px; margin: 0 0 10px; }
+.dd-desc { font-size: 14.5px; color: var(--color-text-muted); margin: 0 0 28px; max-width: 600px; line-height: 1.6; }
+.dd-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 32px; }
+.dd-chips a { font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--color-border); background: #fff; color: var(--color-text); }
+.dd-section { margin-bottom: 32px; scroll-margin-top: 80px; }
+.dd-section h2 { font-family: var(--font-serif); font-weight: 700; font-size: 19px; margin: 0 0 12px; }
+.dd-table { border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; background: #fff; }
+.dd-row { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--color-border); }
+.dd-row:last-child { border-bottom: none; }
+.dd-row > div { padding: 12px 16px; font-size: 13px; }
+.dd-row > div:last-child { border-left: 1px solid var(--color-border); }
+.dd-row--head .dd-do { font-size: 11px; font-weight: 700; color: var(--color-success); }
+.dd-row--head .dd-dont { font-size: 11px; font-weight: 700; color: var(--color-danger); }
+.dd-cell { display: flex; align-items: flex-start; gap: 8px; }
+.dd-cell--do { color: var(--color-success); }
+.dd-cell--dont { color: var(--color-danger); }
+.dd-icon { font-weight: 800; flex-shrink: 0; line-height: 1.5; }
+.dd-footer { border-top: 1px solid var(--color-border); padding: 24px 20px; text-align: center; }
+.dd-footer p { font-size: 12.5px; color: var(--color-text-faint); margin: 0; }
+.dd-footer a { color: var(--color-accent); }
+@media (max-width: 680px) { .dd-row { grid-template-columns: 1fr; } .dd-row > div:last-child { border-left: none; border-top: 1px solid var(--color-border); } }

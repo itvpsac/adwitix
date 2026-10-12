@@ -1,0 +1,161 @@
+<?php
+
+namespace App\Libraries;
+
+use App\Models\BidModel;
+use App\Models\SaleEventModel;
+use App\Models\EmdHoldModel;
+
+class BiddingService
+{
+    // PR-04/D-75: was a hardcoded const, now the Super Admin's live,
+    // versioned "BR-43.bid_ceiling_multiplier" rule (Rules &
+    // Specifications module). 1.5 is the fallback until that rule is
+    // seeded — i.e. the exact original value, so this rewiring changes
+    // nothing until a Super Admin actually edits it.
+    private const BID_CEILING_MULTIPLIER_DEFAULT = 1.5; // BR-43
+
+    private BidModel $bidModel;
+    private SaleEventModel $saleEventModel;
+    private EmdHoldModel $emdHoldModel;
+
+    public function __construct()
+    {
+        $this->bidModel = new BidModel();
+        $this->saleEventModel = new SaleEventModel();
+        $this->emdHoldModel = new EmdHoldModel();
+    }
+
+    // BR-27: live EMD gate check on every single bid.
+    // BR-43: 150% ceiling anti-jacking check.
+    public function placeBid(string $saleEventId, string $bidderPartyId, float $amount): array
+    {
+        $saleEvent = $this->saleEventModel->find($saleEventId);
+        if (!$saleEvent) {
+            throw new \RuntimeException('Sale event not found');
+        }
+
+        // BR-21/BR-22: conflict-of-interest block
+        $conflict = (new AuthorizationService())->hasConflictOfInterest($bidderPartyId, $saleEvent['listing_id']);
+        if ($conflict) {
+            throw new \RuntimeException($conflict);
+        }
+
+        // BR-38: Crawl-Back / platform-floor transaction ceiling — a
+        // restricted buyer may only bid within their permitted value
+        // range. Was fully tracked (entry/exit/escalation) but never
+        // actually enforced anywhere until now.
+        $tenant = (new \App\Models\TenantModel())->find($saleEvent['tenant_id']);
+        $ceiling = (new RatingService())->getTransactionCeiling($bidderPartyId, 'star_rating', $tenant);
+        if ($ceiling !== null && $amount > $ceiling) {
+            throw new \RuntimeException(
+                "BR-38: your account is currently restricted to transactions up to ₹" . number_format($ceiling, 2) . '.'
+            );
+        }
+
+        if ($saleEvent['status'] !== 'active') {
+            throw new \RuntimeException("Cannot bid on a sale_event with status={$saleEvent['status']}");
+        }
+
+        $requiredBaseline = EmdService::calculateBaselineEmd(
+            $saleEvent['sale_format'],
+            $saleEvent['expected_value'] !== null ? (float) $saleEvent['expected_value'] : null,
+            $saleEvent['reserve_value'] !== null ? (float) $saleEvent['reserve_value'] : null
+        );
+
+        $hold = $this->emdHoldModel->findBySaleEventAndParty($saleEventId, $bidderPartyId);
+        if (!$hold || $hold['status'] !== 'held' || (float) $hold['amount'] < $requiredBaseline) {
+            $held = $hold['amount'] ?? 0;
+            throw new \RuntimeException(
+                "BR-27 violation: bidder does not have sufficient EMD held (required {$requiredBaseline}, held {$held})"
+            );
+        }
+
+        $ceilingMultiplier = \App\Libraries\SovereignRuleService::getNumeric('BR-43.bid_ceiling_multiplier', self::BID_CEILING_MULTIPLIER_DEFAULT);
+        $currentHigh = $this->bidModel->findCurrentHighBid($saleEventId);
+        $currentHighAmount = $currentHigh ? (float) $currentHigh['amount'] : (float) ($saleEvent['reserve_value'] ?? 0);
+        if ($currentHighAmount > 0 && $amount > $currentHighAmount * $ceilingMultiplier) {
+            $ceiling = round($currentHighAmount * $ceilingMultiplier, 2);
+            throw new \RuntimeException(
+                "BR-43 violation: bid {$amount} exceeds " . ($ceilingMultiplier * 100) . "% of current high bid {$currentHighAmount} (ceiling {$ceiling})"
+            );
+        }
+
+        if ($currentHigh && $amount <= $currentHighAmount) {
+            throw new \RuntimeException("Bid {$amount} does not exceed current high bid {$currentHighAmount}");
+        }
+
+        // Bid increment check — only enforced if this sale_event has one
+        // set (backward-compatible with any sale_event created before
+        // this feature existed). The increment itself may already be
+        // halved (increment_halved_at set) — callers (EasyAuctionService/
+        // ExpressAuctionService/TenderBiddingService) are responsible for
+        // triggering that halving; this only reads the CURRENT value.
+        if ($saleEvent['bid_increment_amount'] !== null && $currentHigh) {
+            $requiredMinimum = $currentHighAmount + (float) $saleEvent['bid_increment_amount'];
+            if ($amount < $requiredMinimum) {
+                throw new \RuntimeException(
+                    "Bid {$amount} does not meet the minimum increment — must be at least {$requiredMinimum} (current price {$currentHighAmount} + increment " . $saleEvent['bid_increment_amount'] . ')'
+                );
+            }
+        }
+
+        $newBid = $this->bidModel->createBid($saleEventId, $bidderPartyId, $amount);
+        $this->bidModel->setStanding($newBid['id'], 'h1');
+        $this->bidModel->resetOutbidStandings($saleEventId, [$newBid['id']]);
+        $this->saleEventModel->updateCurrentPrice($saleEventId, $amount, $bidderPartyId);
+
+        $ranked = $this->bidModel->findRankedBids($saleEventId, 3);
+        $standingsByRank = ['h1', 'h2', 'h3'];
+        foreach ($ranked as $i => $bid) {
+            if ($bid['id'] !== $newBid['id']) {
+                $this->bidModel->setStanding($bid['id'], $standingsByRank[$i]);
+            }
+        }
+
+        // Return the up-to-date record — the pre-update snapshot captured
+        // right after insert() would still show the default 'outbid'
+        // standing, not the 'h1' just set above.
+        $finalBid = $this->bidModel->find($newBid['id']);
+
+        // D-42: notify the real-time sidecar — after the DB write has
+        // fully succeeded, never before. If the sidecar is unreachable,
+        // this fails silently (see RealtimeBroadcastService) — a bid
+        // must never fail or be delayed because real-time push is down.
+        (new RealtimeBroadcastService())->broadcast($saleEventId, 'bid_placed', [
+            'amount' => (float) $finalBid['amount'],
+            'standing' => $finalBid['standing'],
+            'bidderPartyId' => $finalBid['bidder_party_id'],
+        ]);
+
+        // BR-48: the Live Ticker tracks each buyer's OWN active bids
+        // and standing — every affected bidder (the new bid, plus
+        // anyone whose standing just shifted as a result) gets notified
+        // on their individual buyer-room, not just the shared
+        // sale_event room a listing page watches.
+        $broadcaster = new RealtimeBroadcastService();
+        $affectedBidders = $this->bidModel->findRankedBids($saleEventId, 3);
+        foreach ($affectedBidders as $bid) {
+            $broadcaster->broadcastToBuyer($bid['bidder_party_id'], 'ticker_bid_update', [
+                'saleEventId' => $saleEventId, 'amount' => (float) $bid['amount'], 'standing' => $bid['standing'],
+            ]);
+        }
+
+        // BR-05: every transactional action is logged — a bid changes
+        // real money exposure (EMD held) and the state of a live sale.
+        (new AuditLogService())->log('bid.placed', $bidderPartyId, [
+            'saleEventId' => $saleEventId, 'amount' => (float) $finalBid['amount'], 'standing' => $finalBid['standing'],
+        ]);
+
+        // D-115: the domain-event equivalent of the audit log entry
+        // just above — same milestone, decoupled consumer. Fired after
+        // the WS broadcasts and audit log, same "never delay or risk
+        // the real write" ordering already established for those.
+        \CodeIgniter\Events\Events::trigger(\App\Libraries\DomainEvents::BID_PLACED, [
+            'saleEventId' => $saleEventId, 'bidId' => $finalBid['id'], 'bidderPartyId' => $bidderPartyId,
+            'amount' => (float) $finalBid['amount'], 'standing' => $finalBid['standing'],
+        ]);
+
+        return $finalBid;
+    }
+}

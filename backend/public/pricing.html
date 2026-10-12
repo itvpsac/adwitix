@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — AdwitiX</title>
+<link rel="icon" type="image/jpeg" href="/images/brand/adwitix-shield.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  /* D-126: wired from docs/design/design_handoff_ebid_hub/screens/Pricing.dc.html
+     verbatim per that package's "high-fidelity, recreate pixel-close, do
+     not restyle to taste" instruction — colors/type/spacing/copy kept
+     exactly as designed (Georgia serif headings, gold #C9974C accent,
+     navy #1E2761), not remapped onto this project's own BR-68 tokens.
+     Replaces the D-86 interim pricing document at this same file path —
+     that document's own copy is preserved for provenance at
+     docs/source-documents/eBid_Hub_Pricing_TradeSphereX.html, nothing
+     lost, and its numbers (Success Fee bracket ladder, subscription
+     tier names/prices) were verified against the live
+     EmdService::successFeeRate() bracket and the real
+     tenant.subscription_tier enum before reuse here — both matched
+     exactly, so this is a design refresh, not a content change. */
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  html, body{overflow-x:hidden;}
+  a{text-decoration:none;}
+  a:link, a:visited{color:#C9974C;}
+  a:hover{color:#A87A38;}
+  @media (max-width:1000px){
+    .pr-nav{display:none !important;}
+    .pr-tiers{grid-template-columns:repeat(2,1fr) !important;}
+  }
+  @media (max-width:860px){
+    .pr-discount-label{display:none;}
+    .pr-storage{overflow-x:auto;}
+    .pr-storage-inner{min-width:640px;}
+    .pr-services{grid-template-columns:1fr !important;}
+    .pr-fee-payer{grid-template-columns:1fr !important;}
+    .pr-ladder{gap:5px !important;}
+  }
+  @media (max-width:640px){
+    .pr-discount-head{display:none !important;}
+    .pr-discount{grid-template-columns:1fr !important; row-gap:6px; padding-top:14px !important; padding-bottom:14px !important;}
+    .pr-discount-label{display:inline; font-size:10px; text-transform:uppercase; font-weight:700; color:#9A9FB5; margin-right:4px;}
+  }
+  @media (max-width:600px){
+    .pr-ladder > div span, .pr-ladder > div{font-size:9px !important;}
+  }
+  @media (max-width:600px){
+    .pr-tiers{grid-template-columns:1fr !important;}
+    .pr-hero-h1{font-size:32px !important;}
+  }
+  @media (max-width:480px){
+    .pr-header-cta-label{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div style="background:#F3F4F8; color:#1E2233; font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; min-height:100vh;">
+
+  <header style="position:sticky; top:0; z-index:60; background:rgba(238,240,234,0.92); backdrop-filter:blur(10px); border-bottom:1px solid #DDE0EA;">
+    <div style="max-width:1400px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:14px 20px; gap:12px; min-width:0;">
+      <a href="/" style="display:flex; align-items:center; gap:12px; flex:1; min-width:0; overflow:hidden;">
+        <img src="/images/brand/adwitix-shield.jpg" alt="" style="height:36px; width:36px; border-radius:6px; display:block; flex-shrink:0;">
+        <span style="font-family:Georgia,'Cambria',serif; font-weight:800; font-size:22px; letter-spacing:-0.5px; color:#1E2761; flex-shrink:0;">Adwiti<span style="color:#C9974C;">X</span></span>
+      </a>
+      <nav class="pr-nav" style="display:flex; gap:4px; background:#E9EBF2; padding:4px; border-radius:100px;">
+        <a href="/" style="font-size:13px; font-weight:600; padding:8px 18px; border-radius:100px; color:#565B72;">Marketplace</a>
+        <a href="/browse" style="font-size:13px; font-weight:600; padding:8px 18px; border-radius:100px; color:#565B72;">Browse</a>
+        <a href="/pricing" style="font-size:13px; font-weight:600; padding:8px 18px; border-radius:100px; color:#fff; background:#1E2233;">Pricing</a>
+        <a href="/trust-support" style="font-size:13px; font-weight:600; padding:8px 18px; border-radius:100px; color:#565B72;">Trust &amp; Support</a>
+      </nav>
+      <div style="display:flex; gap:8px; align-items:center; flex:none;">
+        <a href="/login" class="pr-header-cta-label" style="font-weight:700; font-size:12.5px; padding:9px 16px; border-radius:100px; border:1px solid #DDE0EA; color:#1E2233; white-space:nowrap;">Log In</a>
+        <a href="/register" style="font-weight:700; font-size:12.5px; padding:9px 18px; border-radius:100px; background:#C9974C; color:#fff; white-space:nowrap;">Get Started</a>
+      </div>
+    </div>
+  </header>
+
+  <main style="max-width:1130px; margin:0 auto; padding:56px 32px 90px;">
+
+    <div style="font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:#C9974C; margin:0 0 10px;">Pricing</div>
+    <h1 class="pr-hero-h1" style="font-family:Georgia,'Cambria',serif; font-size:42px; font-weight:800; letter-spacing:-1px; margin:0 0 14px; max-width:680px;">Marketplace growth should never be taxed.</h1>
+    <p style="font-size:15.5px; color:#565B72; max-width:600px; line-height:1.65; margin:0 0 48px;">Every plan gets unlimited Lots, Trading Sessions, Market Makers and Traders — no cap on growth. ADWITIX earns only when a sale actually completes. All prices exclude GST unless stated.</p>
+
+    <section style="margin-bottom:56px;">
+      <div class="pr-tiers" id="prTiers" style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px;"></div>
+      <p style="font-size:12.5px; color:#9A9FB5; margin:18px 0 0;">Tender Auctions run through CoCo Concierge — a fully managed path exclusive to the platform's own Company Shop, billed per engagement plus the standard Success Fee.</p>
+    </section>
+
+    <section style="margin-bottom:56px;">
+      <h2 style="font-family:Georgia,'Cambria',serif; font-size:26px; font-weight:800; margin:0 0 10px; letter-spacing:-0.6px;">Success Fee</h2>
+      <p style="font-size:14px; color:#565B72; max-width:620px; line-height:1.65; margin:0 0 24px;">One schedule, the same for every TradeSphereX regardless of tier — it declines as the sale value goes up. Minimum ₹500 + GST.</p>
+
+      <div style="background:#fff; border:1px solid #DDE0EA; border-radius:16px; padding:28px 24px 20px; margin-bottom:32px;">
+        <div class="pr-ladder" id="prLadderBars" style="display:flex; align-items:flex-end; gap:14px; height:160px;"></div>
+        <div class="pr-ladder" id="prLadderLabels" style="display:flex; gap:14px; margin-top:12px;"></div>
+      </div>
+
+      <div style="background:#fff; border:1px solid #DDE0EA; border-radius:16px; padding:28px 24px; margin-bottom:32px;">
+        <h3 style="font-size:16px; font-weight:800; margin:0 0 4px; font-family:Archivo,sans-serif;">Success Fee Calculator</h3>
+        <p style="font-size:12.5px; color:#9A9FB5; margin:0 0 20px;">Drag the slider or pick a value to see what a sale actually costs.</p>
+
+        <div id="prSaleValueDisplay" style="font-size:28px; font-weight:800; font-family:Georgia,serif; color:#1E2761; margin-bottom:6px;">₹8,50,000</div>
+        <input type="range" id="prSlider" min="10000" max="20000000" step="10000" value="850000" style="width:100%; accent-color:#C9974C; display:block;">
+        <div style="display:flex; justify-content:space-between; margin:6px 0 18px;">
+          <span style="font-size:11px; color:#9A9FB5;">₹10,000</span>
+          <span style="font-size:11px; color:#9A9FB5;">₹2,00,00,000+</span>
+        </div>
+
+        <div id="prPresets" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;"></div>
+
+        <div class="pr-fee-payer" style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+          <div style="background:#F6EEDF; border-radius:14px; padding:20px;">
+            <p style="font-size:11px; font-weight:700; text-transform:uppercase; color:#8A6425; margin:0 0 8px;">Applicable Rate</p>
+            <p id="prRateApplied" style="font-size:26px; font-weight:800; color:#1E2761; margin:0; font-family:Georgia,serif;">2.00%</p>
+          </div>
+          <div style="background:#F6EEDF; border-radius:14px; padding:20px;">
+            <p style="font-size:11px; font-weight:700; text-transform:uppercase; color:#8A6425; margin:0 0 8px;">Success Fee + GST</p>
+            <p style="font-size:26px; font-weight:800; color:#1E2761; margin:0; font-family:Georgia,serif;"><span id="prFeeAmount">₹17,000</span><span style="font-size:13px; font-weight:600; color:#9A9FB5;"> + <span id="prGstAmount">₹3,060</span> GST</span></p>
+          </div>
+        </div>
+
+        <div class="pr-fee-payer" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="border:1px solid #DDE0EA; border-radius:14px; padding:18px;">
+            <p style="font-size:11px; font-weight:700; text-transform:uppercase; color:#3F7A4E; margin:0 0 6px;">If Buyer-Pays</p>
+            <p style="font-size:12.5px; color:#565B72; margin:0; line-height:1.5;">Trader pays <strong id="prBuyerPaysTotal" style="color:#1E2233;">₹8,70,060</strong> total. Market Maker receives the full <span id="prBuyerPaysSaleValue">₹8,50,000</span>.</p>
+          </div>
+          <div style="border:1px solid #DDE0EA; border-radius:14px; padding:18px;">
+            <p style="font-size:11px; font-weight:700; text-transform:uppercase; color:#9C5B1F; margin:0 0 6px;">If Seller-Pays</p>
+            <p style="font-size:12.5px; color:#565B72; margin:0; line-height:1.5;">Trader pays only <strong id="prSellerPaysSaleValue" style="color:#1E2233;">₹8,50,000</strong>. <span id="prFeeBilledToTsx">₹20,060</span> is billed to the TSX monthly instead.</p>
+          </div>
+        </div>
+        <p style="font-size:11.5px; color:#9A9FB5; margin:16px 0 0;">Illustrative only — the minimum Success Fee of ₹500 + GST always applies regardless of sale value.</p>
+      </div>
+
+      <h3 style="font-size:16px; font-weight:800; margin:0 0 14px; font-family:Archivo,sans-serif;">Fee Payer Election</h3>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;" class="pr-fee-payer">
+        <div style="background:#fff; border:1px solid #DDE0EA; border-radius:14px; padding:20px;">
+          <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:#3F7A4E; background:#E4EFE6; padding:4px 10px; border-radius:100px; white-space:nowrap;">Default — every tier</span>
+          <p style="font-size:14px; font-weight:700; margin:12px 0 6px;">Buyer-Pays</p>
+          <p style="font-size:12.5px; color:#565B72; line-height:1.55; margin:0;">The Trader's total = Trade Value + Success Fee + GST. Listing and selling stay free for the Market Maker.</p>
+        </div>
+        <div style="background:#fff; border:1px solid #DDE0EA; border-radius:14px; padding:20px;">
+          <span style="font-size:11px; font-weight:700; text-transform:uppercase; color:#9C5B1F; background:#FBF2E2; padding:4px 10px; border-radius:100px; white-space:nowrap;">Paid tiers only</span>
+          <p style="font-size:14px; font-weight:700; margin:12px 0 6px;">Seller-Pays</p>
+          <p style="font-size:12.5px; color:#565B72; line-height:1.55; margin:0;">A 0%-visible-premium option — the Trader pays only the Trade Value. Set per Trading Session, locked once bidding opens.</p>
+        </div>
+      </div>
+    </section>
+
+    <section style="margin-bottom:56px;">
+      <h2 style="font-family:Georgia,'Cambria',serif; font-size:26px; font-weight:800; margin:0 0 10px; letter-spacing:-0.6px;">Prepay and save</h2>
+      <p style="font-size:14px; color:#565B72; max-width:620px; line-height:1.65; margin:0 0 24px;">The same discount ladder applies across all three paid tiers.</p>
+      <div style="background:#fff; border:1px solid #DDE0EA; border-radius:16px; overflow:hidden;">
+        <div class="pr-discount-head" style="display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr 1fr; padding:0 22px; font-size:10px; text-transform:uppercase; color:#9A9FB5; font-weight:700; border-bottom:1px solid #DDE0EA;">
+          <div style="padding:12px 0;">Commitment</div>
+          <div style="padding:12px 0;">Discount</div>
+          <div style="padding:12px 0;">TSX Launch</div>
+          <div style="padding:12px 0;">TSX Growth</div>
+          <div style="padding:12px 0;">TSX Enterprise</div>
+        </div>
+        <div class="pr-discount" style="display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr 1fr; padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:13px;">
+          <div style="padding:12px 0; font-weight:600;">Monthly (no lock-in)</div>
+          <div style="padding:12px 0; color:#C9974C; font-weight:700;"><span class="pr-discount-label">Discount </span>0%</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Launch: </span>1,20,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Growth: </span>3,00,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Enterprise: </span>7,20,000</div>
+        </div>
+        <div class="pr-discount" style="display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr 1fr; padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:13px;">
+          <div style="padding:12px 0; font-weight:600;">1-year prepaid</div>
+          <div style="padding:12px 0; color:#C9974C; font-weight:700;"><span class="pr-discount-label">Discount </span>20%</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Launch: </span>96,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Growth: </span>2,40,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Enterprise: </span>5,76,000</div>
+        </div>
+        <div class="pr-discount" style="display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr 1fr; padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:13px;">
+          <div style="padding:12px 0; font-weight:600;">2-year prepaid</div>
+          <div style="padding:12px 0; color:#C9974C; font-weight:700;"><span class="pr-discount-label">Discount </span>30%</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Launch: </span>84,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Growth: </span>2,10,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Enterprise: </span>5,04,000</div>
+        </div>
+        <div class="pr-discount" style="display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr 1fr; padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:13px;">
+          <div style="padding:12px 0; font-weight:600;">3-year prepaid</div>
+          <div style="padding:12px 0; color:#C9974C; font-weight:700;"><span class="pr-discount-label">Discount </span>40%</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Launch: </span>72,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Growth: </span>1,80,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Enterprise: </span>4,32,000</div>
+        </div>
+        <div class="pr-discount" style="display:grid; grid-template-columns:1.3fr 1fr 1fr 1fr 1fr; padding:0 22px; align-items:center; font-size:13px;">
+          <div style="padding:12px 0; font-weight:600;">5-year prepaid</div>
+          <div style="padding:12px 0; color:#C9974C; font-weight:700;"><span class="pr-discount-label">Discount </span>50%</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Launch: </span>60,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Growth: </span>1,50,000</div>
+          <div style="padding:12px 0;"><span class="pr-discount-label">TSX Enterprise: </span>3,60,000</div>
+        </div>
+      </div>
+      <p style="font-size:12.5px; color:#9A9FB5; margin:14px 0 0;">Prices per year, ₹. Sales teams may quote below the ladder for negotiated deals, down to a 50% floor.</p>
+    </section>
+
+    <section style="margin-bottom:56px;">
+      <h2 style="font-family:Georgia,'Cambria',serif; font-size:26px; font-weight:800; margin:0 0 10px; letter-spacing:-0.6px;">Storage &amp; data retention</h2>
+      <div class="pr-storage">
+        <div class="pr-storage-inner" style="background:#fff; border:1px solid #DDE0EA; border-radius:16px; overflow:hidden;">
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; font-size:10px; text-transform:uppercase; color:#9A9FB5; font-weight:700; border-bottom:1px solid #DDE0EA;">
+            <div style="padding:12px 0;">Feature</div>
+            <div style="padding:12px 0;">CoCo Starter</div>
+            <div style="padding:12px 0;">TSX Launch</div>
+            <div style="padding:12px 0;">TSX Growth</div>
+            <div style="padding:12px 0;">TSX Enterprise</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:12.5px;">
+            <div style="padding:11px 0; font-weight:600;">Included storage</div>
+            <div style="padding:11px 0; color:#565B72;">5 GB</div>
+            <div style="padding:11px 0; color:#565B72;">100 GB</div>
+            <div style="padding:11px 0; color:#565B72;">400 GB</div>
+            <div style="padding:11px 0; color:#565B72;">1 TB</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:12.5px;">
+            <div style="padding:11px 0; font-weight:600;">Max file size</div>
+            <div style="padding:11px 0; color:#565B72;">25 MB</div>
+            <div style="padding:11px 0; color:#565B72;">100 MB</div>
+            <div style="padding:11px 0; color:#565B72;">250 MB</div>
+            <div style="padding:11px 0; color:#565B72;">500 MB</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:12.5px;">
+            <div style="padding:11px 0; font-weight:600;">Images per Lot</div>
+            <div style="padding:11px 0; color:#565B72;">20</div>
+            <div style="padding:11px 0; color:#565B72;">100</div>
+            <div style="padding:11px 0; color:#565B72;">300</div>
+            <div style="padding:11px 0; color:#565B72;">Unlimited</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:12.5px;">
+            <div style="padding:11px 0; font-weight:600;">Videos per Lot</div>
+            <div style="padding:11px 0; color:#565B72;">1</div>
+            <div style="padding:11px 0; color:#565B72;">5</div>
+            <div style="padding:11px 0; color:#565B72;">10</div>
+            <div style="padding:11px 0; color:#565B72;">Unlimited</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; border-bottom:1px solid #EEF0EA; align-items:center; font-size:12.5px;">
+            <div style="padding:11px 0; font-weight:600;">Data retention</div>
+            <div style="padding:11px 0; color:#565B72;">1 Year</div>
+            <div style="padding:11px 0; color:#565B72;">5 Years</div>
+            <div style="padding:11px 0; color:#565B72;">7 Years</div>
+            <div style="padding:11px 0; color:#565B72;">10 Yrs / Unlimited</div>
+          </div>
+          <div style="display:grid; grid-template-columns:1.3fr repeat(4,1fr); padding:0 22px; align-items:center; font-size:12.5px;">
+            <div style="padding:11px 0; font-weight:600;">Deleted-data recovery</div>
+            <div style="padding:11px 0; color:#565B72;">7 Days</div>
+            <div style="padding:11px 0; color:#565B72;">30 Days</div>
+            <div style="padding:11px 0; color:#565B72;">90 Days</div>
+            <div style="padding:11px 0; color:#565B72;">180 Days</div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:12.5px; color:#9A9FB5; margin:14px 0 0;">Additional storage beyond the included allowance: ₹2,000 per 100 GB/year + GST, the same rate across every tier.</p>
+    </section>
+
+    <section style="margin-bottom:20px;">
+      <div class="pr-services" style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div>
+          <h3 style="font-size:16px; font-weight:800; margin:0 0 14px; font-family:Archivo,sans-serif;">Optional Marketplace Services</h3>
+          <div style="background:#fff; border:1px solid #DDE0EA; border-radius:14px; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Marketplace Setup &amp; Branding</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹50,000+</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Data Migration</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹25,000+</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>API Integration Setup (one-time)</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹1,00,000+</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Online Training</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹10,000/day</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; font-size:12.5px;">
+              <span>Custom Development</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹2,500/hr</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-size:16px; font-weight:800; margin:0 0 14px; font-family:Archivo,sans-serif;">Enterprise Add-ons</h3>
+          <div style="background:#fff; border:1px solid #DDE0EA; border-radius:14px; overflow:hidden;">
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Additional Administrator</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹25,000/yr</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Additional Business Unit</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹50,000/yr</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Dedicated Account Manager</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹1,00,000/yr</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; border-bottom:1px solid #EEF0EA; font-size:12.5px;">
+              <span>Premium SLA</span><span style="font-weight:700; color:#1E2233; text-align:right;">₹2,00,000/yr</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; padding:13px 18px; font-size:12.5px;">
+              <span>Private Cloud / On-Premise</span><span style="font-weight:700; color:#1E2233; text-align:right;">On Quotation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <section style="background:#1E2761; padding:44px 32px;">
+    <div style="max-width:1130px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:20px;">
+      <div>
+        <h3 style="margin:0 0 6px; font-size:22px; font-weight:800; letter-spacing:-0.4px; font-family:Georgia,'Cambria',serif; color:#fff;">Start free on CoCo Starter.</h3>
+        <p style="margin:0; color:#CADCFC; font-size:13.5px;">Upgrade whenever Seller-Pays or API access matters to you.</p>
+      </div>
+      <a href="/register" style="background:#C9974C; color:#1E2761; font-weight:700; font-size:13.5px; padding:12px 24px; border-radius:100px;">Get Started</a>
+    </div>
+  </section>
+
+  <footer style="background:#1E2233; padding:28px 32px;">
+    <div style="max-width:1130px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; font-size:12px; color:rgba(255,255,255,0.55);">
+      <span>&copy; AdwitiX</span>
+      <div style="display:flex; gap:20px; flex-wrap:wrap;">
+        <a href="/trust-support" style="color:rgba(255,255,255,0.75);">Trust &amp; Support</a>
+        <a href="/fees" style="color:rgba(255,255,255,0.75);">Fee &amp; Charges Schedule</a>
+        <a href="/terms" style="color:rgba(255,255,255,0.75);">Terms</a>
+        <a href="/privacy" style="color:rgba(255,255,255,0.75);">Privacy</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  // Real reimplementation of the mockup's Component logic (fmt/bracketFor/
+  // renderVals from Pricing.dc.html) as plain DOM-driven JS — no template
+  // framework in this codebase, matching the pattern already used by
+  // other interactive pages in this app (e.g. listing/show.php).
+  //
+  // Success Fee bracket kept in exact lockstep with the real, live
+  // EmdService::successFeeRate() (app/Libraries/EmdService.php) — same
+  // 5 thresholds, same rates, same ₹500 minimum floor.
+  function fmt(n) { return '₹' + Math.round(n).toLocaleString('en-IN'); }
+
+  function bracketFor(v) {
+    if (v <= 1000000) return { rate: 2.00 };
+    if (v <= 5000000) return { rate: 1.50 };
+    if (v <= 20000000) return { rate: 1.00 };
+    if (v <= 100000000) return { rate: 0.75 };
+    return { rate: 0.50 };
+  }
+
+  var tiers = [
+    { name: 'CoCo Starter', price: 'Free', period: '', annualNote: 'For individual & one-time Market Makers', highlight: '#DDE0EA', badge: '', ctaLabel: 'Start Free', ctaBg: 'transparent', ctaColor: '#1E2233', ctaBorder: '1px solid #DDE0EA',
+      features: ['Unlimited Lots & Trading Sessions', 'Standard auction engine', 'Buy-Now, Express, Easy Auction', 'Buyer-Pays only', 'No API access'] },
+    { name: 'TSX Launch', price: '₹10,000', period: '/month', annualNote: '₹1,20,000/yr list', highlight: '#DDE0EA', badge: '', ctaLabel: 'Choose Launch', ctaBg: 'transparent', ctaColor: '#1E2233', ctaBorder: '1px solid #DDE0EA',
+      features: ['Everything in CoCo Starter', 'Branded marketplace', 'One TSX Master (+ add-on)', 'Seller-Pays available', 'Read-only API access'] },
+    { name: 'TSX Growth', price: '₹25,000', period: '/month', annualNote: '₹3,00,000/yr list', highlight: '#C9974C', badge: 'Most Popular', ctaLabel: 'Choose Growth', ctaBg: '#C9974C', ctaColor: '#fff', ctaBorder: 'none',
+      features: ['Everything in TSX Launch', 'Basic RBAC (view/approve)', 'API read + push Lots', '400 GB storage', '7-year data retention'] },
+    { name: 'TSX Enterprise', price: '₹60,000', period: '/month', annualNote: '₹7,20,000/yr list', highlight: '#DDE0EA', badge: '', ctaLabel: 'Talk to Sales', ctaBg: 'transparent', ctaColor: '#1E2233', ctaBorder: '1px solid #DDE0EA',
+      features: ['Everything in TSX Growth', 'Full RBAC & workflow config', 'Full push/pull API, SSO', 'Audit logs', '1 TB storage, unlimited retention'] }
+  ];
+
+  var tiersEl = document.getElementById('prTiers');
+  tiers.forEach(function (t) {
+    var card = document.createElement('div');
+    card.style.cssText = 'background:#fff; border:2px solid ' + t.highlight + '; border-radius:18px; padding:24px 22px; display:flex; flex-direction:column; position:relative;';
+    var badgeHtml = t.badge
+      ? '<span style="position:absolute; top:-12px; left:22px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; background:#C9974C; color:#fff; padding:5px 12px; border-radius:100px;">' + t.badge + '</span>'
+      : '';
+    var featuresHtml = t.features.map(function (f) {
+      return '<li style="font-size:12.5px; color:#1E2233; line-height:1.5; padding-left:16px; position:relative;"><span style="position:absolute; left:0; color:#C9974C; font-weight:700;">·</span>' + f + '</li>';
+    }).join('');
+    card.innerHTML = badgeHtml +
+      '<h3 style="font-size:16px; font-weight:800; margin:6px 0 4px; font-family:Archivo,sans-serif;">' + t.name + '</h3>' +
+      '<div style="margin:6px 0 4px;"><span style="font-size:26px; font-weight:800; font-family:Georgia,serif;">' + t.price + '</span><span style="font-size:12px; color:#9A9FB5;">' + t.period + '</span></div>' +
+      '<p style="font-size:12px; color:#9A9FB5; margin:0 0 16px;">' + t.annualNote + '</p>' +
+      '<ul style="margin:0 0 20px; padding:0; list-style:none; display:flex; flex-direction:column; gap:9px; flex:1;">' + featuresHtml + '</ul>' +
+      '<a href="/register" style="text-align:center; font-weight:700; font-size:13px; padding:11px; border-radius:100px; background:' + t.ctaBg + '; color:' + t.ctaColor + '; border:' + t.ctaBorder + ';">' + t.ctaLabel + '</a>';
+    tiersEl.appendChild(card);
+  });
+
+  var brackets = [
+    { label: 'Up to ₹10L', rate: 2.00, max: 1000000 },
+    { label: '₹10L – ₹50L', rate: 1.50, max: 5000000 },
+    { label: '₹50L – ₹2Cr', rate: 1.00, max: 20000000 },
+    { label: '₹2Cr – ₹10Cr', rate: 0.75, max: 100000000 },
+    { label: 'Above ₹10Cr', rate: 0.50, max: Infinity }
+  ];
+
+  var barsEl = document.getElementById('prLadderBars');
+  var labelsEl = document.getElementById('prLadderLabels');
+
+  function renderLadder(v) {
+    var activeIndex = brackets.findIndex(function (b) { return v <= b.max; });
+    barsEl.innerHTML = '';
+    labelsEl.innerHTML = '';
+    brackets.forEach(function (b, i) {
+      var isActive = i === activeIndex;
+      var height = Math.round(b.rate * 45) + 24;
+      var barWrap = document.createElement('div');
+      barWrap.style.cssText = 'flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;';
+      barWrap.innerHTML =
+        '<span style="font-size:' + (isActive ? '17px' : '12px') + '; font-weight:800; color:' + (isActive ? '#fff' : '#9A9FB5') + '; margin-bottom:8px;">' + b.rate.toFixed(2) + '%</span>' +
+        '<div style="width:100%; background:' + (isActive ? '#C9974C' : '#EEF0F5') + '; border:' + (isActive ? '2px solid #A87A38' : '1px solid #DDE0EA') + '; box-shadow:' + (isActive ? '0 4px 14px rgba(201,151,76,0.35)' : 'none') + '; border-radius:8px 8px 0 0; height:' + height + 'px; transition:height 0.2s, background 0.2s;"></div>';
+      barsEl.appendChild(barWrap);
+
+      var labelWrap = document.createElement('div');
+      labelWrap.style.cssText = 'flex:1; text-align:center;';
+      labelWrap.innerHTML = '<span style="font-size:10.5px; color:' + (isActive ? '#fff' : '#9A9FB5') + '; font-weight:' + (isActive ? '800' : '500') + '; line-height:1.3; padding:3px 8px; border-radius:100px; background:' + (isActive ? '#C9974C' : 'transparent') + ';">' + b.label + '</span>';
+      labelsEl.appendChild(labelWrap);
+    });
+  }
+
+  var presetValues = [100000, 1000000, 5000000, 20000000, 150000000];
+  var presetLabels = ['₹1L', '₹10L', '₹50L', '₹2Cr', '₹15Cr'];
+  var presetsEl = document.getElementById('prPresets');
+  var slider = document.getElementById('prSlider');
+
+  presetValues.forEach(function (val, i) {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = presetLabels[i];
+    btn.style.cssText = 'font-size:12px; font-weight:700; padding:7px 14px; border-radius:100px; border:1px solid #DDE0EA; background:#fff; color:#1E2233; cursor:pointer;';
+    btn.addEventListener('click', function () {
+      slider.value = val;
+      render(val);
+    });
+    presetsEl.appendChild(btn);
+  });
+
+  function render(v) {
+    var rate = bracketFor(v).rate;
+    var fee = Math.max(v * rate / 100, 500);
+    var gst = fee * 0.18;
+    var buyerTotal = v + fee + gst;
+
+    document.getElementById('prSaleValueDisplay').textContent = fmt(v);
+    document.getElementById('prRateApplied').textContent = rate.toFixed(2) + '%';
+    document.getElementById('prFeeAmount').textContent = fmt(fee);
+    document.getElementById('prGstAmount').textContent = fmt(gst);
+    document.getElementById('prBuyerPaysTotal').textContent = fmt(buyerTotal);
+    document.getElementById('prBuyerPaysSaleValue').textContent = fmt(v);
+    document.getElementById('prSellerPaysSaleValue').textContent = fmt(v);
+    document.getElementById('prFeeBilledToTsx').textContent = fmt(fee + gst);
+
+    renderLadder(v);
+  }
+
+  slider.addEventListener('input', function () { render(Number(slider.value)); });
+  slider.addEventListener('change', function () { render(Number(slider.value)); });
+
+  render(Number(slider.value));
+})();
+</script>
+</body>
+</html>

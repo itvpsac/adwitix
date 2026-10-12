@@ -1,0 +1,13 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; overflow-x: hidden; }
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+a { text-decoration: none; }
+a:link, a:visited { color: var(--color-accent); }
+a:hover { color: var(--color-accent-dark); }
+h1, h2, h3, h4, p, ul { text-wrap: pretty; }
+button { font-family: inherit; }

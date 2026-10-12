@@ -1,0 +1,343 @@
+<?php
+
+namespace App\Libraries;
+
+use App\Models\DisputeModel;
+use App\Models\DisputeEvidenceModel;
+use App\Models\SaleEventModel;
+use App\Models\ListingModel;
+use App\Models\SettlementModel;
+use App\Models\EmdHoldModel;
+
+class DisputeService
+{
+    // BR-40: filing window — same 7-day figure used in the plain-language
+    // guide, which itself flags this as "not independently reconfirmed."
+    // Anchored to the sale_event's actual_closed_at where available; if
+    // not yet closed (a non-lifting/collection dispute can arise before
+    // formal close), no window is enforced. This anchor-point choice is a
+    // simplification — the underlying document doesn't specify a precise
+    // per-category trigger event, so one consistent anchor was used
+    // rather than guessing five different ones.
+    private const FILING_WINDOW_DAYS = 7;
+
+    private DisputeModel $disputeModel;
+    private DisputeEvidenceModel $evidenceModel;
+    private SaleEventModel $saleEventModel;
+    private ListingModel $listingModel;
+    private SettlementModel $settlementModel;
+    private EmdHoldModel $emdHoldModel;
+    private AuthorizationService $authz;
+    private RatingService $ratingService;
+
+    public function __construct()
+    {
+        $this->disputeModel = new DisputeModel();
+        $this->evidenceModel = new DisputeEvidenceModel();
+        $this->saleEventModel = new SaleEventModel();
+        $this->listingModel = new ListingModel();
+        $this->settlementModel = new SettlementModel();
+        $this->emdHoldModel = new EmdHoldModel();
+        $this->authz = new AuthorizationService();
+        $this->ratingService = new RatingService();
+    }
+
+    private function ruleForCategory(string $category): string
+    {
+        return $category === 'buyer_non_response' ? 'super_admin' : 'tenant_admin';
+    }
+
+    public function fileDispute(string $saleEventId, string $filedByPartyId, string $category, string $description): array
+    {
+        $saleEvent = $this->saleEventModel->find($saleEventId);
+        if (!$saleEvent) {
+            throw new \RuntimeException('Sale event not found');
+        }
+        if ($saleEvent['sale_format'] === 'tender') {
+            throw new \RuntimeException('BR-40: Tender Auctions are excluded from the Dispute Resolution Framework entirely.');
+        }
+
+        if ($saleEvent['actual_closed_at']) {
+            $deadline = (new \DateTimeImmutable($saleEvent['actual_closed_at']))->modify('+' . self::FILING_WINDOW_DAYS . ' days');
+            if (new \DateTimeImmutable() > $deadline) {
+                throw new \RuntimeException('BR-40: the ' . self::FILING_WINDOW_DAYS . '-day filing window for this transaction has passed.');
+            }
+        }
+
+        $listing = $this->listingModel->find($saleEvent['listing_id']);
+        $sellerId = $listing['seller_party_id'];
+        $buyerId = $saleEvent['current_high_bidder_party_id'];
+
+        $respondentId = ($filedByPartyId === $sellerId) ? $buyerId : $sellerId;
+        if (!$respondentId || ($filedByPartyId !== $sellerId && $filedByPartyId !== $buyerId)) {
+            throw new \RuntimeException('Only the buyer or seller on this transaction may file a dispute against it.');
+        }
+
+        $evidenceDeadline = (new \DateTimeImmutable())->modify('+' . self::FILING_WINDOW_DAYS . ' days');
+
+        $dispute = $this->disputeModel->createDispute([
+            'sale_event_id' => $saleEventId, 'filed_by_party_id' => $filedByPartyId,
+            'respondent_party_id' => $respondentId, 'category' => $category, 'description' => $description,
+            'status' => 'evidence_window', 'evidence_deadline_at' => $evidenceDeadline->format('Y-m-d H:i:s'),
+            'ruling_authority_type' => $this->ruleForCategory($category),
+        ]);
+
+        // PR-37: dispute-filed events fire their own webhook.
+        (new \App\Libraries\TenantWebhookService())->fire($saleEvent['tenant_id'], 'dispute.filed', [
+            'disputeId' => $dispute['id'], 'saleEventId' => $saleEventId, 'category' => $category,
+        ]);
+
+        // D-110: the respondent has had no reason to be watching this
+        // sale event's page — a live nudge is the only way they learn
+        // about this without polling. The filer doesn't need one (they
+        // already know; they're mid-redirect to the dispute page).
+        $this->broadcastDisputeUpdate($dispute);
+
+        // D-115: the domain-event equivalent of the tenant webhook
+        // just above — same milestone, different audience.
+        \CodeIgniter\Events\Events::trigger(\App\Libraries\DomainEvents::DISPUTE_FILED, [
+            'disputeId' => $dispute['id'], 'saleEventId' => $saleEventId, 'category' => $category,
+            'filedByPartyId' => $filedByPartyId, 'respondentPartyId' => $respondentId,
+        ]);
+
+        return $dispute;
+    }
+
+    public function submitEvidence(string $disputeId, string $partyId, string $content): array
+    {
+        $dispute = $this->requireDispute($disputeId);
+        if ($partyId !== $dispute['filed_by_party_id'] && $partyId !== $dispute['respondent_party_id']) {
+            throw new \RuntimeException('Only the two parties to this dispute may submit evidence.');
+        }
+        if (!in_array($dispute['status'], ['filed', 'evidence_window'], true)) {
+            throw new \RuntimeException('Evidence can only be submitted while the dispute is open for evidence.');
+        }
+        $evidence = $this->evidenceModel->createEvidence($disputeId, $partyId, $content);
+        // D-110: same live-nudge reasoning as fileDispute — whichever
+        // party didn't just submit this evidence has no other way to
+        // know it landed without polling the page.
+        $this->broadcastDisputeUpdate($dispute);
+        return $evidence;
+    }
+
+    public function getEvidence(string $disputeId): array
+    {
+        return $this->evidenceModel->findForDispute($disputeId);
+    }
+
+    // BR-40: the ruling authority must actually hold the right
+    // authorization for this SPECIFIC dispute's category before ruling —
+    // checked here, not just assumed from the route filter, since the
+    // route filter can't distinguish category-based routing on its own.
+    public function ruleOnDispute(string $disputeId, string $rulerPartyId, string $outcome, string $rationale, ?string $atFaultPartyId = null): array
+    {
+        $dispute = $this->requireDispute($disputeId);
+        if (!in_array($dispute['status'], ['filed', 'evidence_window'], true)) {
+            throw new \RuntimeException('This dispute has already been ruled on.');
+        }
+
+        $saleEvent = $this->saleEventModel->find($dispute['sale_event_id']);
+        if ($dispute['ruling_authority_type'] === 'super_admin') {
+            if (!$this->authz->isSuperAdmin($rulerPartyId)) {
+                throw new \RuntimeException('BR-40: this dispute category requires Super Admin ruling.');
+            }
+        } else {
+            if (!$this->authz->isTenantAdminFor($rulerPartyId, $saleEvent['tenant_id'])) {
+                throw new \RuntimeException('BR-40: this dispute requires ruling by the Tenant Admin for this listing\'s tenant.');
+            }
+        }
+
+        $this->executeRuling($dispute, $outcome, $atFaultPartyId, $rulerPartyId);
+
+        $this->disputeModel->update($disputeId, [
+            'status' => 'ruled', 'ruled_by_party_id' => $rulerPartyId,
+            'ruling_outcome' => $outcome, 'ruling_rationale' => $rationale, 'ruled_at' => date('Y-m-d H:i:s'),
+        ]);
+
+        (new AuditLogService())->log('dispute.ruled', $rulerPartyId, [
+            'disputeId' => $disputeId, 'outcome' => $outcome, 'rationale' => $rationale, 'atFaultPartyId' => $atFaultPartyId,
+        ]);
+
+        // BR-61: "disputed rulings" is one of Standing Review's explicit
+        // complaint sources — only when the at-fault party is genuinely
+        // the seller on this transaction (not the buyer being at fault).
+        if ($atFaultPartyId !== null && $outcome !== 'dismissed') {
+            $listing = $this->listingModel->find($saleEvent['listing_id']);
+            if ($listing && $listing['seller_party_id'] === $atFaultPartyId) {
+                (new StandingReviewService())->recordComplaint($atFaultPartyId, "Dispute ruled at-fault: {$rationale}");
+            }
+        }
+
+        $ruled = $this->disputeModel->find($disputeId);
+        // D-110: both parties learn the ruling the moment it's issued,
+        // not on their next unrelated page visit.
+        $this->broadcastDisputeUpdate($ruled);
+        return $ruled;
+    }
+
+    // Executes the real consequence of a ruling — not just recording an
+    // enum value. Reuses SettlementService/EmdHoldModel/RatingService
+    // rather than duplicating logic.
+    private function executeRuling(array $dispute, string $outcome, ?string $atFaultPartyId, string $rulerPartyId): void
+    {
+        $settlement = $this->settlementModel->findBySaleEvent($dispute['sale_event_id']);
+
+        if ($outcome === 'force_log_noc') {
+            if (!$settlement) {
+                throw new \RuntimeException('Cannot force-log an NOC — no settlement exists for this sale event yet.');
+            }
+            $settlementService = new SettlementService();
+            if ($dispute['respondent_party_id'] === $settlement['seller_party_id']) {
+                $settlementService->confirmSellerNoc($settlement['id'], $settlement['seller_party_id']);
+            } else {
+                $settlementService->confirmBuyerNoc($settlement['id'], $settlement['buyer_party_id']);
+            }
+        } elseif ($outcome === 'order_forfeiture') {
+            $target = $atFaultPartyId ?? $dispute['respondent_party_id'];
+            $hold = $this->emdHoldModel->findBySaleEventAndParty($dispute['sale_event_id'], $target);
+            if ($hold && $hold['status'] === 'held') {
+                $saleEvent = $this->saleEventModel->find($dispute['sale_event_id']);
+                // BR-34 (D-87/D-88): the Success Fee "that would have
+                // applied" is looked up against the price this defaulting
+                // party would have paid — the sale event's winning
+                // current_price — not the smaller 10% EMD amount itself.
+                // The fee amount doesn't vary by Fee Payer Election
+                // (BR-32), so no lookup of that election is needed here.
+                $saleValue = $saleEvent['current_price'] !== null ? (float) $saleEvent['current_price'] : (float) $hold['amount'];
+                $allocation = EmdService::calculateForfeitureAllocation((float) $hold['amount'], $saleValue, false);
+                $this->emdHoldModel->markForfeited($hold['id'], 0.0, $allocation['platformAmount'], $allocation['sellerAmount']);
+                (new AuditLogService())->log('emd.forfeited_by_dispute_ruling', $rulerPartyId, [
+                    'disputeId' => $dispute['id'], 'targetPartyId' => $target, 'amount' => (float) $hold['amount'],
+                ]);
+            }
+        } elseif ($outcome === 'rating_consequence') {
+            $target = $atFaultPartyId ?? $dispute['respondent_party_id'];
+            $listing = $this->listingModel->find($this->saleEventModel->find($dispute['sale_event_id'])['listing_id']);
+            $isSeller = $target === $listing['seller_party_id'];
+            $ratingRole = $isSeller ? 'seller_star_rating' : 'star_rating';
+
+            // BR-35: only these four category+role combinations map
+            // unambiguously onto a single named event without inventing
+            // new pattern-counting infrastructure this codebase doesn't
+            // have yet — condition_delivery's own text names exactly
+            // this scenario on both sides; payment/non_lifting_collection
+            // map onto the closest single-instance named event. The
+            // remaining combinations (payment+seller,
+            // non_lifting_collection+buyer, auction_rejection+*,
+            // buyer_non_response+*) keep the prior generic -0.5
+            // magnitude — flagged here, not silently left unexamined.
+            $eventKey = match (true) {
+                $dispute['category'] === 'condition_delivery' && !$isSeller => 'frivolous_dispute',
+                $dispute['category'] === 'condition_delivery' && $isSeller => 'data_mismatch',
+                $dispute['category'] === 'payment' && !$isSeller => 'late_payment',
+                $dispute['category'] === 'non_lifting_collection' && $isSeller => 'delayed_collection',
+                default => null,
+            };
+
+            $downgrade = $eventKey !== null
+                ? $this->ratingService->applyNamedEvent($target, $ratingRole, $eventKey, "Dispute ruling {$dispute['id']}", $dispute['sale_event_id'])
+                : $this->ratingService->initiateDowngrade($target, $ratingRole, 0.5, "Dispute ruling: {$dispute['id']}", $dispute['sale_event_id']);
+            // A ruling authority's own decision satisfies the BR-36 approval
+            // it would otherwise need — self-approve at the appropriate tier.
+            $approverType = $dispute['ruling_authority_type'];
+            $this->ratingService->approveDowngrade($downgrade['id'], $rulerPartyId, $approverType);
+            if ($approverType === 'super_admin' && $downgrade['requiresDualApproval']) {
+                // Super Admin ruling satisfies both tiers of BR-36's gate.
+                $this->ratingService->approveDowngrade($downgrade['id'], $rulerPartyId, 'tenant_admin');
+            }
+        } elseif ($outcome === 'dismissed') {
+            // No execution — BR-40 9.1 pattern-tracking happens via query,
+            // not a write, at dispute-filing time (see countDismissedFiledBy).
+        } else {
+            throw new \RuntimeException("Unknown ruling outcome: {$outcome}");
+        }
+    }
+
+    // BR-40: one appeal, Tenant Admin ruling -> Super Admin only.
+    public function fileAppeal(string $disputeId, string $appealingPartyId): array
+    {
+        $dispute = $this->requireDispute($disputeId);
+        if ($dispute['status'] !== 'ruled') {
+            throw new \RuntimeException('Only a ruled dispute can be appealed.');
+        }
+        if ($dispute['ruling_authority_type'] === 'super_admin') {
+            throw new \RuntimeException('BR-40: a direct Super Admin ruling is final and cannot be appealed.');
+        }
+        if ($appealingPartyId !== $dispute['filed_by_party_id'] && $appealingPartyId !== $dispute['respondent_party_id']) {
+            throw new \RuntimeException('Only a party to this dispute may appeal it.');
+        }
+        $this->disputeModel->update($disputeId, ['status' => 'appealed', 'appealed_at' => date('Y-m-d H:i:s')]);
+        $appealed = $this->disputeModel->find($disputeId);
+        // D-110: the non-appealing party learns an appeal was filed
+        // without having to keep re-checking the dispute page.
+        $this->broadcastDisputeUpdate($appealed);
+        return $appealed;
+    }
+
+    // Note: an appeal ruling records the final decision but does NOT
+    // automatically reverse whatever the original ruling already executed
+    // (a forfeiture already processed, a rating already changed) — that
+    // reversal, if the appeal outcome differs, is a manual admin action
+    // not automated here. Flagged as a real limitation, not hidden.
+    public function ruleOnAppeal(string $disputeId, string $superAdminPartyId, string $rationale): array
+    {
+        $dispute = $this->requireDispute($disputeId);
+        if ($dispute['status'] !== 'appealed') {
+            throw new \RuntimeException('This dispute has not been appealed.');
+        }
+        if (!$this->authz->isSuperAdmin($superAdminPartyId)) {
+            throw new \RuntimeException('BR-40: only a Super Admin may rule on an appeal.');
+        }
+        $this->disputeModel->update($disputeId, [
+            'status' => 'closed', 'appeal_ruled_by_party_id' => $superAdminPartyId,
+            'appeal_rationale' => $rationale, 'appeal_ruled_at' => date('Y-m-d H:i:s'),
+        ]);
+        (new AuditLogService())->log('dispute.appeal_ruled', $superAdminPartyId, [
+            'disputeId' => $disputeId, 'rationale' => $rationale,
+        ]);
+        $closed = $this->disputeModel->find($disputeId);
+        // D-110: final closure — both parties get the terminal state
+        // live rather than needing to notice it on their own.
+        $this->broadcastDisputeUpdate($closed);
+        return $closed;
+    }
+
+    // D-110: single broadcast point for all 5 lifecycle methods above —
+    // sends the dispute's full current state (not just a delta) to both
+    // the filer's and respondent's own party channel. A dispute is a
+    // private two-party document like a Settlement (D-109), so this
+    // never touches a sale_event room; it reuses the same
+    // buyer:<partyId> channel every logged-in party (including a
+    // Tenant/Super Admin acting on their own account) already holds
+    // open, not a new room type.
+    //
+    // Deliberately NOT attempted here: a live "new dispute filed" nudge
+    // to whichever Tenant/Super Admin will eventually rule on it. That
+    // would need a genuinely new broadcast target — "every party
+    // currently holding an admin role of type X" — which doesn't exist
+    // in RealtimeBroadcastService/the sidecar today (only a single
+    // sale_event room and single per-party rooms do). Building that is
+    // real new scope, not a rename of something already there; flagged
+    // as an open gap rather than improvised here.
+    private function broadcastDisputeUpdate(array $dispute): void
+    {
+        $broadcaster = new RealtimeBroadcastService();
+        $payload = [
+            'disputeId' => $dispute['id'],
+            'status' => $dispute['status'],
+            'rulingOutcome' => $dispute['ruling_outcome'],
+            'rulingAuthorityType' => $dispute['ruling_authority_type'],
+        ];
+        $broadcaster->broadcastToBuyer($dispute['filed_by_party_id'], 'dispute_updated', $payload);
+        $broadcaster->broadcastToBuyer($dispute['respondent_party_id'], 'dispute_updated', $payload);
+    }
+
+    private function requireDispute(string $disputeId): array
+    {
+        $dispute = $this->disputeModel->find($disputeId);
+        if (!$dispute) {
+            throw new \RuntimeException('Dispute not found');
+        }
+        return $dispute;
+    }
+}

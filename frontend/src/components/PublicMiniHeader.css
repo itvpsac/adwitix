@@ -1,0 +1,10 @@
+.pmh { position: sticky; top: 0; z-index: 60; background: rgba(243,244,248,0.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--color-border); }
+.pmh--dark { background: var(--color-bg-dark); border-bottom: 1px solid var(--color-dark-border); }
+.pmh__inner { margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; }
+.pmh__logo { display: flex; align-items: center; gap: 12px; color: inherit; flex: 1; min-width: 0; overflow: hidden; }
+.pmh__icon { height: 34px; width: 34px; display: block; flex-shrink: 0; }
+.pmh__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: var(--color-navy-deep); flex-shrink: 0; }
+.pmh--dark .pmh__wordmark { color: #fff; }
+.pmh__wordmark-accent { color: var(--color-accent); }
+.pmh__back { font-weight: 700; font-size: 12.5px; padding: 9px 18px; border-radius: var(--radius-pill); border: 1px solid var(--color-border); color: var(--color-text); white-space: nowrap; flex-shrink: 0; }
+.pmh--dark .pmh__back { border-color: var(--color-dark-border-soft); color: #fff; }

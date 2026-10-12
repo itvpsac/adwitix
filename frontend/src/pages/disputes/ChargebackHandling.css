@@ -1,0 +1,27 @@
+.cb-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
+.cb-role-toggle { display: flex; gap: 4px; background: var(--color-dark-panel); padding: 4px; border-radius: 100px; width: fit-content; margin: 14px auto 0; }
+.cb-role-btn { font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 100px; border: none; cursor: pointer; background: transparent; color: var(--color-dark-text-soft); }
+.cb-role-btn--active { background: var(--color-accent); color: #fff; }
+.cb-main { max-width: 860px; margin: 0 auto; padding: 24px 20px 90px; }
+.cb-title { font-family: var(--font-serif); font-size: 28px; font-weight: 800; letter-spacing: -0.6px; margin: 0 0 10px; }
+.cb-title--sm { font-size: 26px; margin-bottom: 6px; }
+.cb-intro { font-size: 14px; color: var(--color-text-muted); margin: 0 0 24px; max-width: 640px; line-height: 1.65; }
+.cb-sub { font-size: 13.5px; color: var(--color-text-muted); margin: 0 0 24px; }
+.cb-list { display: flex; flex-direction: column; gap: 12px; }
+.cb-case { background: #fff; border: 1px solid var(--color-border); border-radius: 14px; padding: 18px 20px; }
+.cb-case__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.cb-case__title { font-size: 14.5px; font-weight: 700; }
+.cb-case__id { font-weight: 400; color: var(--color-text-faint); font-size: 12px; }
+.cb-case__meta { font-size: 12px; color: var(--color-text-faint); font-family: var(--font-mono); }
+.cb-status { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; padding: 5px 12px; border-radius: 100px; align-self: flex-start; }
+.cb-evidence { font-size: 12.5px; color: var(--color-text-muted); background: #F6F7FB; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; line-height: 1.6; }
+.cb-flag { background: var(--color-danger-bg); border: 1px solid #F2CFC6; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; font-size: 12.5px; color: #A93F2A; line-height: 1.6; }
+.cb-flag--nested { margin-bottom: 0; }
+.cb-flag-actions { display: flex; gap: 8px; margin-top: 8px; }
+.cb-btn-danger { font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border: none; background: #A93F2A; color: #fff; cursor: pointer; }
+.cb-btn-outline { font-size: 12px; font-weight: 700; padding: 7px 14px; border-radius: 8px; border: 1px solid #A93F2A; background: #fff; color: #A93F2A; cursor: pointer; }
+.cb-flag-logged { margin-top: 8px; font-weight: 700; }
+.cb-trader-card { background: #fff; border: 1px solid var(--color-border); border-radius: 16px; padding: 22px 24px; }
+.cb-trader-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.cb-trader-title { font-size: 15px; font-weight: 800; }
+.cb-trader-body { font-size: 13px; color: var(--color-text-muted); margin: 0 0 14px; line-height: 1.65; }

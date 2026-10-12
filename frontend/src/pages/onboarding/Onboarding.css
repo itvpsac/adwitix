@@ -1,0 +1,29 @@
+.ob-shell { background: var(--color-bg); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px 20px; font-family: var(--font-sans); color: var(--color-text); }
+.ob-card { width: 100%; max-width: 420px; background: #fff; border: 1px solid var(--color-border); border-radius: 20px; padding: 40px 36px; box-shadow: var(--shadow-card); }
+.ob-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+.ob-logo__icon { height: 32px; width: 32px; display: block; }
+.ob-logo__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 19px; letter-spacing: -0.4px; color: var(--color-navy-deep); }
+.ob-logo__wordmark-accent { color: var(--color-accent); }
+.ob-progress { display: flex; gap: 6px; margin-bottom: 26px; }
+.ob-progress__bar { height: 3px; flex: 1; border-radius: 2px; }
+.ob-h1 { font-family: var(--font-serif); font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 8px; }
+.ob-p { font-size: 13.5px; color: var(--color-text-muted); margin: 0 0 26px; line-height: 1.55; }
+.ob-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); display: block; margin-bottom: 6px; }
+.ob-mobile-row { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+.ob-mobile-prefix { padding: 13px 12px; background: var(--color-bg); font-size: 14px; font-weight: 600; color: var(--color-text-muted); border-right: 1px solid var(--color-border); }
+.ob-mobile-input { flex: 1; border: none; padding: 13px 14px; font-size: 14px; outline: none; font-family: var(--font-mono); }
+.ob-error { font-size: 12px; color: var(--color-danger); margin: 0 0 14px; }
+.ob-btn-dark { width: 100%; padding: 13px; border: none; border-radius: 100px; background: var(--color-bg-dark); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 10px; }
+.ob-btn-gold { width: 100%; padding: 13px; border: none; border-radius: 100px; background: var(--color-accent); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; margin-top: 10px; }
+.ob-terms { font-size: 11.5px; color: var(--color-text-faint); margin: 18px 0 0; text-align: center; line-height: 1.5; }
+.ob-change-link { font-weight: 600; }
+.ob-otp-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.ob-otp-digit { width: 100%; text-align: center; padding: 12px 0; border: 1px solid var(--color-border); border-radius: 10px; font-size: 19px; font-weight: 700; font-family: var(--font-mono); outline: none; }
+.ob-resend { font-size: 12.5px; color: var(--color-text-faint); margin: 16px 0 22px; }
+.ob-dev-otp { background: #FBF6EC; border: 1px solid #E9DCC0; border-radius: 8px; padding: 10px 12px; margin: 0 0 14px; font-size: 12px; color: #9C7430; }
+.ob-forgot-link { display: block; text-align: right; font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin: 0 0 18px; }
+.ob-mpin-input { width: 100%; padding: 13px 14px; border: 1px solid var(--color-border); border-radius: 10px; font-size: 20px; letter-spacing: 10px; outline: none; margin-bottom: 14px; font-family: var(--font-mono); }
+@media (max-width: 560px) {
+  .ob-shell { padding: 0; align-items: flex-start; }
+  .ob-card { padding: 32px 24px; border-radius: 0; box-shadow: none; border: none; min-height: 100vh; }
+}

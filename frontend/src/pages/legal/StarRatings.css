@@ -1,0 +1,17 @@
+.sr-page { min-height: 100vh; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }
+.sr-main { max-width: 640px; margin: 0 auto; padding: 40px 20px 90px; }
+.sr-title { font-family: var(--font-serif); font-size: 26px; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 8px; }
+.sr-desc { font-size: 14px; color: var(--color-text-muted); margin: 0 0 28px; line-height: 1.6; }
+.sr-cards { display: flex; gap: 16px; }
+.sr-card { flex: 1; border: 1px solid var(--color-border); border-radius: 14px; padding: 20px; background: #fff; }
+.sr-card__label { font-size: 11px; color: var(--color-text-faint); text-transform: uppercase; margin: 0 0 8px; font-weight: 700; letter-spacing: 0.4px; }
+.sr-card__value { font-size: 32px; font-weight: 800; margin: 0; font-family: var(--font-serif); }
+.sr-card__banned { font-size: 12px; color: var(--color-danger); margin: 10px 0 0; }
+.sr-card__crawlback { font-size: 12px; color: var(--color-text-faint); margin: 4px 0 0; }
+.sr-card__good { font-size: 12px; color: var(--color-success); margin: 10px 0 0; }
+.sr-history { margin-top: 22px; }
+.sr-history a { color: var(--color-accent); font-size: 13px; font-weight: 600; }
+.sr-footer { border-top: 1px solid var(--color-border); padding: 24px 20px; text-align: center; }
+.sr-footer p { font-size: 12.5px; color: var(--color-text-faint); margin: 0; }
+.sr-footer a { color: var(--color-accent); }
+@media (max-width: 640px) { .sr-cards { flex-direction: column; } }

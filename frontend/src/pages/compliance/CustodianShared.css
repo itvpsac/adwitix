@@ -1,0 +1,31 @@
+.custodian-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
+.custodian-main { max-width: 900px; margin: 0 auto; padding: 40px 20px 90px; }
+.custodian-main--wide { max-width: 1040px; }
+.custodian-main--narrow { max-width: 560px; }
+.custodian-title-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.custodian-title { font-family: var(--font-serif); font-size: 30px; font-weight: 800; letter-spacing: -0.6px; margin: 0; }
+.custodian-title--sm { font-size: 26px; }
+.custodian-info-btn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--color-text-faint); background: #fff; color: var(--color-text-muted); font-size: 12px; font-weight: 700; font-family: var(--font-serif); font-style: italic; cursor: pointer; flex-shrink: 0; }
+.custodian-sub { font-size: 14px; color: var(--color-text-muted); margin: 0 0 12px; max-width: 640px; line-height: 1.6; }
+.custodian-info-box { background: #FBF8F0; border: 1px solid #E9DCC0; border-radius: 10px; padding: 14px 16px; margin: 0 0 20px; font-size: 13px; color: #6B5D3F; line-height: 1.6; max-width: 640px; }
+.custodian-info-close { display: block; margin-top: 8px; font-size: 12px; font-weight: 700; color: #9C874C; background: none; border: none; cursor: pointer; padding: 0; }
+.custodian-search { position: relative; margin-bottom: 12px; }
+.custodian-search input { width: 100%; padding: 12px 16px 12px 38px; border-radius: 9px; border: 1px solid var(--color-border); background: #fff; font-size: 13.5px; outline: none; font-family: inherit; }
+.custodian-search__icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--color-text-faint); font-size: 14px; }
+.custodian-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+.custodian-filter-pill { padding: 7px 14px; border-radius: 100px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; background: #fff; border: 1px solid var(--color-border); color: var(--color-text-muted); }
+.custodian-filter-pill--active { background: var(--color-bg-dark); border-color: var(--color-bg-dark); color: #fff; }
+.custodian-empty { text-align: center; padding: 60px 20px; color: var(--color-text-faint); font-size: 14px; }
+.custodian-decided-title { font-size: 14px; font-weight: 700; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin: 28px 0 12px; }
+.custodian-decided-list { display: flex; flex-direction: column; gap: 8px; }
+.custodian-decided-row { background: #fff; border: 1px solid var(--color-border); border-radius: 10px; padding: 12px 16px; }
+.custodian-decided-status { font-size: 13px; font-weight: 700; }
+.custodian-decided-body { font-size: 12.5px; color: var(--color-text-muted); }
+.custodian-decided-reason { font-size: 12px; color: var(--color-text-faint); margin-top: 2px; }
+.custodian-btn-danger { padding: 8px 16px; border-radius: 8px; border: none; background: var(--color-danger); color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.custodian-btn-success { padding: 8px 16px; border-radius: 8px; border: none; background: var(--color-success); color: #fff; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.custodian-btn-outline { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--color-border); background: #fff; color: var(--color-text-muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.custodian-btn-danger-outline { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--color-danger); background: #fff; color: var(--color-danger); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.custodian-btn-success-outline { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--color-success); background: #fff; color: var(--color-success); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.custodian-textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13px; font-family: inherit; outline: none; resize: vertical; margin-bottom: 8px; }
+.custodian-btn-row { display: flex; gap: 8px; }

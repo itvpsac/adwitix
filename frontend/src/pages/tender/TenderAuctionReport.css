@@ -1,0 +1,32 @@
+.tar-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
+.tar-header { position: sticky; top: 0; z-index: 60; background: var(--color-bg-dark); border-bottom: 1px solid var(--color-dark-border); }
+.tar-header__inner { max-width: 1000px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; gap: 12px; }
+.tar-logo { display: flex; align-items: center; gap: 12px; }
+.tar-logo__icon { height: 34px; width: 34px; display: block; }
+.tar-logo__wordmark { font-family: var(--font-serif); font-weight: 800; font-size: 20px; letter-spacing: -0.5px; color: #fff; }
+.tar-logo__wordmark-accent { color: var(--color-accent); }
+.tar-back { font-size: 12.5px; font-weight: 700; padding: 9px 18px; border-radius: 100px; border: 1px solid var(--color-dark-border-soft); color: var(--color-dark-text-soft); }
+.tar-main { max-width: 960px; margin: 0 auto; padding: 40px 20px 100px; }
+.tar-title { font-family: var(--font-serif); font-size: 28px; font-weight: 800; margin: 0 0 6px; }
+.tar-sub { font-size: 13px; color: var(--color-text-faint); margin: 0 0 30px; }
+.tar-section { margin-bottom: 30px; }
+.tar-h2 { font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.4px; color: var(--color-text-faint); margin: 0 0 12px; }
+.tar-card { background: #fff; border: 1px solid var(--color-border); border-radius: 14px; overflow: hidden; }
+.tar-simple-row { display: flex; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--color-border-soft); font-size: 13px; }
+.tar-simple-row:last-child { border-bottom: none; }
+.tar-simple-row__name { font-weight: 600; }
+.tar-simple-row__mono { color: var(--color-text-faint); font-family: var(--font-mono); font-size: 12px; }
+.tar-cols3 { display: grid; grid-template-columns: 1fr 140px 140px; padding: 0 18px; }
+.tar-table-head { font-size: 10px; text-transform: uppercase; color: var(--color-text-faint); font-weight: 700; border-bottom: 1px solid var(--color-border-soft); }
+.tar-table-head > div { padding: 10px 0; }
+.tar-table-row { border-bottom: 1px solid var(--color-border-soft); align-items: center; min-height: 44px; font-size: 13px; }
+.tar-table-row > div { padding: 0; }
+.tar-cell-strong { font-weight: 600; }
+.tar-cell-mono-strong { font-family: var(--font-mono); font-weight: 700; }
+.tar-cell-faint { color: var(--color-text-faint); font-size: 12px; }
+.tar-rounds { display: flex; flex-direction: column; gap: 10px; }
+.tar-round-card { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; padding: 16px 18px; }
+.tar-round-card__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.tar-round-card__title { font-size: 13.5px; font-weight: 800; }
+.tar-round-outcome { font-size: 10.5px; font-weight: 700; text-transform: uppercase; padding: 4px 10px; border-radius: 100px; }
+.tar-round-note { font-size: 12.5px; color: var(--color-text-muted); margin: 0; line-height: 1.5; }

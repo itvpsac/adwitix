@@ -1,0 +1,24 @@
+.gam-overlay { position: fixed; inset: 0; background: rgba(10,12,20,0.72); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 200; }
+.gam-box { position: relative; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; background: var(--color-bg-dark); border: 1px solid var(--color-dark-input-border); border-radius: 14px; padding: 28px; color: #fff; }
+.gam-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 100px; border: 1px solid var(--color-dark-input-border); background: transparent; color: #ADB2C8; font-size: 16px; cursor: pointer; line-height: 1; }
+.gam-close:hover { color: #fff; }
+.gam-h2 { font-family: var(--font-serif); font-size: 19px; font-weight: 800; margin: 0 0 10px; }
+.gam-p { font-size: 13px; color: #DADCE8; margin: 0 0 18px; line-height: 1.6; }
+.gam-qr-wrap { display: flex; justify-content: center; background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+.gam-qr-img { width: 170px; height: 170px; display: block; }
+.gam-secret-card { background: var(--color-dark-panel); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 6px; }
+.gam-secret-hint { font-size: 11px; color: #9096AC; text-transform: uppercase; letter-spacing: 0.3px; }
+.gam-secret-code { font-size: 13px; color: var(--color-accent); font-family: var(--font-mono); word-break: break-all; }
+.gam-label { font-size: 11.5px; font-weight: 700; color: #B7BBCE; letter-spacing: 0.3px; text-transform: uppercase; }
+.gam-code-input { width: 100%; padding: 12px 14px; margin: 8px 0 16px; border: 1px solid var(--color-dark-input-border); border-radius: 8px; background: var(--color-dark-input); color: #fff; font-size: 16px; letter-spacing: 4px; text-align: center; outline: none; font-family: var(--font-mono); }
+.gam-mobile-row { display: flex; align-items: center; border: 1px solid var(--color-dark-input-border); border-radius: 8px; overflow: hidden; margin: 8px 0 16px; }
+.gam-mobile-prefix { padding: 12px 12px; background: var(--color-dark-panel); font-size: 14px; font-weight: 600; color: #ADB2C8; border-right: 1px solid var(--color-dark-input-border); }
+.gam-mobile-input { flex: 1; border: none; padding: 12px 14px; font-size: 14px; outline: none; font-family: var(--font-mono); background: #fff; color: #14161c !important; -webkit-text-fill-color: #14161c; caret-color: #14161c; }
+.gam-mobile-input::placeholder { color: #6b7080; }
+.gam-error { font-size: 12.5px; color: #FF9B7A; margin: -6px 0 14px; font-weight: 600; }
+.gam-btn { display: block; width: 100%; text-align: center; font-size: 14px; font-weight: 700; padding: 12px; border-radius: 8px; border: none; cursor: pointer; }
+.gam-btn--active { background: var(--color-accent); color: var(--color-bg-dark); }
+.gam-btn--disabled { background: var(--color-dark-input-border); color: #7A80A0; cursor: not-allowed; }
+.gam-btn--ghost { background: transparent; border: 1px solid var(--color-dark-input-border); color: #DADCE8; }
+.gam-backup-grid { background: var(--color-dark-panel); border-radius: 10px; padding: 16px; margin-bottom: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gam-backup-code { font-family: var(--font-mono); font-size: 13px; color: var(--color-accent); }

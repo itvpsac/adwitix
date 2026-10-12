@@ -1,0 +1,403 @@
+import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
+import imageCompression from 'browser-image-compression';
+import './CreateLot.css';
+import AppHeader from '../../components/AppHeader.jsx';
+import { CATEGORY_MAP, SUBCATEGORY_MAP, MICROCATEGORY_MAP } from '../../constants.js';
+import { CATEGORIES, SUBCATS_BY_CAT, MICROCATS_BY_SUBCAT } from '../../data/classification.js';
+import { listings } from '../../api/endpoints.js';
+import { formatCurrency } from '../../utils/format.js';
+import SearchableSelect from '../../components/SearchableSelect.jsx';
+
+const FORMATS = [
+  { id: 'buynow', label: 'Buy-Now', desc: 'Traders make offers; you choose who to sell to.' },
+  { id: 'easy', label: 'Easy Auction', desc: 'Scheduled, with a real inspection window.' },
+  { id: 'express', label: 'Express Auction', desc: 'Fast — starts once 3 Traders pledge, closes within the hour.' },
+  { id: 'tender', label: 'Tender Auction', desc: 'Fully private, invite-only — you control participation.' },
+];
+
+export default function CreateLot() {
+  const [step, setStep] = useState(1);
+  const [submitted, setSubmitted] = useState(false);
+  const [newLotId, setNewLotId] = useState('');
+  const [catId, setCatId] = useState('');
+  const [subcatId, setSubcatId] = useState('');
+  const [microcatId, setMicrocatId] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [fullAddress, setFullAddress] = useState('');
+  const [condition, setCondition] = useState('');
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [defectDisclosure, setDefectDisclosure] = useState({ knownDamage: '', missingComponents: '', nonfunctional: '' });
+  const [step1Error, setStep1Error] = useState('');
+
+  // Pincode lookup API
+  useEffect(() => {
+    if (pincode.length === 6) {
+      fetch(`https://api.postalpincode.in/pincode/${pincode}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data[0] && data[0].Status === 'Success') {
+            const office = data[0].PostOffice[0];
+            setCity(office.District);
+            setState(office.State);
+          } else {
+            setCity('Invalid Pincode');
+            setState('Invalid Pincode');
+          }
+        })
+        .catch(() => {
+          setCity('Error');
+          setState('Error');
+        });
+    } else {
+      setCity('');
+      setState('');
+    }
+  }, [pincode]);
+  const [extraBatches, setExtraBatches] = useState(0);
+  const [documents, setDocuments] = useState([]);
+  const mediaFileInputRef = useRef(null);
+  const docFileInputRef = useRef(null);
+  const [mediaFiles, setMediaFiles] = useState([]);
+
+  const handleDocUpload = (event) => {
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+    const newDocs = files.map(file => ({
+      name: file.name,
+      type: file.type,
+      file
+    }));
+    setDocuments(prev => [...prev, ...newDocs]);
+  };
+
+  const handleBulkUpload = async (event) => {
+    const files = Array.from(event.target.files);
+    if (!files.length) return;
+
+    const options = {
+      maxSizeMB: 1,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true,
+    };
+
+    try {
+      const compressedFiles = await Promise.all(
+        files.map(async (file) => {
+          if (file.type.startsWith('image/')) {
+            return await imageCompression(file, options);
+          }
+          return file;
+        })
+      );
+      
+      const newMedia = compressedFiles.map(file => ({
+        name: file.name,
+        type: file.type,
+        preview: URL.createObjectURL(file),
+        file
+      }));
+      setMediaFiles(prev => [...prev, ...newMedia]);
+    } catch (error) {
+      console.error('Compression failed:', error);
+      alert('Error processing files. Please try again.');
+    }
+  };
+
+  const removeMedia = (index) => {
+    URL.revokeObjectURL(mediaFiles[index].preview);
+    setMediaFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const [formatId, setFormatId] = useState(null);
+  const [reserveValue, setReserveValue] = useState('');
+  const [expectedValue, setExpectedValue] = useState('');
+  const [inspectionWindow, setInspectionWindow] = useState('3d');
+  const [step3Error, setStep3Error] = useState('');
+  const [preCheckStatus, setPreCheckStatus] = useState('idle');
+  const [loading, setLoading] = useState(false);
+
+  const goToStep2 = () => {
+    if (!catId || !condition || !title.trim()) { setStep1Error('Fill in category, condition, and title before continuing.'); return; }
+    setStep(2);
+  };
+  
+  const submitLot = async () => {
+    setLoading(true);
+    setStep3Error('');
+    try {
+      const payload = {
+        tenant_id: "550e8400-e29b-41d4-a716-446655440001",
+        title,
+        description,
+        category: CATEGORY_MAP.find(c => c.id === catId)?.label || catId,
+        subcategory: SUBCATEGORY_MAP.find(s => s.id === subcatId)?.label || subcatId,
+        micro_category: MICROCATEGORY_MAP.find(m => m.id === microcatId)?.label || microcatId,
+        physical_condition: condition,
+        quantity: 1,
+        make_model: title,
+        pincode,
+        city,
+        state,
+        full_address: fullAddress,
+        media_tier: "certified_by_seller",
+        inspector_mobile: "9876543210",
+        surveyor_mobile: "",
+        custodian_mobile: "",
+        related_group_label: "",
+        shipping_enabled: "1",
+        shipping_cost_type: "fixed",
+        shipping_fixed_cost: 1500,
+        shipping_variable_rate_per_km: null,
+        media_is_representative_under_waiver: "0"
+      };
+      
+      const res = await listings.create(payload);
+      const lotId = res.id;
+
+      const formData = new FormData();
+      mediaFiles.forEach(m => formData.append('media[]', m.file));
+      documents.forEach(d => formData.append('documents[]', d.file));
+
+      await listings.uploadMedia(lotId, formData);
+      setNewLotId(lotId);
+      setSubmitted(true);
+    } catch (err) {
+      console.error("DEBUG: listings.create error:", err.payload || err);
+      if (err.status === 403) {
+        setStep3Error('You are not authorized to create a lot. Please ensure your KYC is approved by your TSX Master.');
+      } else if (err.status === 422) {
+        setStep3Error(`Validation error: ${err.description || 'Check your input data.'}`);
+      } else {
+        setStep3Error('Failed to submit lot. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+  const selectedFormat = FORMATS.find((f) => f.id === formatId);
+
+  return (
+    <div className="cl-page">
+      <AppHeader variant="light" contextNav={[{ label: "Create a Lot", to: "/create-lot", active: true }, { label: "Defect Disclosure", to: "/defect-disclosure" }]} />
+      <main className="cl-main">
+        <div className="legal-eyebrow">Market Maker</div>
+        <h1 className="cl-title">Create Lot</h1>
+        <p className="cl-sub">List an asset for sale. Every Lot goes through an AI Pre-Check before routing to your TSX Master for approval.</p>
+
+        <div className="cl-steps">{[1,2,3].map((n) => <div key={n} className="cl-step-bar" style={{ background: n <= step ? 'var(--color-accent)' : 'var(--color-border)' }} />)}</div>
+
+        {submitted ? (
+          <div className="cl-submitted">
+            <div className="cl-submitted__check">✓</div>
+            <p className="cl-submitted__title">Lot {newLotId} submitted for review</p>
+            <p className="cl-submitted__text">Routed to your TSX Master. You'll be notified once it's approved and live, or if changes are requested.</p>
+          </div>
+        ) : (
+          <>
+            {step === 1 && (
+              <>
+                <h2 className="cl-h2">1. What are you listing?</h2>
+                
+                <label className="cl-label">Title</label>
+                <input className="cl-input" placeholder="e.g. CNC Lathe Machine, 2018, Surplus" value={title} onChange={(e) => { setTitle(e.target.value); setStep1Error(''); }} />
+                
+                <h2 className="cl-h2">Sale Format</h2>
+                <div className="cl-format-grid">
+                  {FORMATS.map((f) => (
+                    <button key={f.id} onClick={() => { setFormatId(f.id); setStep1Error(''); }} className="cl-format-opt" style={{ borderColor: formatId === f.id ? 'var(--color-accent)' : 'var(--color-border)' }}>
+                      <p className="cl-format-opt__title">{f.label}</p><p className="cl-format-opt__desc">{f.desc}</p>
+                    </button>
+                  ))}
+                </div>
+                <div className="cl-grid2">
+                  <div>
+                    <label className="cl-label">Reserve Value (RV) — confidential floor price</label>
+                    <input className="cl-input" placeholder="₹" value={reserveValue} onChange={(e) => { setReserveValue(e.target.value.replace(/[^0-9]/g, '')); setStep1Error(''); }} />
+                  </div>
+                  {formatId === 'buynow' && (
+                    <div><label className="cl-label">Expected Value (EV) — target/asking price</label><input className="cl-input" placeholder="₹" value={expectedValue} onChange={(e) => setExpectedValue(e.target.value)} /></div>
+                  )}
+                  {formatId === 'easy' && (
+                    <div>
+                      <label className="cl-label">Inspection window</label>
+                      <select className="cl-select" value={inspectionWindow} onChange={(e) => setInspectionWindow(e.target.value)}>
+                        <option value="24h">24 hours</option><option value="48h">48 hours</option><option value="3d">3 days</option><option value="7d">7 days</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="cl-grid2">
+                  <div>
+                    <label className="cl-label">Category</label>
+                    <SearchableSelect
+                      options={CATEGORIES.map((c) => ({ id: c.id, code: c.code, label: c.label }))}
+                      value={catId || null}
+                      onChange={(id) => { setCatId(id || ''); setSubcatId(''); setMicrocatId(''); setStep1Error(''); }}
+                      placeholder="Choose a category…"
+                    />
+                  </div>
+                  <div>
+                    <label className="cl-label">Subcategory</label>
+                    <SearchableSelect
+                      options={SUBCATS_BY_CAT[catId]?.map((s) => ({ id: s.id, code: s.code, label: s.label })) || []}
+                      value={subcatId || null}
+                      onChange={(id) => { setSubcatId(id || ''); setMicrocatId(''); }}
+                      placeholder={catId ? 'Any subcategory…' : 'Choose a category first'}
+                      disabled={!catId}
+                    />
+                  </div>
+                  <div>
+                    <label className="cl-label">Microcategory</label>
+                    <SearchableSelect
+                      options={MICROCATS_BY_SUBCAT[subcatId]?.map((m) => ({ id: m.id, code: m.code, label: m.label })) || []}
+                      value={microcatId || null}
+                      onChange={(id) => setMicrocatId(id || '')}
+                      placeholder={subcatId ? 'Any microcategory…' : 'Choose a subcategory first'}
+                      disabled={!subcatId}
+                    />
+                  </div>
+                  <div>
+                    <label className="cl-label">Condition</label>
+                    <select className="cl-select" value={condition} onChange={(e) => { setCondition(e.target.value); setStep1Error(''); }}>
+                      <option value="">Select condition</option>
+                      <option value="working_minimal">Working, Minimal Wear</option><option value="working_moderate">Working, Moderate Wear</option>
+                      <option value="needs_repair">Needs Repair</option><option value="non_functional">Non-Functional / For Parts</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="cl-label">Pincode</label>
+                    <input 
+                      className="cl-input" 
+                      type="text" 
+                      value={pincode} 
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, '');
+                        if (val.length <= 6) setPincode(val);
+                      }} 
+                      placeholder="6-digit pincode" 
+                    />
+                  </div>
+                  <div>
+                    <label className="cl-label">State</label>
+                    <input className="cl-input" type="text" value={state} readOnly />
+                  </div>
+                  <div>
+                    <label className="cl-label">City</label>
+                    <input className="cl-input" type="text" value={city} readOnly />
+                  </div>
+                  <div>
+                    <label className="cl-label">Full Address</label>
+                    <input className="cl-input" type="text" value={fullAddress} onChange={(e) => setFullAddress(e.target.value)} placeholder="Enter full address details" />
+                  </div>
+                </div>
+
+                
+                {formatId === 'express' && (
+                  <div className="cl-defect-fields" style={{ background: '#F8F1E7', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
+                    <h3 className="cl-h2">Defect Disclosure — Express Auction</h3>
+                    <label className="cl-label">Known Damage</label>
+                    <textarea className="cl-textarea" placeholder="e.g. Minor dent on rear panel, none if not applicable" rows={3} value={defectDisclosure.knownDamage} onChange={(e) => setDefectDisclosure({ ...defectDisclosure, knownDamage: e.target.value })} />
+                    <label className="cl-label">Missing Components</label>
+                    <textarea className="cl-textarea" placeholder="e.g. Missing original charger, none if not applicable" rows={3} value={defectDisclosure.missingComponents} onChange={(e) => setDefectDisclosure({ ...defectDisclosure, missingComponents: e.target.value })} />
+                    <label className="cl-label">Non-Functional Aspects</label>
+                    <textarea className="cl-textarea" placeholder="e.g. AC not working, none if not applicable" rows={3} value={defectDisclosure.nonfunctional} onChange={(e) => setDefectDisclosure({ ...defectDisclosure, nonfunctional: e.target.value })} />
+                  </div>
+                )}
+
+                <label className="cl-label">Description — include any known defects (see <Link to="/legal/defect-disclosure">Defect Disclosure</Link> requirements)</label>
+                <textarea className="cl-textarea" placeholder="Describe the item accurately, including condition, age, and any known flaws." rows={4} value={description} onChange={(e) => { setDescription(e.target.value); setStep1Error(''); }} />
+                
+                {step1Error && <p className="cl-error">{step1Error}</p>}
+                <button className="cl-btn-primary" onClick={goToStep2}>Continue</button>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <h2 className="cl-h2">2. Upload media</h2>
+                <p className="cl-hint">At least 5 real photos of the actual item, captured through the app — no stock images. Location/timestamp is captured automatically.</p>
+                <div className="cl-row-between">
+                  <p className="cl-strong">Photos ({5 + extraBatches * 5}/50)</p>
+                  <button className="cl-outline-btn" onClick={() => mediaFileInputRef.current?.click()}>⇪ Bulk Upload</button>
+                  <input type="file" multiple ref={mediaFileInputRef} onChange={handleBulkUpload} style={{ display: 'none' }} accept="image/*,video/*" />
+                </div>
+                <div className="cl-media">
+                  {mediaFiles.map((m, i) => (
+                    <div key={i} className="cl-photo-slot">
+                      {m.type.startsWith('image/') ? (
+                        <img src={m.preview} alt="preview" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '10px'}} />
+                      ) : (
+                        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%'}}>
+                          <span style={{fontSize: '24px'}}>{m.type.startsWith('video/') ? '🎬' : '📄'}</span>
+                          <span style={{padding: '5px', fontSize: '10px', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%'}}>{m.name}</span>
+                        </div>
+                      )}
+                      <button onClick={() => removeMedia(i)} style={{position: 'absolute', top: 2, right: 2, cursor: 'pointer', background: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: '50%'}}>×</button>
+                    </div>
+                  ))}
+                  {Array.from({ length: Math.max(0, 5 - mediaFiles.length) }, (_, i) => (
+                    <div key={mediaFiles.length + i} className="cl-photo-slot">Slot {mediaFiles.length + i + 1}</div>
+                  ))}
+                </div>
+                <p className="cl-hint">Up to 50 photos total. Bulk Upload adds 5 more slots at a time.</p>
+
+                <p className="cl-strong">Video (optional, up to 2 minutes)</p>
+                <div className="cl-video-slot">Video walkthrough</div>
+
+                <p className="cl-strong">Supporting documents (optional — invoice, registration, inspection report)</p>
+                <div className="cl-doc-list">
+                  {documents.map((d, i) => (
+                    <div key={i} className="cl-doc-row">
+                      <span style={{fontSize: '24px'}}>📄</span>
+                      <span>{d.name}</span>
+                      <button onClick={() => setDocuments(documents.filter((_, idx) => idx !== i))}>Remove</button>
+                    </div>
+                  ))}
+                  <button className="cl-add-doc" onClick={() => docFileInputRef.current?.click()}>+ Add Document</button>
+                  <input type="file" multiple ref={docFileInputRef} onChange={handleDocUpload} style={{ display: 'none' }} accept=".pdf,.doc,.docx,.xls,.xlsx" />
+                </div>
+
+                <div className="cl-nav-row">
+                  <button className="cl-link-btn" onClick={() => setStep(1)}>← Back</button>
+                  <button className="cl-btn-primary cl-btn-primary--right" onClick={() => setStep(3)}>Continue to Review</button>
+                </div>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <h2 className="cl-h2">3. Review &amp; submit</h2>
+                <div className="cl-review-card">
+                  <div className="cl-review-row"><span>Title</span><span>{title}</span></div>
+                  <div className="cl-review-row">
+                    <span>Category</span>
+                    <span>
+                      {(() => {
+                        const selectedCat = CATEGORIES.find((c) => c.id === catId || c.code === catId || c.label === catId);
+                        return selectedCat ? `${selectedCat.code} — ${selectedCat.label}` : catId;
+                      })()}
+                    </span>
+                  </div>
+                  <div className="cl-review-row"><span>Format</span><span>{selectedFormat ? selectedFormat.label : ''}</span></div>
+                  <div className="cl-review-row"><span>Reserve Value</span><span>{formatCurrency(reserveValue)}</span></div>
+                </div>
+                <div className="cl-notice">Submitting routes this Lot to your TSX Master for approval. It won't go live until approved.</div>
+                <div className="cl-nav-row">
+                  <button className="cl-link-btn" onClick={() => setStep(2)}>← Back</button>
+                  <button className="cl-btn-gold cl-btn-primary--right" onClick={submitLot} disabled={loading}>{loading ? 'Submitting…' : 'Submit for Approval'}</button>
+                </div>
+                {step3Error && <p className="cl-error cl-error--top">{step3Error}</p>}
+              </>
+            )}
+          </>
+        )}
+      </main>
+      <footer className="cl-footer"><p>See our <Link to="/dos-and-donts">Dos &amp; Don'ts</Link> for listing best practices.</p></footer>
+    </div>
+  );
+}

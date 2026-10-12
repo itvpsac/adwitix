@@ -1,0 +1,50 @@
+/* AdwitiX design tokens — shared across all pages/components */
+:root {
+  /* Colors */
+  --color-bg: #F3F4F8;
+  --color-bg-dark: #1E2233;
+  --color-navy-deep: #1E2761;
+  --color-text: #1E2233;
+  --color-text-muted: #565B72;
+  --color-text-faint: #9A9FB5;
+  --color-border: #DDE0EA;
+  --color-border-soft: #EEF0EA;
+  --color-white: #fff;
+
+  --color-accent: #C9974C;
+  --color-accent-dark: #A87A38;
+  --color-accent-bg: #F6EEDF;
+  --color-accent-bg-strong: #FBF2E2;
+
+  --color-dark-panel: #2A2E40;
+  --color-dark-border: #33374A;
+  --color-dark-border-soft: #45495E;
+  --color-dark-input: #171A26;
+  --color-dark-input-border: #3A3F55;
+  --color-dark-text-muted: #9096AC;
+  --color-dark-text-soft: #C7CADA;
+
+  --color-success: #3F7A4E;
+  --color-success-bg: #E4EFE6;
+  --color-warning: #9C5B1F;
+  --color-warning-bg: #FBF2E2;
+  --color-danger: #B5482F;
+  --color-danger-bg: #FBE8E4;
+  --color-error-text: #E0805C;
+
+  /* Fonts */
+  --font-serif: Georgia, 'Cambria', serif;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+  --font-display: 'Archivo', sans-serif;
+
+  /* Layout */
+  --page-max-width: 1240px;
+  --dashboard-max-width: 1400px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 100px;
+  --shadow-card: 0 24px 48px -20px rgba(20,20,20,0.14);
+}

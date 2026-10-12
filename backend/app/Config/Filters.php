@@ -1,0 +1,137 @@
+<?php
+
+namespace Config;
+
+use CodeIgniter\Config\Filters as BaseFilters;
+use CodeIgniter\Filters\Cors;
+use CodeIgniter\Filters\CSRF;
+use CodeIgniter\Filters\DebugToolbar;
+use CodeIgniter\Filters\ForceHTTPS;
+use CodeIgniter\Filters\Honeypot;
+use CodeIgniter\Filters\InvalidChars;
+use CodeIgniter\Filters\PageCache;
+use CodeIgniter\Filters\PerformanceMetrics;
+use CodeIgniter\Filters\SecureHeaders;
+
+class Filters extends BaseFilters
+{
+    /**
+     * Configures aliases for Filter classes to
+     * make reading things nicer and simpler.
+     *
+     * @var array<string, class-string|list<class-string>>
+     *
+     * [filter_name => classname]
+     * or [filter_name => [classname1, classname2, ...]]
+     */
+    public array $aliases = [
+        'csrf'          => CSRF::class,
+        'toolbar'       => DebugToolbar::class,
+        'honeypot'      => Honeypot::class,
+        'invalidchars'  => InvalidChars::class,
+        'secureheaders' => SecureHeaders::class,
+        // 'cors'          => Cors::class,
+        'cors'          => \App\Filters\Cors::class,
+        'forcehttps'    => ForceHTTPS::class,
+        'pagecache'     => PageCache::class,
+        'performance'   => PerformanceMetrics::class,
+        // 'tenantAdmin'/'superAdmin' (session-based) retired in D-137
+        // (Phase 6) — every controller that used them is now migrated
+        // to jwtTenantAdmin/jwtSuperAdmin below.
+        'tenantResolve' => \App\Filters\TenantResolutionFilter::class,
+        'apiAuth'       => \App\Filters\ApiAuthFilter::class,
+        'jwtAuth'       => \App\Filters\JwtAuthFilter::class,
+        'jwtSuperAdmin' => \App\Filters\JwtSuperAdminFilter::class,
+        'jwtTenantAdmin' => \App\Filters\JwtTenantAdminFilter::class,
+        'jwtOptional'   => \App\Filters\JwtOptionalAuthFilter::class,
+    ];
+
+    /**
+     * List of special required filters.
+     *
+     * The filters listed here are special. They are applied before and after
+     * other kinds of filters, and always applied even if a route does not exist.
+     *
+     * Filters set by default provide framework functionality. If removed,
+     * those functions will no longer work.
+     *
+     * @see https://codeigniter.com/user_guide/incoming/filters.html#provided-filters
+     *
+     * @var array{before: list<string>, after: list<string>}
+     */
+    public array $required = [
+        'before' => [
+            'forcehttps', // Force Global Secure Requests
+            'pagecache',  // Web Page Caching
+        ],
+        'after' => [
+            'pagecache',   // Web Page Caching
+            'performance', // Performance Metrics
+            'toolbar',     // Debug Toolbar
+        ],
+    ];
+
+    /**
+     * List of filter aliases that are always
+     * applied before and after every request.
+     *
+     * @var array{
+     *     before: array<string, array{except: list<string>|string}>|list<string>,
+     *     after: array<string, array{except: list<string>|string}>|list<string>
+     * }
+     */
+    public array $globals = [
+        'before' => [
+            'cors',
+            // 'honeypot',
+            // Real CSRF protection, enabled on every browser-session POST.
+            // Excluded: api/* — the Tenant API is server-to-server OAuth2
+            // bearer-token auth (ApiAuthFilter), not a browser session with
+            // cookies, so it has no CSRF token to send and doesn't need one
+            // (BR-62-66's own threat model is a stolen bearer token, not a
+            // forged cross-site request from a logged-in browser).
+            'csrf' => ['except' => ['api/*']],
+            // 'invalidchars',
+            'tenantResolve', // BR-06: Host-header tenant resolution, every request
+            // D-137 (Phase 6): populates UserAuthContext from a Bearer
+            // token when one is offered, without rejecting requests that
+            // don't — see JwtOptionalAuthFilter's own docblock. Runs
+            // globally so the handful of not-yet-converted, session-
+            // optional controllers (Home, DiscoveryController, etc.)
+            // keep degrading to "anonymous viewer" instead of silently
+            // losing their personalization now that nothing sets the
+            // old PHP session anymore.
+            'jwtOptional',
+        ],
+        'after' => [
+            // 'honeypot',
+            'secureheaders',
+        ],
+    ];
+
+    /**
+     * List of filter aliases that works on a
+     * particular HTTP method (GET, POST, etc.).
+     *
+     * Example:
+     * 'POST' => ['foo', 'bar']
+     *
+     * If you use this, you should disable auto-routing because auto-routing
+     * permits any HTTP method to access a controller. Accessing the controller
+     * with a method you don't expect could bypass the filter.
+     *
+     * @var array<string, list<string>>
+     */
+    public array $methods = [];
+
+    /**
+     * List of filter aliases that should run on any
+     * before or after URI patterns.
+     *
+     * Example:
+     * 'isLoggedIn' => ['before' => ['account/*', 'profiles/*']]
+     *
+     * @var array<string, array<string, list<string>>>
+     */
+    public array $filters = [];
+}

@@ -1,0 +1,19 @@
+.al-date { padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 12px; outline: none; background: #fff; }
+.al-to { font-size: 12px; color: var(--color-text-faint); }
+.al-clear { font-size: 12px; font-weight: 600; color: var(--color-text-muted); background: none; border: none; cursor: pointer; padding: 0 4px; }
+.al-refresh { margin-left: auto; padding: 7px 14px; border-radius: 100px; border: 1px solid var(--color-border); background: #fff; color: var(--color-text); font-size: 12px; font-weight: 700; cursor: pointer; }
+.al-count { font-size: 12px; color: var(--color-text-faint); margin-bottom: 10px; }
+.al-table { background: #fff; border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; }
+.al-row { display: grid; grid-template-columns: 132px 110px 1.6fr 1fr 130px; gap: 10px; padding: 9px 16px; align-items: start; }
+.al-row--head { background: var(--color-bg); border-bottom: 1px solid var(--color-border); font-size: 10.5px; font-weight: 700; color: var(--color-text-faint); text-transform: uppercase; }
+.al-row--data { width: 100%; text-align: left; border: none; border-bottom: 1px solid var(--color-border-soft); cursor: pointer; font-family: inherit; }
+.al-cell-time { font-size: 11px; color: var(--color-text-muted); font-family: var(--font-mono); white-space: nowrap; }
+.al-role-badge { font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 100px; width: fit-content; }
+.al-cell-action { font-size: 12.5px; color: var(--color-text); overflow: hidden; text-overflow: ellipsis; }
+.al-cell-detail { font-size: 12px; color: var(--color-text-muted); overflow: hidden; text-overflow: ellipsis; }
+.al-cell-actor { text-align: right; font-size: 11.5px; color: var(--color-text-muted); }
+.al-cell-actor-mobile { font-family: var(--font-mono); color: var(--color-text-faint); }
+.al-load-more { display: block; margin: 16px auto 0; padding: 10px 22px; border: 1px solid var(--color-border); border-radius: 100px; background: #fff; color: var(--color-text); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.al-footer { border-top: 1px solid var(--color-border); padding: 24px 20px; text-align: center; }
+.al-footer p { font-size: 12.5px; color: var(--color-text-faint); margin: 0; }
+@media (max-width: 640px) { .al-row { grid-template-columns: 1fr; } }

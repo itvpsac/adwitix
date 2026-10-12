@@ -1,0 +1,132 @@
+<?php
+
+namespace App\Libraries;
+
+use App\Models\PartyRoleModel;
+use App\Models\ListingModel;
+use App\Models\SaleEventModel;
+
+class AuthorizationService
+{
+    private PartyRoleModel $roleModel;
+    private ListingModel $listingModel;
+    private SaleEventModel $saleEventModel;
+
+    public function __construct()
+    {
+        $this->roleModel = new PartyRoleModel();
+        $this->listingModel = new ListingModel();
+        $this->saleEventModel = new SaleEventModel();
+    }
+
+    public function isTenantAdminFor(string $partyId, string $tenantId): bool
+    {
+        return $this->roleModel->hasActiveRole($partyId, 'tenant_admin', $tenantId);
+    }
+
+    // BR-09: Tenant Admin authority is scoped to a listing via that
+    // listing's own tenant_id — resolves it and checks in one call.
+    public function isTenantAdminForListing(string $partyId, string $listingId): bool
+    {
+        $listing = $this->listingModel->findActiveById($listingId);
+        if (!$listing) {
+            return false;
+        }
+        return $this->isTenantAdminFor($partyId, $listing['tenant_id']);
+    }
+
+    // BR-21: the listing's assigned inspector may not bid/offer/pledge on
+    // that same listing. BR-22: a Tenant Admin may not bid/offer/pledge
+    // on any listing belonging to their own tenant's storefront. Both
+    // checked together since every "commit to buying" entry point
+    // (BiddingService, OfferService, ExpressAuctionService) needs both.
+    // BR-21/PR-18: three DISTINCT bound roles — Surveyor, Yard
+    // Inspector, Physical Custodian — potentially three different
+    // people on the same listing, each independently blocked. Was
+    // previously checking only inspector_party_id (Yard Inspector) —
+    // narrower than the actual rule, found and fixed during a full
+    // BR/PR audit (see BR_PR_AUDIT.md).
+    public function hasConflictOfInterest(string $partyId, string $listingId): ?string
+    {
+        // BR-15: "structurally barred from... placing bids/offers under
+        // any circumstance." Checked first, ahead of the listing-specific
+        // checks below, since this is an absolute platform-wide bar, not
+        // scoped to any one listing.
+        if ($this->isSuperAdmin($partyId)) {
+            return 'BR-15: the Super Admin holds a non-participatory regulatory role and may never bid, offer, or pledge on any listing.';
+        }
+
+        $listing = $this->listingModel->findActiveById($listingId);
+        if (!$listing) {
+            return null;
+        }
+        if ($listing['inspector_party_id'] === $partyId) {
+            return 'BR-21: the assigned Yard Inspector for a listing may not bid, offer, or pledge on it.';
+        }
+        if (!empty($listing['surveyor_party_id']) && $listing['surveyor_party_id'] === $partyId) {
+            return 'BR-21: the assigned Surveyor for a listing may not bid, offer, or pledge on it.';
+        }
+        if (!empty($listing['custodian_party_id']) && $listing['custodian_party_id'] === $partyId) {
+            return 'BR-21: the assigned Physical Custodian for a listing may not bid, offer, or pledge on it.';
+        }
+        if ($this->isTenantAdminFor($partyId, $listing['tenant_id'])) {
+            return 'BR-22: a Tenant Admin may not bid, offer, or pledge on a listing belonging to their own tenant.';
+        }
+        return null;
+    }
+
+    // ⚠️ MINIMAL STAND-IN: this checks role membership only — it is NOT
+    // BR-04's separate Auth0/TOTP Super Admin login path, which remains
+    // deferred (Tier 3, D-23). This exists only to unblock BR-40's real
+    // requirement that a Super Admin rule on buyer-side disputes and
+    // appeals — Dispute Resolution couldn't be built at all without some
+    // form of this authorization existing first. Provisioned via
+    // `php spark grant:super-admin`, same pattern as tenant_admin.
+    public function isSuperAdmin(string $partyId): bool
+    {
+        $roleModel = new \App\Models\PartyRoleModel();
+        return $roleModel->hasActiveRole($partyId, 'super_admin', null);
+    }
+
+    // TEMPORARY: backs JwtSuperAdminFilter's admin.authBypass testing
+    // mode and SuperAdminAuthApiController::devBypassLogin() — see
+    // JwtSuperAdminFilter's docblock. Delete alongside those once the
+    // real Custodian login is in place.
+    public function firstSuperAdminParty(): ?array
+    {
+        $partyId = (new \App\Models\PartyRoleModel())->findFirstActivePartyIdWithRole('super_admin');
+        if (!$partyId) {
+            return null;
+        }
+        return (new \App\Models\PartyModel())->findActiveById($partyId);
+    }
+
+    public function isTenantAdminForSaleEvent(string $partyId, string $saleEventId): bool
+    {
+        $saleEvent = $this->saleEventModel->find($saleEventId);
+        if (!$saleEvent) {
+            return false;
+        }
+        return $this->isTenantAdminFor($partyId, $saleEvent['tenant_id']);
+    }
+
+    public function isTenantAdminForSettlement(string $partyId, string $settlementId): bool
+    {
+        $settlementModel = new \App\Models\SettlementModel();
+        $settlement = $settlementModel->find($settlementId);
+        if (!$settlement) {
+            return false;
+        }
+        return $this->isTenantAdminForSaleEvent($partyId, $settlement['sale_event_id']);
+    }
+
+    public function isTenantAdminForSellerApplication(string $partyId, string $applicationId): bool
+    {
+        $applicationModel = new \App\Models\SellerApplicationModel();
+        $app = $applicationModel->find($applicationId);
+        if (!$app) {
+            return false;
+        }
+        return $this->isTenantAdminFor($partyId, $app['tenant_id']);
+    }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "ebid-design",
+  "description": "eBid Design platform cloned from psinghalnoida/ebid-design",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
