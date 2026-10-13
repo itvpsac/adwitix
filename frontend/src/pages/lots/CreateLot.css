@@ -34,7 +34,7 @@
 .cl-outline-btn { font-size: 12px; font-weight: 700; color: var(--color-text); background: #fff; border: 1px solid var(--color-border); border-radius: 100px; padding: 7px 14px; cursor: pointer; }
 .cl-media { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; margin-bottom: 8px; }
 .cl-photo-slot { width: 100%; height: 110px; border-radius: 10px; background: repeating-linear-gradient(135deg, #F1F1EE 0px, #F1F1EE 14px, #E7E7E1 14px, #E7E7E1 28px); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--color-text-faint); border: 1px dashed var(--color-border); position: relative; }
-.cl-video-slot { width: 100%; max-width: 220px; height: 110px; border-radius: 10px; background: repeating-linear-gradient(135deg, #F1F1EE 0px, #F1F1EE 14px, #E7E7E1 14px, #E7E7E1 28px); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--color-text-faint); border: 1px dashed var(--color-border); margin-bottom: 20px; }
+.cl-video-slot { cursor: pointer; font-family: inherit; width: 100%; max-width: 220px; height: 110px; border-radius: 10px; background: repeating-linear-gradient(135deg, #F1F1EE 0px, #F1F1EE 14px, #E7E7E1 14px, #E7E7E1 28px); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--color-text-faint); border: 1px dashed var(--color-border); margin-bottom: 20px; }
 .cl-doc-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
 .cl-doc-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 14px; }
 .cl-doc-row span { font-size: 13px; flex: 1; }

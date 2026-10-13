@@ -32,6 +32,7 @@ export default function CreateLot() {
   const [description, setDescription] = useState('');
   const [defectDisclosure, setDefectDisclosure] = useState({ knownDamage: '', missingComponents: '', nonfunctional: '' });
   const [step1Error, setStep1Error] = useState('');
+  const [pincodeError, setPincodeError] = useState('');
 
   // Pincode lookup API
   useEffect(() => {
@@ -43,28 +44,34 @@ export default function CreateLot() {
             const office = data[0].PostOffice[0];
             setCity(office.District);
             setState(office.State);
+            setPincodeError('');
           } else {
-            setCity('Invalid Pincode');
-            setState('Invalid Pincode');
+            setCity('');
+            setState('');
+            setPincodeError('Invalid pincode. Please check and try again.');
           }
         })
         .catch(() => {
-          setCity('Error');
-          setState('Error');
+          setCity('');
+          setState('');
+          setPincodeError('Could not look up this pincode. Please try again.');
         });
     } else {
       setCity('');
       setState('');
+      setPincodeError('');
     }
   }, [pincode]);
   const [extraBatches, setExtraBatches] = useState(0);
   const [documents, setDocuments] = useState([]);
   const mediaFileInputRef = useRef(null);
   const docFileInputRef = useRef(null);
+  const videoFileInputRef = useRef(null);
   const [mediaFiles, setMediaFiles] = useState([]);
 
   const handleDocUpload = (event) => {
     const files = Array.from(event.target.files);
+    event.target.value = '';
     if (!files.length) return;
     const newDocs = files.map(file => ({
       name: file.name,
@@ -76,6 +83,7 @@ export default function CreateLot() {
 
   const handleBulkUpload = async (event) => {
     const files = Array.from(event.target.files);
+    event.target.value = '';
     if (!files.length) return;
 
     const options = {
@@ -94,9 +102,9 @@ export default function CreateLot() {
         })
       );
       
-      const newMedia = compressedFiles.map(file => ({
-        name: file.name,
-        type: file.type,
+      const newMedia = compressedFiles.map((file, i) => ({
+        name: files[i].name,
+        type: file.type || files[i].type,
         preview: URL.createObjectURL(file),
         file
       }));
@@ -119,9 +127,13 @@ export default function CreateLot() {
   const [step3Error, setStep3Error] = useState('');
   const [preCheckStatus, setPreCheckStatus] = useState('idle');
   const [loading, setLoading] = useState(false);
+  const [createdLotId, setCreatedLotId] = useState('');
 
   const goToStep2 = () => {
     if (!catId || !condition || !title.trim()) { setStep1Error('Fill in category, condition, and title before continuing.'); return; }
+    if (!subcatId) { setStep1Error('Choose a subcategory before continuing.'); return; }
+    if (pincode.length !== 6 || !city || !state) { setStep1Error('Enter a valid 6-digit pincode so State and City are filled in.'); return; }
+    if (!fullAddress.trim()) { setStep1Error('Enter the full address before continuing.'); return; }
     setStep(2);
   };
   
@@ -155,14 +167,27 @@ export default function CreateLot() {
         media_is_representative_under_waiver: "0"
       };
       
-      const res = await listings.create(payload);
-      const lotId = res.id;
+      let lotId = createdLotId;
+      if (!lotId) {
+        const res = await listings.create(payload);
+        const data = (res && res.data) || res || {};
+        lotId = (data.listing && data.listing.id) || data.id;
+        if (!lotId) throw new Error('Lot was created but no lot id was returned.');
+        setCreatedLotId(lotId);
+      }
 
-      const formData = new FormData();
-      mediaFiles.forEach(m => formData.append('media[]', m.file));
-      documents.forEach(d => formData.append('documents[]', d.file));
+      if (mediaFiles.length || documents.length) {
+        const formData = new FormData();
+        mediaFiles.forEach(m => formData.append(m.type.startsWith('video/') ? 'videos[]' : 'photos[]', m.file, m.name));
+        documents.forEach(d => formData.append('documents[]', d.file, d.name));
 
-      await listings.uploadMedia(lotId, formData);
+        const uploadRes = await listings.uploadMedia(lotId, formData);
+        const failed = ((uploadRes && (uploadRes.data || uploadRes)) || {}).failed || [];
+        if (failed.length) {
+          setStep3Error(`Lot saved, but ${failed.length} file(s) failed to upload: ${failed.map(f => `${f.original_filename} (${f.error})`).join('; ')}`);
+          return;
+        }
+      }
       setNewLotId(lotId);
       setSubmitted(true);
     } catch (err) {
@@ -170,7 +195,9 @@ export default function CreateLot() {
       if (err.status === 403) {
         setStep3Error('You are not authorized to create a lot. Please ensure your KYC is approved by your TSX Master.');
       } else if (err.status === 422) {
-        setStep3Error(`Validation error: ${err.description || 'Check your input data.'}`);
+        setStep3Error(`Validation error: ${err.message || 'Check your input data.'}`);
+      } else if (err.status === 413) {
+        setStep3Error('Files are too large to upload. Please upload smaller files.');
       } else {
         setStep3Error('Failed to submit lot. Please try again.');
       }
@@ -216,7 +243,7 @@ export default function CreateLot() {
                 <div className="cl-grid2">
                   <div>
                     <label className="cl-label">Reserve Value (RV) — confidential floor price</label>
-                    <input className="cl-input" placeholder="₹" value={reserveValue} onChange={(e) => { setReserveValue(e.target.value.replace(/[^0-9]/g, '')); setStep1Error(''); }} />
+                    <input className="cl-input" inputMode="numeric" placeholder="Enter reserve value in ₹ (e.g. 500000)" value={reserveValue} onChange={(e) => { setReserveValue(e.target.value.replace(/[^0-9]/g, '')); setStep1Error(''); }} />
                   </div>
                   {formatId === 'buynow' && (
                     <div><label className="cl-label">Expected Value (EV) — target/asking price</label><input className="cl-input" placeholder="₹" value={expectedValue} onChange={(e) => setExpectedValue(e.target.value)} /></div>
@@ -281,14 +308,15 @@ export default function CreateLot() {
                       }} 
                       placeholder="6-digit pincode" 
                     />
+                    {pincodeError && <p className="cl-error">{pincodeError}</p>}
                   </div>
                   <div>
                     <label className="cl-label">State</label>
-                    <input className="cl-input" type="text" value={state} readOnly />
+                    <input className="cl-input" type="text" value={state} readOnly placeholder="Auto-filled from pincode" />
                   </div>
                   <div>
                     <label className="cl-label">City</label>
-                    <input className="cl-input" type="text" value={city} readOnly />
+                    <input className="cl-input" type="text" value={city} readOnly placeholder="Auto-filled from pincode" />
                   </div>
                   <div>
                     <label className="cl-label">Full Address</label>
@@ -324,7 +352,7 @@ export default function CreateLot() {
                 <div className="cl-row-between">
                   <p className="cl-strong">Photos ({5 + extraBatches * 5}/50)</p>
                   <button className="cl-outline-btn" onClick={() => mediaFileInputRef.current?.click()}>⇪ Bulk Upload</button>
-                  <input type="file" multiple ref={mediaFileInputRef} onChange={handleBulkUpload} style={{ display: 'none' }} accept="image/*,video/*" />
+                  <input type="file" multiple ref={mediaFileInputRef} onChange={handleBulkUpload} style={{ display: 'none' }} accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" />
                 </div>
                 <div className="cl-media">
                   {mediaFiles.map((m, i) => (
@@ -347,9 +375,12 @@ export default function CreateLot() {
                 <p className="cl-hint">Up to 50 photos total. Bulk Upload adds 5 more slots at a time.</p>
 
                 <p className="cl-strong">Video (optional, up to 2 minutes)</p>
-                <div className="cl-video-slot">Video walkthrough</div>
+                <button type="button" className="cl-video-slot" onClick={() => videoFileInputRef.current?.click()}>
+                  {mediaFiles.some(m => m.type.startsWith('video/')) ? '🎬 Video added — click to add another' : '+ Add video walkthrough'}
+                </button>
+                <input type="file" ref={videoFileInputRef} onChange={handleBulkUpload} style={{ display: 'none' }} accept="video/mp4,video/quicktime,video/webm" />
 
-                <p className="cl-strong">Supporting documents (optional — invoice, registration, inspection report)</p>
+                <p className="cl-strong">Supporting documents (optional — invoice, registration, inspection report; PDF only)</p>
                 <div className="cl-doc-list">
                   {documents.map((d, i) => (
                     <div key={i} className="cl-doc-row">
@@ -359,7 +390,7 @@ export default function CreateLot() {
                     </div>
                   ))}
                   <button className="cl-add-doc" onClick={() => docFileInputRef.current?.click()}>+ Add Document</button>
-                  <input type="file" multiple ref={docFileInputRef} onChange={handleDocUpload} style={{ display: 'none' }} accept=".pdf,.doc,.docx,.xls,.xlsx" />
+                  <input type="file" multiple ref={docFileInputRef} onChange={handleDocUpload} style={{ display: 'none' }} accept="application/pdf,.pdf" />
                 </div>
 
                 <div className="cl-nav-row">
