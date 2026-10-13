@@ -193,13 +193,14 @@ export default function CreateLot() {
     } catch (err) {
       console.error("DEBUG: listings.create error:", err.payload || err);
       if (err.status === 403) {
-        setStep3Error('You are not authorized to create a lot. Please ensure your KYC is approved by your TSX Master.');
+        // Show the backend's own reason (KYC, not an approved seller on this tenant, etc.).
+        setStep3Error(err.description || 'You are not authorized to create a lot. Please ensure your KYC is approved by your TSX Master.');
       } else if (err.status === 422) {
         setStep3Error(`Validation error: ${err.message || 'Check your input data.'}`);
       } else if (err.status === 413) {
         setStep3Error('Files are too large to upload. Please upload smaller files.');
       } else {
-        setStep3Error('Failed to submit lot. Please try again.');
+        setStep3Error(err.description || err.message || 'Failed to submit lot. Please try again.');
       }
     } finally {
       setLoading(false);
