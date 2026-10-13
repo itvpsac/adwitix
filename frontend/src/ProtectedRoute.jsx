@@ -12,7 +12,7 @@ export const ProtectedRoute = ({ children, requiredRole }) => {
     if (location.pathname.startsWith('/custodian')) {
       return <Navigate to="/custodian/login" state={{ from: location }} replace />;
     }
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/onboarding" state={{ from: location }} replace />;
   }
 
   // If a role is required, check if the user has it

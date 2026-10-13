@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { NAV_GROUPS } from '../nav/siteNav.js';
 import { useAuth, initials } from '../utils/auth.js';
 import { canAccess } from '../utils/accessMatrix.js';
@@ -29,8 +29,15 @@ export default function AppHeader({
   maxWidth = '100%',
 }) {
   const { user, isLoggedIn, logout } = useAuth();
-  
+  const navigate = useNavigate();
   const { pathname } = useLocation();
+  const loginPath = pathname.startsWith('/custodian') ? '/custodian/login' : '/onboarding';
+
+  // Clear the session and send the user to the login page.
+  const handleLogout = () => {
+    logout();
+    navigate(loginPath, { replace: true });
+  };
   const [openMenu, setOpenMenu] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -173,7 +180,9 @@ export default function AppHeader({
 
         <div className="ah__right">
           {backTo && <Link to={backTo} className="ah__back">← {backLabel || 'Back'}</Link>}
-          {ctas.map((cta) => <Link key={cta.label} to={cta.to} className="ah__cta">{cta.label}</Link>)}
+          {ctas.map((cta) => cta.logout
+            ? <Link key={cta.label} to={loginPath} replace className="ah__cta" onClick={logout}>{cta.label}</Link>
+            : <Link key={cta.label} to={cta.to} className="ah__cta">{cta.label}</Link>)}
           {primaryCta && <Link to={primaryCta.to} className="ah__cta ah__cta--primary">{primaryCta.label}</Link>}
 
           {isLoggedIn ? (
@@ -201,7 +210,7 @@ export default function AppHeader({
                           : '/buyer/dashboard'))
                   } role="menuitem" className="ah__menu-link">My Dashboard</Link>
                   <Link to="/preferences" role="menuitem" className="ah__menu-link">Preferences</Link>
-                  <button type="button" role="menuitem" className="ah__menu-link ah__menu-link--danger" onClick={() => { logout(); setAccountOpen(false); }}>Log Out</button>
+                  <button type="button" role="menuitem" className="ah__menu-link ah__menu-link--danger" onClick={() => { setAccountOpen(false); handleLogout(); }}>Log Out</button>
                 </div>
               )}
             </div>
@@ -239,7 +248,11 @@ export default function AppHeader({
                     {primaryCta.label}
                   </Link>
                 )}
-                {ctas.map((cta) => (
+                {ctas.map((cta) => cta.logout ? (
+                  <Link key={cta.label} to={loginPath} replace className="ah__cta ah__drawer-cta" onClick={() => { setMobileOpen(false); logout(); }}>
+                    {cta.label}
+                  </Link>
+                ) : (
                   <Link key={cta.label} to={cta.to} className="ah__cta ah__drawer-cta" onClick={() => setMobileOpen(false)}>
                     {cta.label}
                   </Link>
@@ -333,7 +346,7 @@ export default function AppHeader({
                   } className="ah__drawer-link" onClick={() => setMobileOpen(false)}>My Dashboard</Link>
                   <Link to="/preferences" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Preferences</Link>
                 </div>
-                <button type="button" className="ah__drawer-logout" onClick={() => { logout(); setMobileOpen(false); }}>Log Out</button>
+                <button type="button" className="ah__drawer-logout" onClick={() => { setMobileOpen(false); handleLogout(); }}>Log Out</button>
               </div>
             ) : (
               <Link to="/onboarding" className="ah__drawer-login" onClick={() => setMobileOpen(false)}>Log In</Link>

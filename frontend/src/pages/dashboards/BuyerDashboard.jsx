@@ -5,7 +5,7 @@ import EmptyState from '../../components/EmptyState.jsx';
 import './BuyerDashboard.css';
 import { me, discovery } from '../../api/endpoints.js';
 
-const CTAS = [{ label: 'Profile', to: '#' }, { label: 'Log Out', to: '/' }];
+const CTAS = [{ label: 'Profile', to: '#' }, { label: 'Log Out', logout: true }];
 
 export default function BuyerDashboard() {
   const [data, setData] = useState(null);

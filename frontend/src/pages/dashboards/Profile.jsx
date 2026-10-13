@@ -4,7 +4,7 @@ import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
 import { me } from '../../api/endpoints.js';
 import './Profile.css';
 
-const CTAS = [{ label: 'Log Out', to: '/' }];
+const CTAS = [{ label: 'Log Out', logout: true }];
 
 const KYC_MAP = {
   verified: { label: 'Verified', color: 'var(--color-success)', bg: 'var(--color-success-bg)', hint: 'Your identity is fully verified. No action needed.' },
