@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { label: 'Market Maker Dashboard', to: '/seller/dashboard', active: true },
   { label: 'Trust & Support', to: '/trust-and-support' },
 ];
-const CTAS = [{ label: 'Profile', to: '/profile' }, { label: 'Log Out', logout: true }];
+const CTAS = [{ label: 'Profile', to: '/profile' }];
 const PRIMARY_CTA = { label: 'List an Asset', to: '/create-lot' };
 
 export default function SellerDashboard() {

@@ -227,7 +227,7 @@ a.ah__back, a.ah__cta {
   transition: all 0.15s ease;
 }
 a.ah__back:hover, a.ah__cta:hover { color: var(--ah-ink); border-color: var(--color-accent); }
-a.ah__cta--primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+a.ah__cta--primary, a.ah__cta--primary:link, a.ah__cta--primary:visited { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
 a.ah__cta--primary:hover { background: var(--color-accent-dark); border-color: var(--color-accent-dark); color: #fff; }
 
 a.ah__login,

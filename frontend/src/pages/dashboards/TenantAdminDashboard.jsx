@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { label: 'Billing', to: '#billing' },
   { label: 'Dashboard', to: '/tenant-admin/dashboard', active: true },
 ];
-const CTAS = [{ label: 'Profile', to: '/profile' }, { label: 'Log Out', logout: true }];
+const CTAS = [{ label: 'Profile', to: '/profile' }];
 
 const TENANT_NAME = 'Northline Industrial Auctions';
 const TIER_LABEL = 'CoCo Tier: Growth';

@@ -180,9 +180,7 @@ export default function AppHeader({
 
         <div className="ah__right">
           {backTo && <Link to={backTo} className="ah__back">← {backLabel || 'Back'}</Link>}
-          {ctas.map((cta) => cta.logout
-            ? <Link key={cta.label} to={loginPath} replace className="ah__cta" onClick={logout}>{cta.label}</Link>
-            : <Link key={cta.label} to={cta.to} className="ah__cta">{cta.label}</Link>)}
+          {ctas.map((cta) => <Link key={cta.label} to={cta.to} className="ah__cta">{cta.label}</Link>)}
           {primaryCta && <Link to={primaryCta.to} className="ah__cta ah__cta--primary">{primaryCta.label}</Link>}
 
           {isLoggedIn ? (
@@ -248,11 +246,7 @@ export default function AppHeader({
                     {primaryCta.label}
                   </Link>
                 )}
-                {ctas.map((cta) => cta.logout ? (
-                  <Link key={cta.label} to={loginPath} replace className="ah__cta ah__drawer-cta" onClick={() => { setMobileOpen(false); logout(); }}>
-                    {cta.label}
-                  </Link>
-                ) : (
+                {ctas.map((cta) => (
                   <Link key={cta.label} to={cta.to} className="ah__cta ah__drawer-cta" onClick={() => setMobileOpen(false)}>
                     {cta.label}
                   </Link>

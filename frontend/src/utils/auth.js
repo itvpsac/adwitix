@@ -95,7 +95,7 @@ export function useAuth() {
     // Always refresh to ensure matrixRole is up-to-date and populated
     authApi.me()
       .then((res) => {
-        const fresh = partyToUser(res && res.party);
+        const fresh = partyToUser((res && (res.data || res)).party);
         if (fresh) { localStorage.setItem(USER_KEY, JSON.stringify(fresh)); emit(); }
       })
       .catch((err) => { 
