@@ -7,15 +7,17 @@
 // examples (SUB-25 E-Scrap/E-Waste -> MICRO-52 Computer Scrap; SUB-39
 // Paper, Cardboard & Paper Products -> MICRO-69 OCC).
 
+// apiValue: the exact name the backend accepts (BR-07 closed list in
+// backend ListingLifecycleService::PERMITTED_CATEGORIES); label is display text.
 export const CATEGORIES = [
-  { id: 'cat-01', code: 'CAT-01', label: 'Salvaged Claims Goods' },
-  { id: 'cat-02', code: 'CAT-02', label: 'Second-Hand / Used Goods' },
-  { id: 'cat-03', code: 'CAT-03', label: 'Abandoned Goods' },
-  { id: 'cat-04', code: 'CAT-04', label: 'Antiques & Collectibles' },
-  { id: 'cat-05', code: 'CAT-05', label: 'Repossessed Banking / Financed Assets' },
-  { id: 'cat-06', code: 'CAT-06', label: 'Industrial / Commercial Surplus' },
-  { id: 'cat-07', code: 'CAT-07', label: 'Customs / Confiscated Goods' },
-  { id: 'cat-08', code: 'CAT-08', label: 'Lost-and-Found Inventories' },
+  { id: 'cat-01', code: 'CAT-01', label: 'Salvaged Claims Goods', apiValue: 'Salvaged Claims Goods' },
+  { id: 'cat-02', code: 'CAT-02', label: 'Second-Hand / Used Goods', apiValue: 'Second-Hand/Used Goods' },
+  { id: 'cat-03', code: 'CAT-03', label: 'Abandoned Goods', apiValue: 'Abandoned Goods' },
+  { id: 'cat-04', code: 'CAT-04', label: 'Antiques & Collectibles', apiValue: 'Antiques' },
+  { id: 'cat-05', code: 'CAT-05', label: 'Repossessed Banking / Financed Assets', apiValue: 'Repossessed Banking Assets' },
+  { id: 'cat-06', code: 'CAT-06', label: 'Industrial / Commercial Surplus', apiValue: 'Industrial/Commercial Surplus' },
+  { id: 'cat-07', code: 'CAT-07', label: 'Customs / Confiscated Goods', apiValue: 'Custom/Confiscated Goods' },
+  { id: 'cat-08', code: 'CAT-08', label: 'Lost-and-Found Inventories', apiValue: 'Lost-and-Found Inventories' },
 ];
 
 export const SUBCATEGORIES = [

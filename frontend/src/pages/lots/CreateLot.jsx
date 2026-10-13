@@ -145,7 +145,7 @@ export default function CreateLot() {
         tenant_id: "550e8400-e29b-41d4-a716-446655440001",
         title,
         description,
-        category: CATEGORY_MAP.find(c => c.id === catId)?.label || catId,
+        category: CATEGORY_MAP.find(c => c.id === catId)?.apiValue || catId,
         subcategory: SUBCATEGORY_MAP.find(s => s.id === subcatId)?.label || subcatId,
         micro_category: MICROCATEGORY_MAP.find(m => m.id === microcatId)?.label || microcatId,
         physical_condition: condition,
