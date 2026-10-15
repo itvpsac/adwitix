@@ -212,30 +212,8 @@ class UserAuthApiController extends BaseController
     // token" step, callable again on any later request with the same token.
     public function me()
     {
-        $party = UserAuthContext::party();
-        $roleRows = (new \App\Models\PartyRoleModel())->findActiveRolesForParty($party['id']);
-        $roles = array_column($roleRows, 'role');
-
-        // Tenants this party administers, so the Tenant Admin dashboard
-        // knows which tenant to load without guessing.
-        $adminTenantIds = array_values(array_unique(array_filter(array_map(
-            fn($r) => $r['role'] === 'tenant_admin' ? $r['tenant_id'] : null,
-            $roleRows
-        ))));
-        $adminTenants = empty($adminTenantIds) ? [] : (new \App\Models\TenantModel())
-            ->select('id, name')->whereIn('id', $adminTenantIds)->orderBy('name', 'ASC')->findAll();
-
         return $this->apiResponse([
-            'party' => [
-                'id' => $party['id'],
-                'mobile_number' => $party['mobile_number'],
-                'full_name' => $party['full_name'] ?? null,
-                'email' => $party['recovery_email'] ?? null,
-                'entity_type' => $party['entity_type'] ?? null,
-                'kyc_status' => $party['kyc_status'] ?? null,
-                'roles' => $roles,
-                'admin_tenants' => $adminTenants,
-            ],
+            'party' => \App\Libraries\UserAuthApiService::toProfile(UserAuthContext::party()),
         ], null, 200);
     }
 }

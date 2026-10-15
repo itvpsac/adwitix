@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { auth as authApi, tenants as tenantsApi } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
+import { readAuth } from '../../utils/auth.js';
 import { formatCurrency } from '../../utils/format.js';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
 import './TenantAdminDashboard.css';
@@ -40,17 +41,21 @@ export default function TenantAdminDashboard() {
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
 
-  // Which tenant(s) does this user administer?
+  // Which tenant(s) does this user administer? Use the list saved from the
+  // login response straight away, then refresh it from /auth/me.
   useEffect(() => {
+    const saved = (readAuth() || {}).adminTenants || [];
+    if (saved.length) { setTenantChoices(saved); setTenantId(saved[0].id); }
     authApi.me()
       .then((res) => {
         const party = unwrap(res).party || {};
         const list = party.admin_tenants || [];
-        if (list.length) { setTenantChoices(list); setTenantId(list[0].id); }
+        if (list.length) { setTenantChoices(list); setTenantId((cur) => (list.some((t) => t.id === cur) ? cur : list[0].id)); }
+        else if (saved.length) return;
         else if ((party.roles || []).includes('tenant_admin')) setError('Your account is a Tenant Admin, but the server did not say for which tenant. The backend needs the latest update (admin_tenants in /auth/me).');
         else setError('This dashboard is for Tenant Admins (TSX Masters). Your account is not a Tenant Admin for any tenant.');
       })
-      .catch((err) => setError(err.status === 401 ? 'Please log in to view the Tenant Admin dashboard.' : (err.message || 'Could not load your account.')));
+      .catch((err) => { if (!saved.length || err.status === 401) setError(err.status === 401 ? 'Please log in to view the Tenant Admin dashboard.' : (err.message || 'Could not load your account.')); });
   }, []);
 
   useEffect(() => {

@@ -39,6 +39,7 @@ export function partyToUser(party) {
                 (party.roles?.includes('market_maker') || party.entity_type === 'corporate' || party.entity_type === 'seller' || party.roles?.includes('seller')) ? 'mkt_maker' : 
                 (party.roles?.includes('buyer') || party.entity_type === 'buyer' || party.entity_type === 'trader' || party.roles?.includes('trader')) ? 'trader' : 'trader',
     kycStatus: (party.kyc_status || 'pending').toLowerCase(),
+    adminTenants: Array.isArray(party.admin_tenants) ? party.admin_tenants : [],
   };
 }
 
