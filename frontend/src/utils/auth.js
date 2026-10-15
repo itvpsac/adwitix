@@ -39,14 +39,18 @@ export function partyToUser(party) {
                 (party.roles?.includes('market_maker') || party.entity_type === 'corporate' || party.entity_type === 'seller' || party.roles?.includes('seller')) ? 'mkt_maker' : 
                 (party.roles?.includes('buyer') || party.entity_type === 'buyer' || party.entity_type === 'trader' || party.roles?.includes('trader')) ? 'trader' : 'trader',
     kycStatus: (party.kyc_status || 'pending').toLowerCase(),
+    adminTenants: Array.isArray(party.admin_tenants) ? party.admin_tenants : [],
   };
 }
 
 // Persists the session from any endpoint that returns { access_token, party }.
-export function establishSession(result) {
+// `roles` fills in party.roles when the login response omits them (the
+// Custodian login endpoints only succeed for super_admin but don't say so).
+export function establishSession(result, { roles } = {}) {
   if (!result) return null;
   if (result.access_token) setToken(result.access_token);
-  const user = partyToUser(result.party) || readAuth();
+  const party = result.party && roles && !result.party.roles ? { ...result.party, roles } : result.party;
+  const user = partyToUser(party) || readAuth();
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
   emit();
   return user;

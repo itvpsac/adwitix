@@ -1,4 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { auth as authApi, tenants as tenantsApi } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
+import { readAuth } from '../../utils/auth.js';
+import { formatCurrency } from '../../utils/format.js';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
 import './TenantAdminDashboard.css';
 
@@ -10,61 +15,111 @@ const NAV_ITEMS = [
 ];
 const CTAS = [{ label: 'Profile', to: '/profile' }];
 
-const TENANT_NAME = 'Northline Industrial Auctions';
-const TIER_LABEL = 'CoCo Tier: Growth';
-const STATS = { pendingListings: 5, pendingSaleEvents: 2, pendingSellers: 3, openDisputes: 1, stalledSettlements: 1 };
+// Data: the tenant comes from GET /auth/me (party.admin_tenants); the page
+// then loads /tenants/:id/{dashboard,verification,sellers,billing}, all
+// gated to that tenant's Tenant Admin.
+const TIER_LABELS = { coco_starter: 'CoCo Starter', tsx_launch: 'TSX Launch', tsx_growth: 'TSX Growth', tsx_enterprise: 'TSX Enterprise' };
+const FORMAT_LABELS = { easy: 'EASY', express: 'EXPRESS', buy_now: 'BUY-NOW', tender: 'TENDER' };
+const STANDING = {
+  good: { standing: 'Good standing', standingColor: 'var(--color-success)', standingBg: 'var(--color-success-bg)' },
+  review: { standing: 'Under Review', standingColor: 'var(--color-warning)', standingBg: 'var(--color-warning-bg)' },
+  delisted: { standing: 'Delisted (fraud)', standingColor: 'var(--color-danger)', standingBg: 'var(--color-danger-bg)' },
+};
+const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '');
+const maskMobile = (m) => { const d = String(m || '').replace(/\D/g, '').slice(-10); return d.length === 10 ? `${d.slice(0, 2)}xxxxxx${d.slice(-2)}` : (m || '—'); };
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const shortDate = (d) => (d ? new Date(String(d).replace(' ', 'T')).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const Empty = ({ children }) => <div className="ta-list-row" style={{ color: 'var(--color-text-faint)' }}>{children}</div>;
 
-const PENDING_LISTINGS = [
-  { category: 'Repossessed Excavator', condition: 'Working, Moderate Wear' },
-  { category: 'Warehouse Racking Lot', condition: 'Used, Good Condition' },
-  { category: 'Diesel Generator Set', condition: 'Working, Minor Wear' },
-];
-const PENDING_SALE_EVENTS = [
-  { ern: 'ERN-20260731-042', format: 'TENDER' },
-  { ern: 'ERN-20260730-039', format: 'EASY' },
-];
-const OPEN_DISPUTES = [{ category: 'Item condition mismatch' }];
-const STALLED_SETTLEMENTS = [{ price: '₹4,80,000' }];
-const HIGH_VALUE_DISPOSALS = [
-  { finalValue: '₹18,50,000', reserveValue: '₹16,00,000', variance: '+₹2,50,000', format: 'TENDER' },
-  { finalValue: '₹12,40,000', reserveValue: '₹11,80,000', variance: '+₹60,000', format: 'TENDER' },
-];
-const good = { standing: 'Good standing', standingColor: 'var(--color-success)', standingBg: 'var(--color-success-bg)' };
-const review = { standing: 'Under Review', standingColor: 'var(--color-warning)', standingBg: 'var(--color-warning-bg)' };
-const delisted = { standing: 'Delisted (fraud)', standingColor: 'var(--color-danger)', standingBg: 'var(--color-danger-bg)' };
-const SELLERS = [
-  { mobile: '98xxxxxx21', rating: '4.6', sales: 34, complaints: 1, ...good },
-  { mobile: '97xxxxxx08', rating: '3.2', sales: 12, complaints: 7, ...review },
-  { mobile: '99xxxxxx44', rating: '2.1', sales: 5, complaints: 14, ...delisted },
-  { mobile: '96xxxxxx77', rating: '4.9', sales: 61, complaints: 0, ...good },
-];
-const VERIFICATION_QUEUE = [
-  { category: 'Repossessed Excavator', mediaSummary: '6 photos · 1 video · 0 documents' },
-  { category: 'Warehouse Racking Lot', mediaSummary: '3 photos · 0 videos · 1 document · 2 still processing' },
-];
-const UNBILLED_TOTAL = '₹1,84,600';
-const LATEST_INVOICE = { number: 'INV-2026-07-0142', total: '₹2,41,900', period: 'Jun 1 – Jun 30, 2026', status: 'Paid' };
 const CONSOLE_LINKS = [
   ['Media Waiver Request', '#'], ['Full Market Maker List', '#'], ['API Access', '#'], ['Pending Market Maker Applications', '#'],
 ];
 
 export default function TenantAdminDashboard() {
+  const [tenantChoices, setTenantChoices] = useState([]);
+  const [tenantId, setTenantId] = useState('');
+  const [d, setD] = useState(null);
+  const [error, setError] = useState('');
+
+  // Which tenant(s) does this user administer? Use the list saved from the
+  // login response straight away, then refresh it from /auth/me.
+  useEffect(() => {
+    const saved = (readAuth() || {}).adminTenants || [];
+    if (saved.length) { setTenantChoices(saved); setTenantId(saved[0].id); }
+    authApi.me()
+      .then((res) => {
+        const party = unwrap(res).party || {};
+        const list = party.admin_tenants || [];
+        if (list.length) { setTenantChoices(list); setTenantId((cur) => (list.some((t) => t.id === cur) ? cur : list[0].id)); }
+        else if (saved.length) return;
+        else if ((party.roles || []).includes('tenant_admin')) setError('Your account is a Tenant Admin, but the server did not say for which tenant. The backend needs the latest update (admin_tenants in /auth/me).');
+        else setError('This dashboard is for Tenant Admins (TSX Masters). Your account is not a Tenant Admin for any tenant.');
+      })
+      .catch((err) => { if (!saved.length || err.status === 401) setError(err.status === 401 ? 'Please log in to view the Tenant Admin dashboard.' : (err.message || 'Could not load your account.')); });
+  }, []);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    let cancelled = false;
+    setD(null);
+    Promise.all([
+      tenantsApi.dashboard(tenantId), tenantsApi.verification(tenantId),
+      tenantsApi.sellers(tenantId), tenantsApi.billing(tenantId),
+    ])
+      .then(([dash, ver, sel, bill]) => {
+        if (cancelled) return;
+        const dashboard = unwrap(dash), verification = unwrap(ver), sellers = unwrap(sel), billing = unwrap(bill);
+        setD({
+          tenant: dashboard.tenant || {},
+          pendingListings: verification.pending || [],
+          pendingSaleEvents: verification.pendingSaleEvents || [],
+          pendingSellers: dashboard.pendingSellers || [],
+          openDisputes: dashboard.openDisputes || [],
+          stalledSettlements: dashboard.stalledSettlements || [],
+          highValueDisposals: dashboard.highValueDisposals || [],
+          sellers: sellers.sellers || [],
+          unbilled: billing.unbilled || [],
+          invoices: billing.invoices || [],
+        });
+      })
+      .catch((err) => { if (!cancelled) setError(err.status === 403 ? 'You are not the Tenant Admin for this tenant.' : (err.message || 'Could not load the dashboard.')); });
+    return () => { cancelled = true; };
+  }, [tenantId]);
+
+  if (error || !d) {
+    return (
+      <div className="ta-page">
+        <LightDashboardHeader navItems={NAV_ITEMS} ctas={CTAS} />
+        <main className="ta-main"><h1 className="ta-h1">TSX Master Dashboard</h1><p className="ta-sub">{error || 'Loading dashboard…'}</p></main>
+      </div>
+    );
+  }
+
+  const sellerStanding = (s) => (s.seller_delisted_at ? STANDING.delisted : (s.hasOpenCase ? STANDING.review : STANDING.good));
+  const unbilledTotal = d.unbilled.reduce((sum, f) => sum + Number(f.amount || 0), 0);
+  const latestInvoice = d.invoices[0];
+
   return (
     <div className="ta-page">
       <LightDashboardHeader navItems={NAV_ITEMS} ctas={CTAS} />
       <main className="ta-main">
         <div className="ta-title-row">
-          <h1 className="ta-h1">TSX Master — {TENANT_NAME}</h1>
-          <span className="ta-tier-badge">{TIER_LABEL}</span>
+          <h1 className="ta-h1">TSX Master — {d.tenant.name}</h1>
+          <span className="ta-tier-badge">CoCo Tier: {TIER_LABELS[d.tenant.subscription_tier] || humanize(d.tenant.subscription_tier)}</span>
+          {tenantChoices.length > 1 && (
+            <select value={tenantId} onChange={(e) => setTenantId(e.target.value)} style={{ marginLeft: 12 }}>
+              {tenantChoices.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          )}
         </div>
         <p className="ta-sub">Everything awaiting your action across lots, trading sessions, Market Maker standing, and billing on this TradeSphereX.</p>
 
         <div className="ta-stats">
-          <Link to="/lot-approval" className="ta-stat-card"><b>{STATS.pendingListings}</b><span>Lots to Review</span></Link>
-          <Link to="/lot-approval" className="ta-stat-card"><b>{STATS.pendingSaleEvents}</b><span>Trading Sessions to Approve</span></Link>
-          <Link to="#sellers" className="ta-stat-card"><b className="text-gold">{STATS.pendingSellers}</b><span>Market Maker Applications</span></Link>
-          <Link to="#" className="ta-stat-card"><b>{STATS.openDisputes}</b><span>Open Disputes</span></Link>
-          <Link to="#disputes" className="ta-stat-card"><b>{STATS.stalledSettlements}</b><span>Stalled Settlements</span></Link>
+          <Link to="/lot-approval" className="ta-stat-card"><b>{d.pendingListings.length}</b><span>Lots to Review</span></Link>
+          <Link to="/lot-approval" className="ta-stat-card"><b>{d.pendingSaleEvents.length}</b><span>Trading Sessions to Approve</span></Link>
+          <Link to="#sellers" className="ta-stat-card"><b className="text-gold">{d.pendingSellers.length}</b><span>Market Maker Applications</span></Link>
+          <Link to="#" className="ta-stat-card"><b>{d.openDisputes.length}</b><span>Open Disputes</span></Link>
+          <Link to="#disputes" className="ta-stat-card"><b>{d.stalledSettlements.length}</b><span>Stalled Settlements</span></Link>
         </div>
 
         <section id="pending" className="ta-section">
@@ -72,17 +127,19 @@ export default function TenantAdminDashboard() {
             <div>
               <h2 className="ta-h2">Lots Awaiting Approval</h2>
               <div className="ta-table">
-                {PENDING_LISTINGS.map((l, i) => (
-                  <Link to="/lot-approval" key={i} className="ta-list-row">{l.category} — {l.condition}</Link>
+                {d.pendingListings.map((l) => (
+                  <Link to={`/lot-detail?id=${l.id}`} key={l.id} className="ta-list-row">{l.title || l.category} — {humanize(l.physical_condition)}</Link>
                 ))}
+                {d.pendingListings.length === 0 && <Empty>No lots awaiting approval.</Empty>}
               </div>
             </div>
             <div>
               <h2 className="ta-h2">Trading Sessions Awaiting Approval</h2>
               <div className="ta-table">
-                {PENDING_SALE_EVENTS.map((se, i) => (
-                  <Link to="/lot-approval" key={i} className="ta-list-row">{se.ern} — {se.format}</Link>
+                {d.pendingSaleEvents.map((se) => (
+                  <Link to={`/lot-detail?id=${se.listing_id}`} key={se.id} className="ta-list-row">{se.ern || se.category} — {FORMAT_LABELS[se.sale_format] || se.sale_format}</Link>
                 ))}
+                {d.pendingSaleEvents.length === 0 && <Empty>No trading sessions awaiting approval.</Empty>}
               </div>
             </div>
           </div>
@@ -93,17 +150,19 @@ export default function TenantAdminDashboard() {
             <div>
               <h2 className="ta-h2">Open Disputes</h2>
               <div className="ta-table">
-                {OPEN_DISPUTES.map((d, i) => (
-                  <Link to="#" key={i} className="ta-list-row">{d.category}</Link>
+                {d.openDisputes.map((x) => (
+                  <Link to="/dispute-center" key={x.id} className="ta-list-row">{humanize(x.category)} · {humanize(x.status)}</Link>
                 ))}
+                {d.openDisputes.length === 0 && <Empty>No open disputes.</Empty>}
               </div>
             </div>
             <div>
               <h2 className="ta-h2">Stalled Settlements</h2>
               <div className="ta-table">
-                {STALLED_SETTLEMENTS.map((s, i) => (
-                  <Link to="#" key={i} className="ta-list-row ta-list-row--gold">{s.price}</Link>
+                {d.stalledSettlements.map((x) => (
+                  <Link to="#" key={x.id} className="ta-list-row ta-list-row--gold">{formatCurrency(x.final_price)}{x.stall_flagged_at ? ` · stalled since ${shortDate(x.stall_flagged_at)}` : ''}</Link>
                 ))}
+                {d.stalledSettlements.length === 0 && <Empty>No stalled settlements.</Empty>}
               </div>
             </div>
           </div>
@@ -112,12 +171,13 @@ export default function TenantAdminDashboard() {
         <section className="ta-section">
           <h2 className="ta-h2">High-Value Disposal Records (&gt;₹10L)</h2>
           <div className="ta-table">
-            {HIGH_VALUE_DISPOSALS.map((d, i) => (
-              <Link to="#" key={i} className="ta-disposal-row">
-                <span className="ta-disposal-value">{d.finalValue}</span>
-                <span className="ta-disposal-meta">RV {d.reserveValue} · Variance {d.variance} · {d.format}</span>
+            {d.highValueDisposals.map((x) => (
+              <Link to="#" key={x.id} className="ta-disposal-row">
+                <span className="ta-disposal-value">{formatCurrency(x.final_sale_value)}</span>
+                <span className="ta-disposal-meta">RV {formatCurrency(x.reserve_value)} · Variance {Number(x.variance) >= 0 ? '+' : '−'}{formatCurrency(Math.abs(Number(x.variance)))} · {FORMAT_LABELS[x.sale_format] || x.sale_format}</span>
               </Link>
             ))}
+            {d.highValueDisposals.length === 0 && <Empty>No high-value disposals yet.</Empty>}
           </div>
         </section>
 
@@ -131,15 +191,19 @@ export default function TenantAdminDashboard() {
             <div className="ta-seller-row ta-seller-row--head">
               <div>Mobile</div><div>Rating</div><div>Sales</div><div>Complaints</div><div>Standing</div>
             </div>
-            {SELLERS.map((s, i) => (
-              <Link to="#" key={i} className="ta-seller-row">
-                <div>{s.mobile}</div>
-                <div>{s.rating}★</div>
-                <div>{s.sales}</div>
-                <div>{s.complaints}</div>
-                <div><span className="ta-badge" style={{ color: s.standingColor, background: s.standingBg }}>{s.standing}</span></div>
-              </Link>
-            ))}
+            {d.sellers.map((s) => {
+              const st = sellerStanding(s);
+              return (
+                <Link to="#" key={s.party_id} className="ta-seller-row">
+                  <div>{maskMobile(s.mobile_number)}</div>
+                  <div>{s.seller_star_rating != null ? `${Number(s.seller_star_rating).toFixed(1)}★` : '—'}</div>
+                  <div>{s.salesOnTenant ?? 0}</div>
+                  <div>{s.standing_review_complaint_count ?? 0}</div>
+                  <div><span className="ta-badge" style={{ color: st.standingColor, background: st.standingBg }}>{st.standing}</span></div>
+                </Link>
+              );
+            })}
+            {d.sellers.length === 0 && <Empty>No approved Market Makers on this tenant yet.</Empty>}
           </div>
         </section>
 
@@ -147,15 +211,19 @@ export default function TenantAdminDashboard() {
           <h2 className="ta-h2" style={{ marginBottom: 6 }}>Verification Console</h2>
           <p className="ta-hint">Authentic media catalog + thumbnail for every listing awaiting approval.</p>
           <div className="ta-verify-list">
-            {VERIFICATION_QUEUE.map((v, i) => (
-              <Link to="#" key={i} className="ta-verify-row">
-                <div className="ta-verify-thumb" />
+            {d.pendingListings.map((v) => (
+              <Link to={`/lot-detail?id=${v.id}`} key={v.id} className="ta-verify-row">
+                <div className="ta-verify-thumb" style={v.primaryPhotoPath ? { background: `center / cover no-repeat url(/${String(v.primaryPhotoPath).replace(/^\/+/, '')})` } : undefined} />
                 <div>
-                  <p className="ta-verify-cat">{v.category}</p>
-                  <p className="ta-verify-summary">{v.mediaSummary}</p>
+                  <p className="ta-verify-cat">{v.title || v.category}</p>
+                  <p className="ta-verify-summary">
+                    {plural(Number(v.photoCount || 0), 'photo')} · {plural(Number(v.videoCount || 0), 'video')} · {plural(Number(v.documentCount || 0), 'document')}
+                    {Number(v.queuedJobCount) > 0 ? ` · ${v.queuedJobCount} still processing` : ''}
+                  </p>
                 </div>
               </Link>
             ))}
+            {d.pendingListings.length === 0 && <p className="ta-hint">Nothing awaiting verification.</p>}
           </div>
         </section>
 
@@ -165,12 +233,16 @@ export default function TenantAdminDashboard() {
           <div className="ta-twocol ta-twocol--tight">
             <div className="ta-billing-card">
               <p className="ta-billing-label">Unbilled This Period</p>
-              <b className="ta-billing-amount">{UNBILLED_TOTAL}</b>
+              <b className="ta-billing-amount">{formatCurrency(unbilledTotal)}</b>
             </div>
             <div className="ta-billing-card">
               <p className="ta-billing-label">Latest Invoice</p>
-              <p className="ta-invoice-line">{LATEST_INVOICE.number} — {LATEST_INVOICE.total}</p>
-              <p className="ta-invoice-meta">{LATEST_INVOICE.period} · {LATEST_INVOICE.status}</p>
+              {latestInvoice ? (
+                <>
+                  <p className="ta-invoice-line">{latestInvoice.invoice_number} — {formatCurrency(latestInvoice.total_amount)}</p>
+                  <p className="ta-invoice-meta">{shortDate(latestInvoice.period_start)} – {shortDate(latestInvoice.period_end)} · {humanize(latestInvoice.status)}</p>
+                </>
+              ) : <p className="ta-invoice-meta">No invoices yet.</p>}
             </div>
           </div>
         </section>

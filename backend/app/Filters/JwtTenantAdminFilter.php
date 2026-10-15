@@ -45,7 +45,9 @@ class JwtTenantAdminFilter implements FilterInterface
         // e.g. ['api', 'v1', 'listings', '{id}', 'approve'] — the 'api/v1'
         // prefix shifts the resource ID two slots later than the original
         // session-based TenantAdminFilter's un-prefixed routes had it.
-        $resourceId = $segments[3] ?? null;
+        // The ID follows the collection name: /api/v1/app/<collection>/<id>/...
+        // (index 4); routes without the /app segment have it at index 3.
+        $resourceId = (($segments[2] ?? null) === 'app' ? ($segments[4] ?? null) : ($segments[3] ?? null));
         if (!$resourceId) {
             return \App\Libraries\ApiResponse::send(service('response'), ['error' => 'invalid_request', 'error_description' => 'Missing resource ID'], null, 400);
         }

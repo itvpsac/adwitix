@@ -212,22 +212,8 @@ class UserAuthApiController extends BaseController
     // token" step, callable again on any later request with the same token.
     public function me()
     {
-        $party = UserAuthContext::party();
-        $roles = array_column(
-            (new \App\Models\PartyRoleModel())->findActiveRolesForParty($party['id']),
-            'role'
-        );
-
         return $this->apiResponse([
-            'party' => [
-                'id' => $party['id'],
-                'mobile_number' => $party['mobile_number'],
-                'full_name' => $party['full_name'] ?? null,
-                'email' => $party['recovery_email'] ?? null,
-                'entity_type' => $party['entity_type'] ?? null,
-                'kyc_status' => $party['kyc_status'] ?? null,
-                'roles' => $roles,
-            ],
+            'party' => \App\Libraries\UserAuthApiService::toProfile(UserAuthContext::party()),
         ], null, 200);
     }
 }

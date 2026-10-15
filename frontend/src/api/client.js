@@ -107,6 +107,13 @@ async function request(method, path, { body, query, auth = true, raw = false, si
   return data;
 }
 
+// The backend wraps every response as { status, message, data }; returns
+// the inner data (or the response itself if it isn't wrapped).
+export function unwrap(res) {
+  if (res && typeof res === 'object' && 'status' in res && 'data' in res) return res.data || {};
+  return res || {};
+}
+
 export const api = {
   get: (path, opts) => request('GET', path, opts),
   post: (path, body, opts) => request('POST', path, { ...opts, body }),
