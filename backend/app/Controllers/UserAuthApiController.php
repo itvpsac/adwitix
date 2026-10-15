@@ -213,10 +213,17 @@ class UserAuthApiController extends BaseController
     public function me()
     {
         $party = UserAuthContext::party();
-        $roles = array_column(
-            (new \App\Models\PartyRoleModel())->findActiveRolesForParty($party['id']),
-            'role'
-        );
+        $roleRows = (new \App\Models\PartyRoleModel())->findActiveRolesForParty($party['id']);
+        $roles = array_column($roleRows, 'role');
+
+        // Tenants this party administers, so the Tenant Admin dashboard
+        // knows which tenant to load without guessing.
+        $adminTenantIds = array_values(array_unique(array_filter(array_map(
+            fn($r) => $r['role'] === 'tenant_admin' ? $r['tenant_id'] : null,
+            $roleRows
+        ))));
+        $adminTenants = empty($adminTenantIds) ? [] : (new \App\Models\TenantModel())
+            ->select('id, name')->whereIn('id', $adminTenantIds)->orderBy('name', 'ASC')->findAll();
 
         return $this->apiResponse([
             'party' => [
@@ -227,6 +234,7 @@ class UserAuthApiController extends BaseController
                 'entity_type' => $party['entity_type'] ?? null,
                 'kyc_status' => $party['kyc_status'] ?? null,
                 'roles' => $roles,
+                'admin_tenants' => $adminTenants,
             ],
         ], null, 200);
     }
