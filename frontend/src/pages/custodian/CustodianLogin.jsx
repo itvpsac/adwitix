@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { adminAuth } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import { establishSession } from '../../utils/auth.js';
 import GoogleAuthenticatorModal from './GoogleAuthenticatorModal.jsx';
 import './CustodianLogin.css';
@@ -48,8 +49,8 @@ export default function CustodianLogin() {
     if (mobile.length !== 10) { setMobileError('Enter a valid 10-digit mobile number.'); return; }
     setMethodsBusy(true); setMobileError('');
     try {
-      const res = await adminAuth.loginMethods({ mobile_number: `+91${mobile}` });
-      const hasTotp = !!(res && (res.totp === true || res.totpEnabled === true || (Array.isArray(res.methods) && res.methods.includes('totp'))));
+      const res = unwrap(await adminAuth.loginMethods({ mobile_number: `+91${mobile}` }));
+      const hasTotp = !!(res.totp_enabled === true || res.totp === true || res.totpEnabled === true || (Array.isArray(res.methods) && res.methods.includes('totp')));
       setTotpAvailable(hasTotp);
       setTab('mpin');
       setStage('methods');
@@ -65,13 +66,13 @@ export default function CustodianLogin() {
     if (mpin.length !== 4) { setMpinError('Enter your 4-digit mPIN.'); return; }
     setMpinBusy(true); setMpinError('');
     try {
-      const res = await adminAuth.loginMpin({ mobile_number: `+91${mobile}`, mpin });
+      const res = unwrap(await adminAuth.loginMpin({ mobile_number: `+91${mobile}`, mpin }));
       
       // The API returns { status, message, data: { status, access_token, ... } }
       const loginData = res.data || res;
       
       if (loginData.access_token) {
-        establishSession(loginData);
+        establishSession(loginData, { roles: ['super_admin'] });
         navigate('/custodian/dashboard');
       } else if (loginData.status === 'otp_required') {
         setResetTicket(loginData.pending_ticket || '');
@@ -90,8 +91,8 @@ export default function CustodianLogin() {
     if (totpCode.length !== 6) { setTotpError('Enter the current 6-digit code from your app.'); return; }
     setTotpBusy(true); setTotpError('');
     try {
-      const res = await adminAuth.loginTotp({ mobile_number: `+91${mobile}`, totp_code: totpCode });
-      if (res && res.access_token) { establishSession(res); navigate('/custodian/dashboard'); }
+      const res = unwrap(await adminAuth.loginTotp({ mobile_number: `+91${mobile}`, totp_code: totpCode }));
+      if (res && res.access_token) { establishSession(res, { roles: ['super_admin'] }); navigate('/custodian/dashboard'); }
       else { setTotpError('Could not verify that code.'); }
     } catch (err) {
       setTotpError(err.message || 'Invalid authenticator code.');
@@ -102,7 +103,7 @@ export default function CustodianLogin() {
     if (resetOtp.length !== 6) { setResetError('Enter the 6-digit code sent to your mobile.'); return; }
     setResetBusy(true); setResetError('');
     try {
-      const res = await adminAuth.mpinForgotVerify({ pending_ticket: resetTicket, otp: resetOtp, email_otp: resetEmailOtp || undefined });
+      const res = unwrap(await adminAuth.mpinForgotVerify({ pending_ticket: resetTicket, otp: resetOtp, email_otp: resetEmailOtp || undefined }));
       setResetTicket((res && res.pending_ticket) || resetTicket);
       setStage('forced_reset_new_mpin');
     } catch (err) {
@@ -115,8 +116,8 @@ export default function CustodianLogin() {
     if (newMpin !== newMpinConfirm) { setResetError('mPINs do not match.'); return; }
     setResetBusy(true); setResetError('');
     try {
-      const res = await adminAuth.mpinForgotComplete({ pending_ticket: resetTicket, mpin: newMpin });
-      establishSession(res);
+      const res = unwrap(await adminAuth.mpinForgotComplete({ pending_ticket: resetTicket, mpin: newMpin }));
+      establishSession(res, { roles: ['super_admin'] });
       navigate('/custodian/dashboard');
     } catch (err) {
       setResetError(err.message || 'Could not set your new mPIN.');

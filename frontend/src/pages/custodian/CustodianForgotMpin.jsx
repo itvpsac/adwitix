@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { adminAuth } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import { establishSession } from '../../utils/auth.js';
 import './CustodianLogin.css';
 
@@ -32,7 +33,7 @@ export default function CustodianForgotMpin() {
     if (mobile.length !== 10) { setMobileError('Enter a valid 10-digit mobile number.'); return; }
     setBusy(true); setMobileError('');
     try {
-      const res = await adminAuth.mpinForgotRequest({ mobile_number: `+91${mobile}` });
+      const res = unwrap(await adminAuth.mpinForgotRequest({ mobile_number: `+91${mobile}` }));
       setPendingTicket((res && res.pending_ticket) || '');
       setDevOtp(res && res.dev_otp ? String(res.dev_otp) : '');
       setEmailOnFile((res && res.email) || '');
@@ -46,7 +47,7 @@ export default function CustodianForgotMpin() {
     if (otp.length !== 6) { setVerifyError('Enter the 6-digit code sent to your mobile.'); return; }
     setBusy(true); setVerifyError('');
     try {
-      const res = await adminAuth.mpinForgotVerify({ pending_ticket: pendingTicket, otp, email_otp: emailOtp || undefined });
+      const res = unwrap(await adminAuth.mpinForgotVerify({ pending_ticket: pendingTicket, otp, email_otp: emailOtp || undefined }));
       setPendingTicket((res && res.pending_ticket) || pendingTicket);
       setStage('reset');
     } catch (err) {
@@ -59,8 +60,8 @@ export default function CustodianForgotMpin() {
     if (mpin !== mpinConfirm) { setMpinError('mPINs do not match.'); return; }
     setBusy(true); setMpinError('');
     try {
-      const res = await adminAuth.mpinForgotComplete({ pending_ticket: pendingTicket, mpin });
-      establishSession(res);
+      const res = unwrap(await adminAuth.mpinForgotComplete({ pending_ticket: pendingTicket, mpin }));
+      establishSession(res, { roles: ['super_admin'] });
       setStage('done');
     } catch (err) {
       setMpinError(err.message || 'Could not set your new mPIN.');

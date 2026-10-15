@@ -43,22 +43,22 @@ export const adminAuth = {
 
   // Legacy email+password+TOTP/email-OTP login — kept working server
   // side as a fallback, no longer offered by the login UI.
-  login: (payload) => api.post(`${APP}/auth/login`, payload, { auth: false }),
-  verifyEmail: (payload) => api.post(`${APP}/auth/login/verify-email`, payload, { auth: false }),
-  setupTotp: () => api.post(`${APP}/auth/setup-totp`),
-  confirmSetupTotp: (payload) => api.post(`${APP}/auth/setup-totp/confirm`, payload),
+  login: (payload) => api.post(`${APP}/admin/auth/login`, payload, { auth: false }),
+  verifyEmail: (payload) => api.post(`${APP}/admin/auth/login/verify-email`, payload, { auth: false }),
+  setupTotp: () => api.post(`${APP}/admin/auth/setup-totp`),
+  confirmSetupTotp: (payload) => api.post(`${APP}/admin/auth/setup-totp/confirm`, payload),
   // Mobile-OTP entry point for 2FA enrollment — no existing session
   // needed; owning the registered mobile number is itself the proof.
-  setupTotpRequestOtp: (payload) => api.post(`${APP}/auth/setup-totp/request-otp`, payload, { auth: false }),
-  setupTotpVerifyOtp: (payload) => api.post(`${APP}/auth/setup-totp/verify-otp`, payload, { auth: false }),
-  confirmSetupTotpByMobile: (payload) => api.post(`${APP}/auth/setup-totp/confirm-mobile`, payload, { auth: false }),
-  forgotMpin: (payload) => api.post(`${APP}/auth/forgot-mpin`, payload, { auth: false }),
-  forgotMpinVerify: (payload) => api.post(`${APP}/auth/forgot-mpin/verify`, payload, { auth: false }),
+  setupTotpRequestOtp: (payload) => api.post(`${APP}/admin/auth/setup-totp/request-otp`, payload, { auth: false }),
+  setupTotpVerifyOtp: (payload) => api.post(`${APP}/admin/auth/setup-totp/verify-otp`, payload, { auth: false }),
+  confirmSetupTotpByMobile: (payload) => api.post(`${APP}/admin/auth/setup-totp/confirm-mobile`, payload, { auth: false }),
+  forgotMpin: (payload) => api.post(`${APP}/admin/auth/forgot-mpin`, payload, { auth: false }),
+  forgotMpinVerify: (payload) => api.post(`${APP}/admin/auth/forgot-mpin/verify`, payload, { auth: false }),
   // Custodian-facing naming aliases for the same two endpoints, plus the
   // completion step that actually sets the new password.
-  forgotPassword: (payload) => api.post(`${APP}/auth/forgot-password`, payload, { auth: false }),
-  forgotPasswordVerify: (payload) => api.post(`${APP}/auth/forgot-password/verify`, payload, { auth: false }),
-  forgotPasswordComplete: (payload) => api.post(`${APP}/auth/forgot-password/complete`, payload, { auth: false }),
+  forgotPassword: (payload) => api.post(`${APP}/admin/auth/forgot-password`, payload, { auth: false }),
+  forgotPasswordVerify: (payload) => api.post(`${APP}/admin/auth/forgot-password/verify`, payload, { auth: false }),
+  forgotPasswordComplete: (payload) => api.post(`${APP}/admin/auth/forgot-password/complete`, payload, { auth: false }),
 };
 
 // ── Listings & lifecycle (BR-11/BR-13) ──────────────────────────────

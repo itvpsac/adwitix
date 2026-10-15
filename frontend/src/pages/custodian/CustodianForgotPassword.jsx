@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { adminAuth } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './CustodianLogin.css';
 
 // BR-04 Custodian password recovery — email-only, 3 steps against
@@ -30,7 +31,7 @@ export default function CustodianForgotPassword() {
     if (email.length < 5) { setEmailError('Enter your Custodian account email.'); return; }
     setBusy(true); setEmailError('');
     try {
-      const res = await adminAuth.forgotPassword({ email });
+      const res = unwrap(await adminAuth.forgotPassword({ email }));
       setPendingTicket((res && res.pending_ticket) || '');
       setStage('verify');
     } catch (err) {
@@ -43,7 +44,7 @@ export default function CustodianForgotPassword() {
     if (offline) { setStage('reset'); return; }
     setBusy(true); setOtpError('');
     try {
-      const res = await adminAuth.forgotPasswordVerify({ pending_ticket: pendingTicket, email_otp: otp });
+      const res = unwrap(await adminAuth.forgotPasswordVerify({ pending_ticket: pendingTicket, email_otp: otp }));
       setPendingTicket((res && res.pending_ticket) || pendingTicket);
       setStage('reset');
     } catch (err) {

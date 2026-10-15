@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { adminAuth } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import { useAuth } from '../../utils/auth.js';
 import './CustodianCredentialSetup.css';
 
@@ -25,7 +26,7 @@ export default function CustodianCredentialSetup() {
   const beginSetup = async () => {
     setBusy(true); setLoadError('');
     try {
-      const res = await adminAuth.setupTotp();
+      const res = unwrap(await adminAuth.setupTotp());
       setSetup(res && res.setup);
       setStage('setup');
     } catch (err) {
@@ -37,7 +38,7 @@ export default function CustodianCredentialSetup() {
     if (code.length !== 6) { setCodeError('Enter the current 6-digit code from your app.'); return; }
     setBusy(true); setCodeError('');
     try {
-      const res = await adminAuth.confirmSetupTotp({ code });
+      const res = unwrap(await adminAuth.confirmSetupTotp({ code }));
       setBackupCodes((res && res.backupCodes) || []);
       setStage('backup');
     } catch (err) {

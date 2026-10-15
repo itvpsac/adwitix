@@ -43,10 +43,13 @@ export function partyToUser(party) {
 }
 
 // Persists the session from any endpoint that returns { access_token, party }.
-export function establishSession(result) {
+// `roles` fills in party.roles when the login response omits them (the
+// Custodian login endpoints only succeed for super_admin but don't say so).
+export function establishSession(result, { roles } = {}) {
   if (!result) return null;
   if (result.access_token) setToken(result.access_token);
-  const user = partyToUser(result.party) || readAuth();
+  const party = result.party && roles && !result.party.roles ? { ...result.party, roles } : result.party;
+  const user = partyToUser(party) || readAuth();
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
   emit();
   return user;

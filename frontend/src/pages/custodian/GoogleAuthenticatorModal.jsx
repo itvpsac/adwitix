@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { adminAuth } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './GoogleAuthenticatorModal.css';
 
 // TOTP enrollment via the mobile-OTP entry point (setupTotpRequestOtp /
@@ -25,7 +26,7 @@ export default function GoogleAuthenticatorModal({ onClose, onEnabled }) {
     if (mobile.length !== 10) { setMobileError('Enter a valid 10-digit mobile number.'); return; }
     setBusy(true); setMobileError('');
     try {
-      const res = await adminAuth.setupTotpRequestOtp({ mobile_number: `+91${mobile}` });
+      const res = unwrap(await adminAuth.setupTotpRequestOtp({ mobile_number: `+91${mobile}` }));
       setDevOtp(res && res.dev_otp ? String(res.dev_otp) : '');
       setStage('otp');
     } catch (err) {
@@ -37,7 +38,7 @@ export default function GoogleAuthenticatorModal({ onClose, onEnabled }) {
     if (otp.length !== 6) { setOtpError('Enter the 6-digit code sent to your mobile.'); return; }
     setBusy(true); setOtpError('');
     try {
-      const res = await adminAuth.setupTotpVerifyOtp({ mobile_number: `+91${mobile}`, otp });
+      const res = unwrap(await adminAuth.setupTotpVerifyOtp({ mobile_number: `+91${mobile}`, otp }));
       setPendingTicket((res && res.pending_ticket) || '');
       setSetup(res && res.setup);
       setStage('setup');
@@ -50,7 +51,7 @@ export default function GoogleAuthenticatorModal({ onClose, onEnabled }) {
     if (code.length !== 6) { setCodeError('Enter the current 6-digit code from your app.'); return; }
     setBusy(true); setCodeError('');
     try {
-      const res = await adminAuth.confirmSetupTotpByMobile({ pending_ticket: pendingTicket, code });
+      const res = unwrap(await adminAuth.confirmSetupTotpByMobile({ pending_ticket: pendingTicket, code }));
       setBackupCodes((res && res.backupCodes) || []);
       setStage('backup');
     } catch (err) {
