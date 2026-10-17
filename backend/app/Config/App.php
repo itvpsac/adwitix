@@ -16,7 +16,9 @@ class App extends BaseConfig
      *
      * E.g., http://example.com/
      */
-    public string $baseURL = 'https://admin.adwitix.com/';
+    // Combined with $indexPage below, site_url() resolves to
+    // https://admin.adwitix.com/public/index.php/
+    public string $baseURL = 'https://admin.adwitix.com/public/';
 
     /**
      * Allowed Hostnames in the Site URL other than the hostname in the baseURL.

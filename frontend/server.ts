@@ -11,7 +11,7 @@ async function startServer() {
 
   app.all("/api/v1/*", async (req, res) => {
     try {
-      const url = `https://admin.adwitix.com${req.originalUrl}`;
+      const url = `https://admin.adwitix.com/public/index.php${req.originalUrl}`;
       console.log(`Proxying request: ${req.method} ${req.originalUrl} to ${url}`);
       console.log(`Request body: ${JSON.stringify(req.body)}`);
       const options: any = {
