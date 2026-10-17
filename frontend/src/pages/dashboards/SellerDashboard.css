@@ -7,7 +7,7 @@
 .sd-standing-badge { font-size: 12px; font-weight: 600; color: var(--color-success); background: var(--color-success-bg); padding: 6px 13px; border-radius: var(--radius-pill); align-self: flex-start; }
 .sd-sub { font-size: 14px; color: var(--color-text-muted); margin: 0 0 28px; }
 
-.sd-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 44px; }
+.sd-stats { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; margin-bottom: 44px; }
 .sd-stat-card { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: 18px 20px; }
 .sd-stat-card b { display: block; font-family: var(--font-serif); font-size: 26px; font-weight: 800; }
 .sd-stat-card span { font-size: 12px; color: var(--color-text-faint); font-weight: 600; }
