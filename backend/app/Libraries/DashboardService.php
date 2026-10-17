@@ -85,6 +85,12 @@ class DashboardService
             ->where('completed_at >=', $monthStart)
             ->get()->getRowArray();
 
+        $salesYtd = $db->table('settlement')
+            ->selectSum('final_price', 'total')->selectCount('id', 'count')
+            ->where('seller_party_id', $partyId)->where('status', 'completed')
+            ->where('completed_at >=', date('Y-01-01 00:00:00'))
+            ->get()->getRowArray();
+
         $party = (new \App\Models\PartyModel())->find($partyId);
         $payoutBankSet = !empty($party['payout_bank_account_number']);
         $payoutBankPending = !empty($party['payout_bank_pending_account_number']);
@@ -94,10 +100,14 @@ class DashboardService
         return [
             'activeListingsCount' => $db->table('listing')->where('seller_party_id', $partyId)->where('status', 'active')->countAllResults(),
             'activeListings' => $activeListings,
+            'pendingApprovalCount' => $db->table('listing')->where('seller_party_id', $partyId)->where('status', 'pending_approval')->countAllResults(),
+            'inventoryCount' => $db->table('listing')->where('seller_party_id', $partyId)->where('status', 'inventory')->countAllResults(),
             'pendingSettlementsCount' => $db->table('settlement')->where('seller_party_id', $partyId)->where('status !=', 'completed')->countAllResults(),
             'pendingSettlements' => $pendingSettlements,
             'salesThisMonthCount' => (int) ($salesThisMonth['count'] ?? 0),
             'salesThisMonthTotal' => (float) ($salesThisMonth['total'] ?? 0),
+            'salesYtdCount' => (int) ($salesYtd['count'] ?? 0),
+            'salesYtdTotal' => (float) ($salesYtd['total'] ?? 0),
             'payoutBankSet' => $payoutBankSet,
             'payoutBankPending' => $payoutBankPending,
             'recentInvoices' => $recentInvoices,
