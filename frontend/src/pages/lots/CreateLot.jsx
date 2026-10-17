@@ -128,6 +128,7 @@ export default function CreateLot() {
   const [preCheckStatus, setPreCheckStatus] = useState('idle');
   const [loading, setLoading] = useState(false);
   const [createdLotId, setCreatedLotId] = useState('');
+  const [mediaUploaded, setMediaUploaded] = useState(false);
 
   const goToStep2 = () => {
     if (!catId || !condition || !title.trim()) { setStep1Error('Fill in category, condition, and title before continuing.'); return; }
@@ -176,7 +177,7 @@ export default function CreateLot() {
         setCreatedLotId(lotId);
       }
 
-      if (mediaFiles.length || documents.length) {
+      if (!mediaUploaded && (mediaFiles.length || documents.length)) {
         const formData = new FormData();
         mediaFiles.forEach(m => formData.append(m.type.startsWith('video/') ? 'videos[]' : 'photos[]', m.file, m.name));
         documents.forEach(d => formData.append('documents[]', d.file, d.name));
@@ -187,6 +188,16 @@ export default function CreateLot() {
           setStep3Error(`Lot saved, but ${failed.length} file(s) failed to upload: ${failed.map(f => `${f.original_filename} (${f.error})`).join('; ')}`);
           return;
         }
+      }
+      setMediaUploaded(true);
+
+      // A new lot starts in the seller's inventory; this moves it to
+      // pending_approval so it reaches the TSX Master's Lot Approval queue.
+      try {
+        await listings.submitForApproval(lotId);
+      } catch (err) {
+        setStep3Error(`Lot saved to your inventory, but it could not be sent for approval: ${err.description || err.message}`);
+        return;
       }
       setNewLotId(lotId);
       setSubmitted(true);
