@@ -6,17 +6,31 @@
 // jwtTenantAdmin = tenant admin, jwtSuperAdmin = Custodian/SaaS admin,
 // apiAuth = OAuth2 client-credentials (tenant machine API), none = public.
 
-import { api } from './client.js';
+import { api, getToken } from './client.js';
 
 const APP = '/api/v1/app';
 const ADMIN_APP = '/api/v1';
+
+// GET /auth/me is asked for by every page header plus several pages, so
+// calls share one request and its result for a minute per token — a page
+// view would otherwise send it 2–4 times, which trips the host's rate limit.
+const ME_TTL_MS = 60000;
+let meCache = null;
+function cachedMe() {
+  const token = getToken();
+  if (meCache && meCache.token === token && Date.now() - meCache.at < ME_TTL_MS) return meCache.promise;
+  const promise = api.get(`${APP}/auth/me`).catch((err) => { meCache = null; throw err; });
+  meCache = { token, at: Date.now(), promise };
+  return promise;
+}
+const invalidateMe = (res) => { meCache = null; return res; };
 
 // ── Auth: mobile-OTP + mPIN (BR-02, D-137 Phase 6) ──────────────────
 export const auth = {
   requestOtp: (mobile_number) => api.post(`${APP}/auth/otp/request`, { mobile_number }, { auth: false }),
   verifyOtp: (mobile_number, otp) => api.post(`${APP}/auth/otp/verify`, { mobile_number, otp }, { auth: false }),
   submitProfile: (payload) => api.post(`${APP}/auth/submit`, payload, { auth: false }),
-  me: () => api.get(`${APP}/auth/me`),
+  me: cachedMe,
 
   registerRequestOtp: (mobile_number) => api.post(`${APP}/auth/register/otp/request`, { mobile_number }, { auth: false }),
   registerVerifyOtp: (mobile_number, otp) => api.post(`${APP}/auth/register/otp/verify`, { mobile_number, otp }, { auth: false }),
@@ -140,7 +154,7 @@ export const disputes = {
 
 // ── My activity & dashboards (Phase 3A/D-106) ───────────────────────
 export const me = {
-  profile: () => api.get(`${APP}/auth/me`),
+  profile: cachedMe,
   account: () => api.get(`${APP}/account`),
   activity: () => api.get(`${APP}/my-activity`),
   listings: () => api.get(`${APP}/my-listings`),
@@ -161,7 +175,7 @@ export const me = {
 
 // ── Account management (Phase 3A/Phase 4) ───────────────────────────
 export const account = {
-  edit: (payload) => api.post(`${APP}/account/edit`, payload),
+  edit: (payload) => api.post(`${APP}/account/edit`, payload).then(invalidateMe),
   changeMpinRequestOtp: () => api.post(`${APP}/account/change-mpin/request-otp`),
   changeMpinConfirm: (payload) => api.post(`${APP}/account/change-mpin/confirm`, payload),
   requestDelete: (payload) => api.post(`${APP}/account/delete/request`, payload),
@@ -181,7 +195,7 @@ export const kyc = {
   uploadDocument: (formData) => api.post(`${APP}/kyc/documents`, formData),
   saveAddress: (payload) => api.post(`${APP}/kyc/addresses`, payload),
   saveBanking: (payload) => api.post(`${APP}/kyc/banking`, payload),
-  submit: () => api.post(`${APP}/kyc/submit`),
+  submit: () => api.post(`${APP}/kyc/submit`).then(invalidateMe),
 };
 
 // ── Tenants / TradeSphereX ──────────────────────────────────────────

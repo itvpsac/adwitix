@@ -9,7 +9,11 @@
 // (app/Filters/JwtAuthFilter.php). Logout is client-side only — the
 // backend has no /logout route; we simply discard the token.
 
-const RAW_BASE = '';
+// Blank = same origin (Vercel rewrites /api/v1/* to the backend). Set
+// VITE_API_BASE_URL=https://admin.adwitix.com/public/index.php to call the
+// backend directly, so each user reaches it from their own IP instead of
+// through Vercel's shared proxy IPs (which trip the host's rate limit).
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL || '';
 export const API_BASE = RAW_BASE.replace(/\/+$/, '');
 
 const TOKEN_KEY = 'adwitix_jwt';
