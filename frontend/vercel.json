@@ -9,6 +9,18 @@
       "destination": "https://admin.adwitix.com/public/uploads/:path*"
     },
     {
+      "source": "/ticker-feed",
+      "destination": "https://admin.adwitix.com/public/index.php/ticker-feed"
+    },
+    {
+      "source": "/chronicles/:path*",
+      "destination": "https://admin.adwitix.com/public/index.php/chronicles/:path*"
+    },
+    {
+      "source": "/chronicle/verify/:path*",
+      "destination": "https://admin.adwitix.com/public/index.php/chronicle/verify/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
