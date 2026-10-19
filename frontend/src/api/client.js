@@ -102,6 +102,11 @@ async function request(method, path, { body, query, auth = true, raw = false, si
         console.error(`API Request Failed: ${method} ${path}`, { status: res.status, data, text });
       }
     }
+    // 429s come from the hosting layer's rate limiter, not the app, and
+    // carry no envelope.
+    if (res.status === 429) {
+      throw new ApiError(429, 'rate_limited', 'Too many requests — please wait a minute and try again.', data);
+    }
     // Errors arrive in the envelope as { status: false, message, data: { error } }.
     const inner = (data && data.data) || {};
     throw new ApiError(res.status, inner.error || (data && data.error) || 'request_failed', (data && data.error_description) || (data && data.message) || null, data);
