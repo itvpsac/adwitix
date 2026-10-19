@@ -13,7 +13,7 @@ export default function UserDirectory() {
   const [kycFilter, setKycFilter] = useState('all');
   const [pageSize, setPageSize] = useState(40);
 
-  const { data: apiData, loading: apiLoading } = useApiQuery(() => admin.users({ perPage: 200 }), []);
+  const { data: apiData, loading: apiLoading } = useApiQuery(() => admin.users(), []);
   const apiRows = (apiData && (apiData.users || apiData.parties || apiData.rows)) || [];
   const statusStyle = (st) => st === 'Delisted'
     ? { statusColor: 'var(--color-danger)', statusBg: 'var(--color-danger-bg)' }
@@ -21,8 +21,9 @@ export default function UserDirectory() {
       ? { statusColor: 'var(--color-warning)', statusBg: 'var(--color-warning-bg)' }
       : { statusColor: 'var(--color-success)', statusBg: 'var(--color-success-bg)' };
   const source = apiRows.map((u) => {
-    const st = u.delisted_at ? 'Delisted' : u.shadow_banned_at ? 'Shadow-banned' : 'Active';
+    const st = u.seller_delisted_at ? 'Delisted' : (u.shadow_banned_at_buyer || u.shadow_banned_at_seller) ? 'Shadow-banned' : 'Active';
     return {
+      id: u.id,
       mobile: u.mobile_number || '—',
       name: u.full_name || u.mobile_number || '—',
       type: (u.entity_type || 'individual').toLowerCase() === 'organization' ? 'Business' : 'Individual',
@@ -73,7 +74,7 @@ export default function UserDirectory() {
         <div className="ud-table">
           <div className="ud-row ud-row--head"><span>Mobile</span><span>Name</span><span>Type</span><span>KYC</span><span>Trader★</span><span>MM★</span><span>Status</span></div>
           {page.map((u, i) => (
-            <Link to="/user-detail" key={u.mobile} className="ud-row" style={{ background: i % 2 === 1 ? '#FCFCFB' : '#fff' }}>
+            <Link to={`/user-detail?id=${u.id}`} key={u.id || u.mobile} className="ud-row" style={{ background: i % 2 === 1 ? '#FCFCFB' : '#fff' }}>
               <span className="ud-cell-mono">{u.mobile}</span>
               <span className="ud-cell-name">{u.name}</span>
               <span className="ud-cell-faint">{u.type}</span>

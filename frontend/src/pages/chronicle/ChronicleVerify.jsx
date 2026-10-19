@@ -1,29 +1,70 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import './ChronicleVerify.css';
 import AppHeader from '../../components/AppHeader.jsx';
+import { chronicle as chronicleApi } from '../../api/endpoints.js';
+import { saveBlob } from '../../api/client.js';
+import { useApiQuery } from '../../api/hooks.js';
+import { toChronicleView } from './AxChronicle.jsx';
 
-const HASH_MATCHES = true;
-const FACTS = [
+const DEMO_FACTS = [
   { label: 'Reference Number', value: 'AXC-2026-088341' },
   { label: 'Certified', value: '2026-08-01 09:42 UTC' },
   { label: 'Version', value: '1.0' },
   { label: 'Trading Session', value: 'TSN-2026-3115' },
   { label: 'Trading Format', value: 'Easy Auction' },
 ];
-const MEDIA = [
+const DEMO_MEDIA = [
   { filename: 'compressor_front.jpg', primaryTag: ' (primary)' },
   { filename: 'compressor_nameplate.jpg', primaryTag: '' },
   { filename: 'inspection_report.pdf', primaryTag: '' },
 ];
-const TIMELINE = [
+const DEMO_TIMELINE = [
   { at: '2026-07-28 11:02:14', type: 'Lot approved by TSX Master' },
   { at: '2026-07-29 09:15:41', type: 'Trading Session opened' },
   { at: '2026-07-31 18:00:00', type: 'Bidding closed — H1 recorded' },
   { at: '2026-08-01 09:40:22', type: 'Settlement completed' },
 ];
-const CHAIN_HASH = '9f3a7c2e18d0b4f1';
+const DEMO_CHAIN_HASH = '9f3a7c2e18d0b4f1';
 
 export default function ChronicleVerify() {
+  // ?token= from the QR code / verification link; public, no login.
+  const [params] = useSearchParams();
+  const token = params.get('token');
+  const [error, setError] = useState('');
+  const { data, error: loadError } = useApiQuery(() => chronicleApi.verify(token), [token], { skip: !token });
+  const live = !!(data && data.chronicle);
+  const view = live ? toChronicleView(data) : null;
+  const HASH_MATCHES = live ? !!data.hashMatches : true;
+  const FACTS = live ? [
+    { label: 'Reference Number', value: view.reference },
+    { label: 'Certified', value: view.certifiedAt },
+    { label: 'Version', value: view.version },
+    { label: 'Trading Session', value: view.sessionRef },
+    { label: 'Trading Format', value: view.format },
+  ] : DEMO_FACTS;
+  const MEDIA = live ? (data.media || []).map((m) => ({ filename: m.original_filename, primaryTag: Number(m.is_primary) ? ' (primary)' : '' })) : DEMO_MEDIA;
+  const TIMELINE = live ? view.timeline.map((t) => ({ at: t.when, type: t.event })) : DEMO_TIMELINE;
+  const CHAIN_HASH = live ? (data.chronicle.content_hash || '').slice(0, 16) : DEMO_CHAIN_HASH;
+
+  const downloadPdf = async () => {
+    setError('');
+    try {
+      saveBlob(await chronicleApi.verifyPdf(token), `${view.reference}.pdf`);
+    } catch (err) {
+      setError(err.message || 'Download failed.');
+    }
+  };
+
+  if (token && loadError) {
+    return (
+      <div className="cv-page">
+        <AppHeader variant="light" contextLabel="Chronicle Verification" />
+        <main className="cv-main"><h1 className="cv-title">Chronicle Verification</h1><p className="cv-body-text">{loadError.message || 'No Chronicle matches this verification token.'}</p></main>
+      </div>
+    );
+  }
+
   return (
     <div className="cv-page">
       <AppHeader variant="light" contextLabel="Chronicle Verification" />
@@ -40,11 +81,14 @@ export default function ChronicleVerify() {
           {FACTS.map((f) => <div key={f.label} className="cv-fact-row"><span className="cv-fact-label">{f.label}</span><span className="cv-fact-value">{f.value}</span></div>)}
         </div>
 
-        <Link to="/ax-chronicle" className="cv-download-btn">Download Certified PDF →</Link>
+        {live
+          ? <button type="button" onClick={downloadPdf} className="cv-download-btn" style={{ border: 'none', cursor: 'pointer' }}>Download Certified PDF →</button>
+          : <Link to="/ax-chronicle" className="cv-download-btn">Download Certified PDF →</Link>}
+        {error && <p className="cv-chain-note" style={{ color: 'var(--color-danger)' }}>{error}</p>}
 
         <h3 className="cv-h3">Supporting Evidence</h3>
         <div className="cv-list-card">
-          {MEDIA.map((m) => <div key={m.filename} className="cv-list-row"><a href="#">{m.filename}</a>{m.primaryTag}</div>)}
+          {MEDIA.map((m) => <div key={m.filename} className="cv-list-row"><span>{m.filename}</span>{m.primaryTag}</div>)}
         </div>
 
         <h3 className="cv-h3">Audit-Trail Excerpt</h3>

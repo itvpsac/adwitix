@@ -6,17 +6,31 @@
 // jwtTenantAdmin = tenant admin, jwtSuperAdmin = Custodian/SaaS admin,
 // apiAuth = OAuth2 client-credentials (tenant machine API), none = public.
 
-import { api } from './client.js';
+import { api, getToken } from './client.js';
 
 const APP = '/api/v1/app';
 const ADMIN_APP = '/api/v1';
+
+// GET /auth/me is asked for by every page header plus several pages, so
+// calls share one request and its result for a minute per token — a page
+// view would otherwise send it 2–4 times, which trips the host's rate limit.
+const ME_TTL_MS = 60000;
+let meCache = null;
+function cachedMe() {
+  const token = getToken();
+  if (meCache && meCache.token === token && Date.now() - meCache.at < ME_TTL_MS) return meCache.promise;
+  const promise = api.get(`${APP}/auth/me`).catch((err) => { meCache = null; throw err; });
+  meCache = { token, at: Date.now(), promise };
+  return promise;
+}
+const invalidateMe = (res) => { meCache = null; return res; };
 
 // ── Auth: mobile-OTP + mPIN (BR-02, D-137 Phase 6) ──────────────────
 export const auth = {
   requestOtp: (mobile_number) => api.post(`${APP}/auth/otp/request`, { mobile_number }, { auth: false }),
   verifyOtp: (mobile_number, otp) => api.post(`${APP}/auth/otp/verify`, { mobile_number, otp }, { auth: false }),
   submitProfile: (payload) => api.post(`${APP}/auth/submit`, payload, { auth: false }),
-  me: () => api.get(`${APP}/auth/me`),
+  me: cachedMe,
 
   registerRequestOtp: (mobile_number) => api.post(`${APP}/auth/register/otp/request`, { mobile_number }, { auth: false }),
   registerVerifyOtp: (mobile_number, otp) => api.post(`${APP}/auth/register/otp/verify`, { mobile_number, otp }, { auth: false }),
@@ -75,7 +89,9 @@ export const listings = {
     
     return api.post(`${APP}/listings`, payload);
   },
-  show: (id) => api.get(`${APP}/listings/${id}`, { auth: false }),
+  // Public route; the token is sent when present so viewer-specific fields
+  // (myEmdHold, isOwner, …) come back filled in.
+  show: (id) => api.get(`${APP}/listings/${id}`),
   edit: (id, payload) => api.post(`${APP}/listings/${id}/edit`, payload),
   favorite: (id) => api.post(`${APP}/listings/${id}/favorite`),
   unfavorite: (id) => api.post(`${APP}/listings/${id}/unfavorite`),
@@ -111,8 +127,9 @@ export const saleEvents = {
   fileDispute: (id, payload) => api.post(`${APP}/sale-events/${id}/dispute`, payload),
   fileChargeback: (id, payload) => api.post(`${APP}/sale-events/${id}/dev-file-chargeback`, payload),
 
-  emdConsentTerms: (id, holdId) => api.get(`${APP}/sale-events/${id}/emd-consent/${holdId}`),
-  confirmEmdConsent: (id, holdId, payload) => api.post(`${APP}/sale-events/${id}/emd-consent/${holdId}/confirm`, payload),
+  // action: 'easy_or_tender' | 'buy_now' | 'express' (EmdConsentController)
+  emdConsentTerms: (id, action) => api.get(`${APP}/sale-events/${id}/emd-consent/${action}`),
+  confirmEmdConsent: (id, action, payload) => api.post(`${APP}/sale-events/${id}/emd-consent/${action}/confirm`, payload),
 };
 
 // ── Settlement & ratings (BR-33/BR-39) ──────────────────────────────
@@ -137,7 +154,7 @@ export const disputes = {
 
 // ── My activity & dashboards (Phase 3A/D-106) ───────────────────────
 export const me = {
-  profile: () => api.get(`${APP}/auth/me`),
+  profile: cachedMe,
   account: () => api.get(`${APP}/account`),
   activity: () => api.get(`${APP}/my-activity`),
   listings: () => api.get(`${APP}/my-listings`),
@@ -158,7 +175,7 @@ export const me = {
 
 // ── Account management (Phase 3A/Phase 4) ───────────────────────────
 export const account = {
-  edit: (payload) => api.post(`${APP}/account/edit`, payload),
+  edit: (payload) => api.post(`${APP}/account/edit`, payload).then(invalidateMe),
   changeMpinRequestOtp: () => api.post(`${APP}/account/change-mpin/request-otp`),
   changeMpinConfirm: (payload) => api.post(`${APP}/account/change-mpin/confirm`, payload),
   requestDelete: (payload) => api.post(`${APP}/account/delete/request`, payload),
@@ -171,16 +188,14 @@ export const account = {
 
 // ── KYC (BR-17/18/55) ───────────────────────────────────────────────
 export const kyc = {
+  // GET /kyc returns the whole dossier (party, documents, addressesByType);
+  // the questionnaire/documents/addresses/banking routes are POST-only.
   form: () => api.get(`${APP}/kyc`),
-  getQuestionnaire: () => api.get(`${APP}/kyc/questionnaire`),
   saveQuestionnaire: (payload) => api.post(`${APP}/kyc/questionnaire`, payload),
-  getDocuments: () => api.get(`${APP}/kyc/documents`),
   uploadDocument: (formData) => api.post(`${APP}/kyc/documents`, formData),
-  getAddresses: () => api.get(`${APP}/kyc/addresses`),
   saveAddress: (payload) => api.post(`${APP}/kyc/addresses`, payload),
-  getBanking: () => api.get(`${APP}/kyc/banking`),
   saveBanking: (payload) => api.post(`${APP}/kyc/banking`, payload),
-  submit: () => api.post(`${APP}/kyc/submit`),
+  submit: () => api.post(`${APP}/kyc/submit`).then(invalidateMe),
 };
 
 // ── Tenants / TradeSphereX ──────────────────────────────────────────
@@ -288,28 +303,34 @@ export const tender = {
 };
 
 // ── Discovery, browse, ticker (Phase 3C+) ───────────────────────────
+// The /browse, /my-searches… page routes render HTML; these are their JSON
+// counterparts under /api/v1/app. browse sends the token when present so
+// results carry the CLV match flag.
 export const discovery = {
-  browse: (query) => api.get('/browse', { query, auth: false }),
-  favorites: () => api.get('/my-favorites'),
-  savedSearches: () => api.get('/my-searches'),
-  saveSearch: (payload) => api.post('/my-searches', payload),
-  deleteSearch: (id) => api.post(`/my-searches/${id}/delete`),
-  searchHistory: () => api.get('/search-history'),
-  recommendations: () => api.get('/recommendations'),
-  tickerFeed: () => api.get('/ticker-feed', { auth: false }),
+  browse: (query) => api.get(`${APP}/browse`, { query }),
+  favorites: () => api.get(`${APP}/my-favorites`),
+  savedSearches: () => api.get(`${APP}/my-searches`),
+  saveSearch: (payload) => api.post(`${APP}/my-searches`, payload),
+  deleteSearch: (id) => api.post(`${APP}/my-searches/${id}/delete`),
+  searchHistory: () => api.get(`${APP}/search-history`),
+  recommendations: () => api.get(`${APP}/recommendations`),
+  // Viewer-scoped (own bids + interest matches), so the token is sent.
+  tickerFeed: () => api.get('/ticker-feed'),
 };
 
 // ── Lot Reach & Interest (D-105) ────────────────────────────────────
 export const lotReach = {
-  index: (query) => api.get('/my-listings/reach', { query }),
-  sendMessage: (listingId, payload) => api.post(`/listings/${listingId}/reach/message`, payload),
+  index: (query) => api.get(`${APP}/my-listings/reach`, { query }),
+  sendMessage: (listingId, payload) => api.post(`${APP}/listings/${listingId}/reach/message`, payload),
 };
 
 // ── Chronicle (Section 7.10) — verify routes are token-only, public ──
+// view/verify are the JSON routes; the PDFs come from the page routes
+// (download needs the token — only parties to the settlement may fetch it).
 export const chronicle = {
-  view: (id) => api.get(`/chronicles/${id}`, { auth: false }),
-  download: (id) => api.download(`/chronicles/${id}/download`, { auth: false }),
-  verify: (token) => api.get(`/chronicle/verify/${token}`, { auth: false }),
+  view: (id) => api.get(`${APP}/chronicles/${id}`),
+  download: (id) => api.download(`/chronicles/${id}/download`),
+  verify: (token) => api.get(`${APP}/chronicle/verify/${token}`, { auth: false }),
   verifyPdf: (token) => api.download(`/chronicle/verify/${token}/pdf`, { auth: false }),
 };
 

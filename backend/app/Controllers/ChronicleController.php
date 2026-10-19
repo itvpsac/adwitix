@@ -126,6 +126,43 @@ class ChronicleController extends BaseController
         return $this->renderPdf($chronicle);
     }
 
+    // ── JSON counterparts for the React app ──
+
+    // jwtAuth-gated: same authorization as view().
+    public function viewApi(string $chronicleId)
+    {
+        $chronicle = $this->authorizedChronicle($chronicleId, \App\Libraries\UserAuthContext::partyId());
+        if (!$chronicle) {
+            return $this->jsonError(403, 'forbidden', 'You are not authorized to view this Chronicle.');
+        }
+        return $this->apiResponse($this->chroniclePayload($chronicle));
+    }
+
+    // Public, token-only — same as verify().
+    public function verifyApi(string $token)
+    {
+        $chronicle = $this->chronicles->getByToken($token);
+        if (!$chronicle) {
+            return $this->jsonError(404, 'not_found', 'No Chronicle matches this verification token.');
+        }
+        return $this->apiResponse($this->chroniclePayload($chronicle) + [
+            'hashMatches' => hash('sha256', $chronicle['report_data']) === $chronicle['content_hash'],
+        ]);
+    }
+
+    private function chroniclePayload(array $chronicle): array
+    {
+        $media = \Config\Database::connect()->table('listing_media')
+            ->join('sale_event', 'sale_event.listing_id = listing_media.listing_id')
+            ->where('sale_event.id', $chronicle['sale_event_id'])
+            ->select('listing_media.file_path, listing_media.original_filename, listing_media.is_primary')
+            ->get()->getResultArray();
+
+        $reportData = json_decode($chronicle['report_data'], true);
+        unset($chronicle['report_data']);
+        return ['chronicle' => $chronicle, 'reportData' => $reportData, 'media' => $media];
+    }
+
     private function renderPdf(array $chronicle)
     {
         $reportData = json_decode($chronicle['report_data'], true);

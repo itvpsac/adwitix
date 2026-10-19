@@ -165,6 +165,7 @@ $routes->get('/sale-events/(:segment)/tender/report', 'TenderController::auction
 // logout is client-side — the React app just discards the token.)
 $routes->get('/browse', 'Home::browse');
 $routes->get('/listings', 'Home::browse');
+$routes->get('/api/v1/app/browse', 'Home::browseApi');
 $routes->get('/api/v1/app/admin/audit-log', 'AuditLogController::index', ['filter' => 'jwtSuperAdmin']);
 $routes->get('/api/v1/app/admin/audit-log/verify', 'AuditLogController::verifyIntegrity', ['filter' => 'jwtSuperAdmin']);
 $routes->get('/api/v1/app/admin/audit-log/export', 'AuditLogController::export', ['filter' => 'jwtSuperAdmin']);
@@ -222,6 +223,8 @@ $routes->get('/chronicles/(:segment)', 'ChronicleController::view/$1');
 $routes->get('/chronicles/(:segment)/download', 'ChronicleController::download/$1');
 $routes->get('/chronicle/verify/(:segment)', 'ChronicleController::verify/$1');
 $routes->get('/chronicle/verify/(:segment)/pdf', 'ChronicleController::verifyPdf/$1');
+$routes->get('/api/v1/app/chronicles/(:segment)', 'ChronicleController::viewApi/$1', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/chronicle/verify/(:segment)', 'ChronicleController::verifyApi/$1');
 
 // Phase 3A: real, dedicated, paginated/filterable transaction pages —
 // migrated to /api/v1 below (Phase 4, D-134).
@@ -234,11 +237,19 @@ $routes->post('/my-searches', 'DiscoveryController::saveSearchSubmit');
 $routes->post('/my-searches/(:segment)/delete', 'DiscoveryController::deleteSearch/$1');
 $routes->get('/search-history', 'DiscoveryController::searchHistory');
 $routes->get('/recommendations', 'DiscoveryController::recommendations');
+$routes->get('/api/v1/app/my-favorites', 'DiscoveryController::favoritesApi', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/my-searches', 'DiscoveryController::searchesApi', ['filter' => 'jwtAuth']);
+$routes->post('/api/v1/app/my-searches', 'DiscoveryController::saveSearchApi', ['filter' => 'jwtAuth']);
+$routes->post('/api/v1/app/my-searches/(:segment)/delete', 'DiscoveryController::deleteSearchApi/$1', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/search-history', 'DiscoveryController::searchHistoryApi', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/recommendations', 'DiscoveryController::recommendationsApi', ['filter' => 'jwtAuth']);
 
 // D-105: Lot Reach & Interest -- per-listing reach analytics + real
 // in-app bulk messaging to matched buyers.
 $routes->get('/my-listings/reach', 'LotReachController::index');
 $routes->post('/listings/(:segment)/reach/message', 'LotReachController::sendMessage/$1');
+$routes->get('/api/v1/app/my-listings/reach', 'LotReachController::indexApi', ['filter' => 'jwtAuth']);
+$routes->post('/api/v1/app/listings/(:segment)/reach/message', 'LotReachController::sendMessageApi/$1', ['filter' => 'jwtAuth']);
 // MyActivityController's messages/star-ratings/rating-history/dashboards:
 // migrated to /api/v1 below (Phase 4, D-134).
 $routes->get('/api/v1/app/admin/lots', 'AdminController::lotDirectory', ['filter' => 'jwtSuperAdmin']);

@@ -1,46 +1,58 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import { pushLedger } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import './PayoutReviews.css';
 
-function nowStamp() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
-function loadDecisions() { try { return JSON.parse(localStorage.getItem('adwitix_payout_decisions') || '{}'); } catch (e) { return {}; } }
-function saveDecisions(d) { localStorage.setItem('adwitix_payout_decisions', JSON.stringify(d)); }
-function pushLedger(action, target, detail) {
-  try {
-    const key = 'adwitix_audit_ledger';
-    const cur = JSON.parse(localStorage.getItem(key) || '[]');
-    cur.push({ at: nowStamp(), actorRole: 'Custodian', actorName: 'Custodian', actorMobile: '—', action, target, detail });
-    localStorage.setItem(key, JSON.stringify(cur));
-  } catch (e) { /* noop */ }
-}
-const QUEUE = [
-  { id: 'py1', name: 'Northline Salvage Co.', role: 'Market Maker', mobile: '91xxxxxx02', at: '2026-08-01 14:22', coolEnds: '2026-08-02 14:22', oldAcct: 'HDFC ••4821', newAcct: 'ICICI ••7710' },
-  { id: 'py2', name: 'Priya Rao', role: 'Trader', mobile: '99xxxxxx88', at: '2026-08-02 08:00', coolEnds: '2026-08-03 08:00', oldAcct: 'SBI ••1190', newAcct: 'Axis ••3345' },
-];
+const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
+const money = (v) => (v == null ? '—' : `₹${Number(v).toLocaleString('en-IN')}`);
+const RELEASE_LABEL = { plain_release: 'EMD Release', settlement_refund: 'Settlement Refund' };
 
 export default function PayoutReviews() {
   const [showInfo, setShowInfo] = useState(false);
   const [blockId, setBlockId] = useState(null);
   const [blockReasons, setBlockReasons] = useState({});
-  const [decisions, setDecisions] = useState(loadDecisions());
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
-  const pending = QUEUE.filter((p) => !decisions[p.id]);
-  const decided = Object.entries(decisions).map(([id, d]) => ({ id, ...d }));
+  // GET /admin/payout-reviews → { pending, reviewed } payout_release_review rows
+  const { data, loading, reload } = useApiQuery(() => admin.payoutReviews(), []);
+  const pending = ((data && data.pending) || []).map((r) => ({
+    id: r.id,
+    name: r.mobile_number,
+    role: RELEASE_LABEL[r.release_type] || r.release_type,
+    at: stamp(r.created_at),
+    amount: money(r.amount),
+    split: [r.buyer_refund != null && `Buyer refund ${money(r.buyer_refund)}`, r.tenant_amount != null && `Tenant ${money(r.tenant_amount)}`, r.saas_amount != null && `Platform ${money(r.saas_amount)}`].filter(Boolean),
+  }));
+  const decided = ((data && data.reviewed) || []).map((r) => ({
+    id: r.id,
+    status: r.status === 'approved' ? 'APPROVED' : 'BLOCKED',
+    name: `${r.mobile_number} · ${money(r.amount)}`,
+    at: stamp(r.reviewed_at),
+    by: r.reviewer_mobile,
+    reason: r.decision_rationale,
+  }));
 
-  const approveEarly = (p) => {
-    const next = { ...decisions, [p.id]: { status: 'APPROVED EARLY', name: p.name, at: nowStamp() } };
-    saveDecisions(next);
-    pushLedger('Approved Payout Change Early', p.name, `${p.oldAcct} → ${p.newAcct}`);
-    setDecisions(next);
+  const decide = async (p, approve, rationale) => {
+    setBusyId(p.id);
+    setActionError('');
+    try {
+      await admin.decidePayoutReview(p.id, { decision: approve ? 'approve' : 'decline', rationale });
+      pushLedger(approve ? 'Approved Payout Release' : 'Blocked Payout Release', p.name, approve ? p.amount : rationale);
+      setBlockId(null);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not record the decision.');
+    } finally {
+      setBusyId(null);
+    }
   };
+  const approveEarly = (p) => decide(p, true, 'Approved by reviewer.');
   const confirmBlock = (p) => {
     const reason = (blockReasons[p.id] || '').trim();
-    if (!reason) return;
-    const next = { ...decisions, [p.id]: { status: 'BLOCKED', name: p.name, at: nowStamp(), reason } };
-    saveDecisions(next);
-    pushLedger('Blocked Payout Change', p.name, reason);
-    setDecisions(next);
-    setBlockId(null);
+    if (reason) decide(p, false, reason);
   };
 
   return (
@@ -52,10 +64,10 @@ export default function PayoutReviews() {
           <h1 className="py-title">Payout Reviews</h1>
           <button onClick={() => setShowInfo(!showInfo)} title="Why this screen exists" className="py-info-btn">i</button>
         </div>
-        <p className="py-sub">Bank account changes are held for a 24-hour cooling-off period before taking effect. Approve early to release funds sooner, or block a change that looks suspicious — blocking requires a reason.</p>
+        <p className="py-sub">EMD releases and settlement refunds that tripped a payout control are held here until reviewed. Approve to release the funds, or block a payout that looks suspicious — blocking requires a reason.</p>
         {showInfo && (
           <div className="py-info-box">
-            <strong>Why this screen exists:</strong> Bank account changes are held for a 24-hour cooling-off period before taking effect, to prevent same-day account takeover. A Custodian may approve early or block the change; blocking requires a stated reason.
+            <strong>Why this screen exists:</strong> Payout controls hold an EMD release or settlement refund for human review when it looks anomalous. A reviewer approves the release or blocks it; blocking requires a stated reason on record.
             <button onClick={() => setShowInfo(false)} className="py-info-close">Close</button>
           </div>
         )}
@@ -69,24 +81,22 @@ export default function PayoutReviews() {
                 <div className="py-row__head">
                   <div>
                     <div className="py-row__name">{p.name} <span className="py-row__role">({p.role})</span></div>
-                    <div className="py-row__meta">{p.mobile} · requested {p.at}</div>
+                    <div className="py-row__meta">held {p.at}</div>
                   </div>
-                  <span className="py-cool">Cooling-off ends {p.coolEnds}</span>
+                  <span className="py-cool">{p.amount}</span>
                 </div>
-                <div className="py-accts">
-                  <span>Old: {p.oldAcct}</span><span>→</span><span className="py-accts__new">New: {p.newAcct}</span>
-                </div>
+                {p.split.length > 0 && <div className="py-accts">{p.split.map((x) => <span key={x}>{x}</span>)}</div>}
                 {blocking ? (
                   <>
                     <textarea placeholder="Reason for blocking (required)…" value={reason} onChange={(e) => setBlockReasons({ ...blockReasons, [p.id]: e.target.value })} rows={2} className="py-textarea" />
                     <div className="py-btn-row">
-                      <button onClick={() => confirmBlock(p)} disabled={!reason.trim()} className="py-btn-danger" style={{ opacity: reason.trim() ? 1 : 0.5 }}>Confirm Block</button>
+                      <button onClick={() => confirmBlock(p)} disabled={!reason.trim() || busyId === p.id} className="py-btn-danger" style={{ opacity: reason.trim() ? 1 : 0.5 }}>Confirm Block</button>
                       <button onClick={() => setBlockId(null)} className="py-btn-outline">Cancel</button>
                     </div>
                   </>
                 ) : (
                   <div className="py-btn-row">
-                    <button onClick={() => approveEarly(p)} className="py-btn-success">Approve Early</button>
+                    <button onClick={() => approveEarly(p)} disabled={busyId === p.id} className="py-btn-success">{busyId === p.id ? 'Saving…' : 'Approve Release'}</button>
                     <button onClick={() => setBlockId(p.id)} className="py-btn-danger-outline">Block…</button>
                   </div>
                 )}
@@ -94,7 +104,9 @@ export default function PayoutReviews() {
             );
           })}
         </div>
-        {pending.length === 0 && <div className="py-empty">No payout changes pending review.</div>}
+        {actionError && <div className="py-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
+        {loading && <div className="py-empty">Loading…</div>}
+        {!loading && pending.length === 0 && <div className="py-empty">No payouts pending review.</div>}
 
         {decided.length > 0 && (
           <>
@@ -102,8 +114,8 @@ export default function PayoutReviews() {
             <div className="py-decided-list">
               {decided.map((d) => (
                 <div key={d.id} className="py-decided-row">
-                  <span className="py-decided-status" style={{ color: d.status === 'APPROVED EARLY' ? 'var(--color-success)' : 'var(--color-danger)' }}>{d.status}</span>
-                  <span className="py-decided-body"> — {d.name} · DECIDED {d.at} BY Custodian</span>
+                  <span className="py-decided-status" style={{ color: d.status === 'APPROVED' ? 'var(--color-success)' : 'var(--color-danger)' }}>{d.status}</span>
+                  <span className="py-decided-body"> — {d.name} · DECIDED {d.at} BY {d.by || 'Custodian'}</span>
                   {d.reason && <div className="py-decided-reason">{d.reason}</div>}
                 </div>
               ))}

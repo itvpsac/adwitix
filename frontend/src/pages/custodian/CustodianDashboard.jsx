@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
-import { api } from '../../api/client.js';
+import { api, unwrap } from '../../api/client.js';
 import './CustodianDashboard.css';
 
 const NAV_ITEMS = [
@@ -61,7 +61,7 @@ export default function CustodianDashboard() {
 
   useEffect(() => {
     api.get('/api/v1/app/admin')
-      .then(setData)
+      .then((res) => setData(unwrap(res)))
       .catch(console.error);
   }, []);
 

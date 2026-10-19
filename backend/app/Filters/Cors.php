@@ -13,13 +13,35 @@ class Cors implements FilterInterface
         'https://www.adwitix.com',
     ];
 
+    // The React app's Vercel deployments (production and per-branch
+    // previews) and local dev servers. Lets browsers call the API
+    // directly instead of through Vercel's rewrite proxy, which funnels
+    // every user through a few Vercel IPs into the host's rate limiter.
+    private array $allowedOriginPatterns = [
+        '#^https://adwitix[a-z0-9-]*\.vercel\.app$#',
+        '#^http://(localhost|127\.0\.0\.1)(:\d+)?$#',
+    ];
+
+    private function isAllowed(string $origin): bool
+    {
+        if (in_array($origin, $this->allowedOrigins, true)) {
+            return true;
+        }
+        foreach ($this->allowedOriginPatterns as $pattern) {
+            if (preg_match($pattern, $origin)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public function before(RequestInterface $request, $arguments = null)
     {
         $origin = $request->getHeaderLine('Origin');
 
         $response = service('response');
 
-        if (in_array($origin, $this->allowedOrigins, true)) {
+        if ($this->isAllowed($origin)) {
             $response->setHeader('Access-Control-Allow-Origin', $origin);
             $response->setHeader('Vary', 'Origin');
         }
@@ -59,7 +81,7 @@ class Cors implements FilterInterface
     ) {
         $origin = $request->getHeaderLine('Origin');
 
-        if (in_array($origin, $this->allowedOrigins, true)) {
+        if ($this->isAllowed($origin)) {
             $response->setHeader('Access-Control-Allow-Origin', $origin);
             $response->setHeader('Vary', 'Origin');
         }

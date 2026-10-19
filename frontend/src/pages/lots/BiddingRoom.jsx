@@ -2,8 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import './BiddingRoom.css';
 import AppHeader from '../../components/AppHeader.jsx';
+import { listings, saleEvents } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
+import { useApiQuery } from '../../api/hooks.js';
+import { readAuth } from '../../utils/auth.js';
 
-const LOT = {
+const DEMO_LOT = {
   id: 'EA-2025-07-00056', title: 'Premium SUV — BMW X5 2021', category: 'Vehicles › SUV', location: 'Mumbai, Maharashtra',
   ev: 1310000, rv: 1180000, mmName: 'AutoCorp Solutions Pvt. Ltd.', mmInitials: 'AC', mmRating: '4.6', mmReviews: 128, trustIndex: 82, inspectedOn: '03 Jul 2025',
   assetDetails: [
@@ -17,6 +21,8 @@ const FORMAT_META = {
   BUYNOW: { key: 'BUYNOW', label: 'Buy Now', badge: 'BUY NOW', isTimed: false, isInstant: true, hasInspection: true, hasReserve: false, hasEV: true, showH1: false, maskSeller: true, noun: 'offer', arbiter: 'Market Maker', sealedOnce: false, emdNote: '10% of Expected Value · checked on every offer', inputLabel: 'YOUR OFFER', cta: 'Submit Offer', revise: 'Revise Offer', winnerNote: 'The Market Maker personally reviews every offer against the stated Expected Value and chooses who to sell to — weighing both price and your Star Rating. The highest offer is not guaranteed to win.', ratingRowLabel: 'Your rating (factored into award)', ratingMatters: true },
   TENDER: { key: 'TENDER', label: 'Tender Auction', badge: 'TENDER · BY INVITATION', isTimed: true, hasInspection: true, timeNote: 'Window set by the Concierge', hasReserve: true, hasEV: false, showH1: true, maskSeller: false, noun: 'offer', arbiter: 'Concierge', sealedOnce: false, emdNote: 'Per the terms of your invitation', inputLabel: 'YOUR TENDER OFFER', cta: 'Submit Offer', revise: 'Revise Offer', winnerNote: 'This is a private, invitation-only tender run by the Company Shop. Offers are sealed — you see only your own. The Concierge evaluates offers against the curated terms of the tender and awards the Lot.', ratingRowLabel: 'Your rating (reputation only)', ratingMatters: false },
 };
+const FORMAT_KEY = { easy: 'EASY', express: 'EXPRESS', buy_now: 'BUYNOW', tender: 'TENDER' };
+const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '');
 const fmtMoney = (n) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 function strengthFor(bid, ev, rv, fmt, placed) {
@@ -46,18 +52,49 @@ function strengthFor(bid, ev, rv, fmt, placed) {
 
 export default function BiddingRoom() {
   const [params] = useSearchParams();
-  const [format] = useState(() => (params.get('format') || 'EASY').toUpperCase().replace(/[^A-Z]/g, ''));
+  const listingId = params.get('id');
   const [bidInput, setBidInput] = useState('');
   const [myBid, setMyBid] = useState(null);
   const [secondsLeft, setSecondsLeft] = useState(767);
   const [mediaTab, setMediaTab] = useState('photos');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
+  // GET /listings/:id → { listing, saleEvent, media, myEmdHold, … }
+  const { data, reload } = useApiQuery(() => listings.show(listingId), [listingId], { skip: !listingId });
+  const live = !!(data && data.listing);
+  const se = (data && data.saleEvent) || null;
+  const [format] = useState(() => (params.get('format') || 'EASY').toUpperCase().replace(/[^A-Z]/g, ''));
+  const liveFormat = se ? FORMAT_KEY[se.sale_format] : null;
+  const LOT = live ? {
+    ...DEMO_LOT,
+    id: (se && se.ern) || data.listing.id,
+    title: data.listing.title || data.listing.make_model || 'Lot',
+    category: [data.listing.category, data.listing.subcategory].filter(Boolean).join(' › '),
+    location: [data.listing.city, data.listing.state].filter(Boolean).join(', '),
+    ev: Number((se && se.expected_value) || 0),
+    rv: Number((se && (se.reserve_value || se.current_price)) || 0),
+    mmName: 'Verified Seller', mmInitials: 'MM',
+    mmRating: data.sellerStarRating != null ? Number(data.sellerStarRating).toFixed(1) : '—',
+    assetDetails: [
+      { k: 'Make / Model', v: data.listing.make_model },
+      { k: 'Condition', v: humanize(data.listing.physical_condition) },
+      { k: 'Quantity', v: data.listing.quantity ? `${data.listing.quantity} ${data.listing.quantity_basis || ''}`.trim() : null },
+      { k: 'Yard', v: data.listing.yard_location_address },
+    ].filter((d) => d.v),
+  } : DEMO_LOT;
+
+  // Live sessions count down to scheduled_end_at; the demo runs a fixed clock.
   useEffect(() => {
+    if (se && se.scheduled_end_at) {
+      const end = new Date(se.scheduled_end_at.replace(' ', 'T')).getTime();
+      setSecondsLeft(Math.max(0, Math.round((end - Date.now()) / 1000)));
+    }
     const t = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [se && se.scheduled_end_at]);
 
-  const fmt = FORMAT_META[format] || FORMAT_META.EASY;
+  const fmt = FORMAT_META[liveFormat || format] || FORMAT_META.EASY;
   const ev = LOT.ev, rv = LOT.rv;
   const bidNum = parseFloat((bidInput || '').replace(/[^0-9.]/g, ''));
   const ceiling = fmt.key === 'BUYNOW' ? Infinity : (myBid || rv) * 1.5;
@@ -71,9 +108,11 @@ export default function BiddingRoom() {
   const minutes = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const seconds = String(secondsLeft % 60).padStart(2, '0');
 
+  const me = readAuth();
+  const isH1 = live && se ? !!me && se.current_high_bidder_party_id === me.id : myBid >= rv * 1.02;
   const h1 = !myBid
     ? { label: 'NO ' + fmt.noun.toUpperCase() + ' PLACED', note: 'Place a' + (fmt.noun === 'offer' ? 'n offer' : ' bid') + ' to see your H1 standing', bg: '#F7F8FB', border: '#E1E4ED', color: '#5B6178' }
-    : (myBid >= rv * 1.02
+    : (isH1
         ? { label: '★ YOU ARE H1', note: 'Highest ' + fmt.noun + ' — amounts of others stay hidden', bg: '#E7F0E9', border: '#CBE0D1', color: '#38724A' }
         : { label: 'YOU ARE NOT H1', note: 'Another ' + fmt.noun + ' is higher — its amount is never shown', bg: '#FBF6EC', border: '#EEE2CB', color: '#9C7430' });
 
@@ -92,7 +131,29 @@ export default function BiddingRoom() {
   ];
   const mm = fmt.maskSeller && !myBid ? { name: 'Identity locked', initials: '••', masked: true } : { name: LOT.mmName, initials: LOT.mmInitials, masked: false };
 
-  const placeBid = () => { if (!valid) return; setMyBid(bidNum); setBidInput(''); };
+  const placeBid = async () => {
+    if (!valid || submitting) return;
+    if (!live) { setMyBid(bidNum); setBidInput(''); return; }
+    const call = {
+      EASY: () => saleEvents.placeBid(se.id, { amount: bidNum }),
+      EXPRESS: () => saleEvents.expressBid(se.id, { amount: bidNum }),
+      BUYNOW: () => saleEvents.submitOffer(se.id, { amount: bidNum }),
+    }[fmt.key];
+    if (!call) { setSubmitError('Tender offers are placed through the Tender Concierge.'); return; }
+    setSubmitting(true);
+    setSubmitError('');
+    try {
+      unwrap(await call());
+      setMyBid(bidNum);
+      setBidInput('');
+      reload();
+    } catch (err) {
+      setSubmitError(err.message || 'Could not place your ' + fmt.noun + '.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const needsEmd = live && se && fmt.key !== 'TENDER' && !(data.myEmdHold && data.myEmdHold.status === 'held');
 
   const ctaLabel = overCeiling ? (fmt.noun === 'offer' ? 'Offer exceeds 150% ceiling' : 'Bid exceeds 150% ceiling') : (valid ? (myBid ? fmt.revise : fmt.cta) + ' · ' + fmtMoney(bidNum) : fmt.cta);
   const hintText = overCeiling
@@ -228,6 +289,8 @@ export default function BiddingRoom() {
                 <input className="br-bid-input" placeholder={`Enter your ${fmt.noun} amount`} value={bidInput} onChange={(e) => setBidInput(e.target.value)} style={{ borderColor: bidInput ? '#C9974C' : '#E1E4ED' }} />
                 <button className="br-cta" onClick={placeBid} style={{ background: valid ? '#C9974C' : '#EAECF2', color: valid ? '#fff' : '#9096AC', cursor: valid ? 'pointer' : 'not-allowed' }}>{ctaLabel}</button>
                 <div className="br-hint">{hintText}</div>
+                {needsEmd && <div className="br-hint">EMD not yet pledged — <Link to={`/emd-consent?saleEvent=${se.id}&lot=${listingId}&format=${se.sale_format}`}>pledge your deposit</Link> before you {fmt.noun}.</div>}
+                {submitError && <div className="br-hint" style={{ color: '#C0392B' }}>{submitError}</div>}
               </div>
 
               <div className="br-emd-row">

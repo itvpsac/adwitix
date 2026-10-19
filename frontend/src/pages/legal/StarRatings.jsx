@@ -1,9 +1,21 @@
 import { Link } from 'react-router-dom';
 import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
+import { me } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import './StarRatings.css';
 
-const buyer = { rating: '3.0', shadowBanned: false };
-const seller = { rating: '2.5', shadowBanned: true, shadowBannedAt: '2026-06-18', crawlBackActive: true, crawlBackCompleted: 3, crawlBackRequired: 8 };
+// GET /my-star-ratings → { party }; the buyer/seller columns pair up by suffix.
+function standing(party, side) {
+  const rating = side === 'buyer' ? party.star_rating : party.seller_star_rating;
+  return {
+    rating: rating != null ? Number(rating).toFixed(1) : '—',
+    shadowBanned: !!party[`shadow_banned_at_${side}`],
+    shadowBannedAt: (party[`shadow_banned_at_${side}`] || '').slice(0, 10),
+    crawlBackActive: !!Number(party[`crawl_back_active_${side}`] || 0),
+    crawlBackCompleted: party[`crawl_back_clean_completed_${side}`] ?? 0,
+    crawlBackRequired: party[`crawl_back_clean_required_${side}`] ?? 0,
+  };
+}
 
 function RatingCard({ label, data }) {
   return (
@@ -23,6 +35,10 @@ function RatingCard({ label, data }) {
 }
 
 export default function StarRatings() {
+  const { data } = useApiQuery(() => me.starRatings(), []);
+  const party = (data && data.party) || {};
+  const buyer = standing(party, 'buyer');
+  const seller = standing(party, 'seller');
   return (
     <div className="sr-page">
       <PublicMiniHeader backTo="/profile" backLabel="Back to Profile" />

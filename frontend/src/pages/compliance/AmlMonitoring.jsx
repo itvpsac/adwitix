@@ -1,43 +1,71 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
-import { nowStamp, pushLedger, loadJSON, saveJSON } from '../../utils/auditLedger.js';
+import { pushLedger } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import '../compliance/CustodianShared.css';
 
 const SEV_META = {
   Critical: { color: 'var(--color-danger)', bg: 'var(--color-danger-bg)', stripe: 'var(--color-danger)' },
   Warning: { color: 'var(--color-warning)', bg: 'var(--color-warning-bg)', stripe: 'var(--color-accent)' },
 };
-const FLAGS = [
-  { id: 'aml1', severity: 'Critical', flagType: 'High-Velocity Bidding', who: 'Trader — 99xxxxxx44', tsx: 'Ironclad Metals TSX', at: '2026-08-02 09:10', detail: 'Bids placed across 6 unrelated Lots within 90 seconds, all withdrawn before close.' },
-  { id: 'aml2', severity: 'Warning', flagType: 'Rapid Buy-and-Resettle', who: 'Trader — 90xxxxxx17', tsx: 'AutoYard TSX', at: '2026-07-30 14:05', detail: 'Same Lot won and immediately relisted by a linked account at markup.' },
-  { id: 'aml3', severity: 'Warning', flagType: 'Structuring Pattern', who: 'Market Maker — Coastal Scrap Metals', tsx: 'Ironclad Metals TSX', at: '2026-07-28 11:40', detail: 'Multiple Lots priced just under the ₹10L high-value disposal threshold.' },
-];
+const FLAG_TYPES = {
+  deposit_refund_cycle: { label: 'Deposit–Refund Cycling', severity: 'Warning' },
+  kyc_inconsistent_deposit: { label: 'Deposit Inconsistent with KYC Profile', severity: 'Critical' },
+  shared_funding_source: { label: 'Shared Funding Source', severity: 'Critical' },
+};
+const STATUS_LABEL = { open: 'Open', reviewed_str_filed: 'Escalated', reviewed_no_action: 'Cleared' };
 const STATUSES = ['all', 'Open', 'Escalated', 'Cleared'];
+const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
 
 export default function AmlMonitoring() {
   const [showInfo, setShowInfo] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [escalateId, setEscalateId] = useState(null);
   const [escalateReasons, setEscalateReasons] = useState({});
-  const [resolutions, setResolutions] = useState(loadJSON('adwitix_aml_resolutions', {}));
+  const [strRefs, setStrRefs] = useState({});
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
-  let all = FLAGS.map((f) => ({ ...f, decision: resolutions[f.id] }));
-  if (statusFilter !== 'all') all = all.filter((f) => (f.decision ? f.decision.status : 'Open') === statusFilter);
+  // GET /admin/aml → { open: [...], reviewed: [...] }
+  const { data, loading, reload } = useApiQuery(() => admin.aml(), []);
+  const rows = [...((data && data.open) || []), ...((data && data.reviewed) || [])];
+  let all = rows.map((f) => {
+    const type = FLAG_TYPES[f.flag_type] || { label: f.flag_type, severity: 'Warning' };
+    const status = STATUS_LABEL[f.status] || 'Open';
+    return {
+      id: f.id,
+      severity: type.severity,
+      flagType: type.label,
+      who: f.mobile_number || f.party_id,
+      at: stamp(f.created_at),
+      detail: f.detail,
+      status,
+      decision: status === 'Open' ? null : { at: stamp(f.reviewed_at), by: f.reviewer_mobile, reason: f.str_reference ? `STR ${f.str_reference}${f.review_notes ? ` · ${f.review_notes}` : ''}` : f.review_notes },
+    };
+  });
+  if (statusFilter !== 'all') all = all.filter((f) => f.status === statusFilter);
 
-  const clear = (f) => {
-    const next = { ...resolutions, [f.id]: { status: 'Cleared', at: nowStamp() } };
-    saveJSON('adwitix_aml_resolutions', next);
-    pushLedger('Cleared AML Flag', f.flagType, f.who);
-    setResolutions(next);
+  const review = async (f, payload, ledgerAction, ledgerDetail) => {
+    setBusyId(f.id);
+    setActionError('');
+    try {
+      await admin.amlReview(f.id, payload);
+      pushLedger(ledgerAction, f.flagType, ledgerDetail);
+      setEscalateId(null);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not record the review.');
+    } finally {
+      setBusyId(null);
+    }
   };
+  const clear = (f) => review(f, { decision: 'no_action', notes: 'Reviewed — no action required.' }, 'Cleared AML Flag', f.who);
   const confirmEscalate = (f) => {
     const reason = (escalateReasons[f.id] || '').trim();
-    if (!reason) return;
-    const next = { ...resolutions, [f.id]: { status: 'Escalated', at: nowStamp(), reason } };
-    saveJSON('adwitix_aml_resolutions', next);
-    pushLedger('Escalated AML Flag', f.flagType, reason);
-    setResolutions(next);
-    setEscalateId(null);
+    const strRef = (strRefs[f.id] || '').trim();
+    if (!reason || !strRef) return;
+    review(f, { decision: 'str_filed', str_reference: strRef, notes: reason }, 'Escalated AML Flag', reason);
   };
 
   return (
@@ -52,7 +80,7 @@ export default function AmlMonitoring() {
         <p className="custodian-sub">Automated anti-money-laundering flags across bidding and settlement activity. Clear a flag once reviewed, or escalate it for deeper investigation with a stated reason.</p>
         {showInfo && (
           <div className="custodian-info-box">
-            <strong>Why this screen exists:</strong> Flags are raised automatically by bidding-pattern and settlement-pattern rules — high velocity, structuring, and rapid resale. A Custodian clears or escalates each flag; escalation requires a stated reason.
+            <strong>Why this screen exists:</strong> Flags are raised automatically by bidding-pattern and settlement-pattern rules — high velocity, structuring, and rapid resale. A Custodian clears or escalates each flag; escalation files a Suspicious Transaction Report and requires its reference and a stated reason.
             <button onClick={() => setShowInfo(false)} className="custodian-info-close">Close</button>
           </div>
         )}
@@ -66,10 +94,12 @@ export default function AmlMonitoring() {
         <div className="aml-list">
           {all.map((f) => {
             const meta = SEV_META[f.severity];
-            const status = f.decision ? f.decision.status : 'Open';
+            const status = f.status;
             const resolved = status !== 'Open';
             const escalating = escalateId === f.id;
             const reason = escalateReasons[f.id] || '';
+            const strRef = strRefs[f.id] || '';
+            const canEscalate = reason.trim() && strRef.trim() && busyId !== f.id;
             return (
               <div key={f.id} className="aml-flag" style={{ borderLeftColor: meta.stripe }}>
                 <div className="aml-flag__head">
@@ -77,30 +107,33 @@ export default function AmlMonitoring() {
                   <span className="aml-status" style={{ color: status === 'Cleared' ? 'var(--color-success)' : status === 'Escalated' ? 'var(--color-danger)' : 'var(--color-text-faint)' }}>{status}</span>
                 </div>
                 <div className="aml-flag__title">{f.flagType}</div>
-                <div className="aml-flag__meta">{f.who} · {f.tsx} · {f.at}</div>
+                <div className="aml-flag__meta">{f.who} · {f.at}</div>
                 <div className="aml-flag__detail">{f.detail}</div>
                 {!resolved && (
                   escalating ? (
                     <>
+                      <input placeholder="STR reference number (required)" value={strRef} onChange={(e) => setStrRefs({ ...strRefs, [f.id]: e.target.value })} className="custodian-textarea" style={{ marginBottom: 8 }} />
                       <textarea placeholder="Reason for escalation (required)…" value={reason} onChange={(e) => setEscalateReasons({ ...escalateReasons, [f.id]: e.target.value })} rows={2} className="custodian-textarea" />
                       <div className="custodian-btn-row">
-                        <button onClick={() => confirmEscalate(f)} disabled={!reason.trim()} className="custodian-btn-danger" style={{ opacity: reason.trim() ? 1 : 0.5 }}>Confirm Escalate</button>
+                        <button onClick={() => confirmEscalate(f)} disabled={!canEscalate} className="custodian-btn-danger" style={{ opacity: canEscalate ? 1 : 0.5 }}>Confirm Escalate</button>
                         <button onClick={() => setEscalateId(null)} className="custodian-btn-outline">Cancel</button>
                       </div>
                     </>
                   ) : (
                     <div className="custodian-btn-row">
-                      <button onClick={() => clear(f)} className="custodian-btn-success">Clear Flag</button>
+                      <button onClick={() => clear(f)} disabled={busyId === f.id} className="custodian-btn-success">{busyId === f.id ? 'Saving…' : 'Clear Flag'}</button>
                       <button onClick={() => setEscalateId(f.id)} className="custodian-btn-danger-outline">Escalate…</button>
                     </div>
                   )
                 )}
-                {resolved && <div className="aml-resolution">{status.toUpperCase()} — DECIDED {f.decision.at} BY Custodian{f.decision.reason ? ` · ${f.decision.reason}` : ''}</div>}
+                {resolved && <div className="aml-resolution">{status.toUpperCase()} — DECIDED {f.decision.at} BY {f.decision.by || 'Custodian'}{f.decision.reason ? ` · ${f.decision.reason}` : ''}</div>}
               </div>
             );
           })}
         </div>
-        {all.length === 0 && <div className="custodian-empty">No flags match this filter.</div>}
+        {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
+        {loading && <div className="custodian-empty">Loading flags…</div>}
+        {!loading && all.length === 0 && <div className="custodian-empty">No flags match this filter.</div>}
       </main>
     </div>
   );

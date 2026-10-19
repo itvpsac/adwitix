@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
+import { unwrap } from './client.js';
 
-// GET-with-lifecycle for API calls. `fn` must be a stable reference or
+// GET-with-lifecycle for API calls. The {status, message, data} envelope
+// is unwrapped, so `data` is the inner payload. `fn` must be a stable reference or
 // wrapped in useCallback — deps controls refetching.
 //
 //   const { data, loading, error, reload } = useApiQuery(() => me.buyerDashboard(), []);
@@ -20,7 +22,7 @@ export function useApiQuery(fn, deps = [], { fallback = null, skip = false } = {
     setError(null);
     Promise.resolve()
       .then(fn)
-      .then((res) => { if (alive) { setData(res); setLoading(false); } })
+      .then((res) => { if (alive) { setData(unwrap(res)); setLoading(false); } })
       .catch((err) => { if (alive) { setError(err); setLoading(false); } });
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -30,7 +32,8 @@ export function useApiQuery(fn, deps = [], { fallback = null, skip = false } = {
   return { data: data ?? fallback, raw: data, loading, error, reload, isFallback: !data && !!fallback };
 }
 
-// Fire-and-report for POST actions: tracks pending/error per action.
+// Fire-and-report for POST actions: tracks pending/error per action and
+// resolves with the unwrapped payload.
 export function useApiAction(fn) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(null);
@@ -39,7 +42,7 @@ export function useApiAction(fn) {
     setPending(true);
     setError(null);
     try {
-      return await fn(...args);
+      return unwrap(await fn(...args));
     } catch (err) {
       setError(err);
       throw err;

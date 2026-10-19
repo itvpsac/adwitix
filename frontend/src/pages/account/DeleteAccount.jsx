@@ -1,11 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
+import { me, account } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './DeleteAccount.css';
 
 export default function DeleteAccount() {
   const [requested, setRequested] = useState(false);
   const [reason, setReason] = useState('');
   const [requestedAt, setRequestedAt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  // A pending request shows up as party.deletion_requested_at.
+  const load = () => me.account().then((res) => {
+    const at = (unwrap(res).party || {}).deletion_requested_at;
+    setRequested(!!at);
+    setRequestedAt((at || '').slice(0, 10));
+  });
+  useEffect(() => { load().catch(() => {}); }, []);
+
+  const run = async (call) => {
+    setBusy(true);
+    setError('');
+    try {
+      await call();
+      await load();
+    } catch (err) {
+      setError(err.message || 'Request failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="del-page">
@@ -16,14 +41,15 @@ export default function DeleteAccount() {
           <>
             <p className="del-sub">Requesting deletion gives you a 30-day grace period to change your mind. After 30 days, your account is archived and you can no longer log in.</p>
             <textarea placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="del-textarea" />
-            <button onClick={() => { setRequested(true); setRequestedAt(new Date().toISOString().slice(0, 10)); }} className="del-request-btn">Request Account Deletion</button>
+            <button onClick={() => run(() => account.requestDelete({ reason: reason || undefined }))} disabled={busy} className="del-request-btn">{busy ? 'Requesting…' : 'Request Account Deletion'}</button>
           </>
         ) : (
           <>
             <div className="del-pending"><p>Deletion requested on {requestedAt} — your account will be archived 30 days from that date unless cancelled first.</p></div>
-            <button onClick={() => { setRequested(false); setReason(''); }} className="del-cancel-btn">Cancel Deletion Request</button>
+            <button onClick={() => run(async () => { await account.cancelDelete(); setReason(''); })} disabled={busy} className="del-cancel-btn">{busy ? 'Cancelling…' : 'Cancel Deletion Request'}</button>
           </>
         )}
+        {error && <p className="del-sub" style={{ color: 'var(--color-danger)' }}>{error}</p>}
       </main>
     </div>
   );

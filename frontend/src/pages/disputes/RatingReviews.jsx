@@ -1,43 +1,44 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import { pushLedger } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import './RatingReviews.css';
 
-function nowStamp() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
-function loadDecisions() { try { return JSON.parse(localStorage.getItem('adwitix_rating_decisions') || '{}'); } catch (e) { return {}; } }
-function saveDecisions(d) { localStorage.setItem('adwitix_rating_decisions', JSON.stringify(d)); }
-function pushLedger(action, target, detail) {
-  try {
-    const key = 'adwitix_audit_ledger';
-    const cur = JSON.parse(localStorage.getItem(key) || '[]');
-    cur.push({ at: nowStamp(), actorRole: 'Custodian', actorName: 'Custodian', actorMobile: '—', action, target, detail });
-    localStorage.setItem(key, JSON.stringify(cur));
-  } catch (e) { /* noop */ }
-}
-const QUEUE = [
-  { id: 'rt1', rater: 'Priya Rao (Trader)', ratee: 'Northline Salvage Co.', eventType: 'EXPRESS Trading Session', stars: 1, at: '2026-07-30 16:15', comment: 'Item did not match listing description at all.', disputeReason: 'This is retaliatory — the Trader submitted a lowball offer we rejected two days prior.' },
-  { id: 'rt2', rater: 'Northline Salvage Co. (Market Maker)', ratee: 'Arjun Verma', eventType: 'Buy-Now', stars: 1, at: '2026-08-01 09:00', comment: 'Buyer failed to collect within window, cited no reason.', disputeReason: "I collected within the window — Market Maker's yard was closed on the scheduled day." },
-];
+const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
+const ROLE_LABEL = { star_rating: 'Trader rating', seller_star_rating: 'Market Maker rating' };
 
 export default function RatingReviews() {
   const [showInfo, setShowInfo] = useState(false);
-  const [decidingId, setDecidingId] = useState(null);
-  const [decidingType, setDecidingType] = useState(null);
-  const [decisionReasons, setDecisionReasons] = useState({});
-  const [decisions, setDecisions] = useState(loadDecisions());
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState('');
+  const [decided, setDecided] = useState([]);
 
-  const pending = QUEUE.filter((r) => !decisions[r.id]);
-  const decided = Object.entries(decisions).map(([id, d]) => ({ id, ...d }));
+  // GET /admin/rating-reviews → { pending: rating_event rows awaiting approval }
+  const { data, loading, reload } = useApiQuery(() => admin.ratingReviews(), []);
+  const pending = ((data && data.pending) || []).map((r) => ({
+    id: r.id,
+    ratee: r.mobile_number,
+    eventType: `${ROLE_LABEL[r.rating_role] || r.rating_role} · ${r.event_type.replace(/_/g, ' ')}`,
+    from: r.previous_value != null ? Number(r.previous_value).toFixed(1) : '—',
+    to: r.new_value != null ? Number(r.new_value).toFixed(1) : '—',
+    at: stamp(r.created_at),
+    reason: r.reason,
+  }));
 
-  const confirm = (r, isRemove) => {
-    const reason = (decisionReasons[r.id] || '').trim();
-    if (!reason) return;
-    const status = isRemove ? 'REMOVED' : 'UPHELD';
-    const next = { ...decisions, [r.id]: { status, rater: r.rater, ratee: r.ratee, at: nowStamp(), reason } };
-    saveDecisions(next);
-    pushLedger(isRemove ? 'Removed Rating' : 'Upheld Rating', `${r.rater} → ${r.ratee}`, reason);
-    setDecisions(next);
-    setDecidingId(null);
-    setDecidingType(null);
+  const approve = async (r) => {
+    setBusyId(r.id);
+    setActionError('');
+    try {
+      await admin.approveRatingReview(r.id, {});
+      pushLedger('Approved Rating Downgrade', r.ratee, `${r.from}★ → ${r.to}★`);
+      setDecided([{ id: r.id, ratee: r.ratee, change: `${r.from}★ → ${r.to}★`, at: stamp(new Date().toISOString()) }, ...decided]);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not approve the downgrade.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -49,59 +50,43 @@ export default function RatingReviews() {
           <h1 className="rr-title">Rating Reviews</h1>
           <button onClick={() => setShowInfo(!showInfo)} title="Why this screen exists" className="rr-info-btn">i</button>
         </div>
-        <p className="rr-sub">Star ratings flagged as disputed by the party being rated. Uphold keeps the rating; Remove strikes it from the ledger. Either decision requires a stated reason.</p>
+        <p className="rr-sub">Rating downgrades held for approval before they apply. Approving applies the downgrade to the party's star rating; it is recorded to the Audit Ledger.</p>
         {showInfo && (
           <div className="rr-info-box">
-            <strong>Why this screen exists:</strong> A party may dispute a star rating they believe is inaccurate or retaliatory. The Custodian's decision to uphold or remove is final and requires a stated reason either way.
+            <strong>Why this screen exists:</strong> Under BR-36 a rating downgrade does not take effect until a Tenant Admin or the Custodian approves it, so no single rating event can silently damage a party's standing.
             <button onClick={() => setShowInfo(false)} className="rr-info-close">Close</button>
           </div>
         )}
 
         <div className="rr-list">
-          {pending.map((r) => {
-            const deciding = decidingId === r.id ? decidingType : null;
-            const reason = decisionReasons[r.id] || '';
-            const isRemove = deciding === 'remove';
-            return (
-              <div key={r.id} className="rr-row">
-                <div className="rr-row__head">
-                  <div>
-                    <div className="rr-row__title">{r.rater} rated {r.ratee}</div>
-                    <div className="rr-row__meta">{r.eventType} · {r.at}</div>
-                  </div>
-                  <span className="rr-stars">{r.stars}★</span>
+          {pending.map((r) => (
+            <div key={r.id} className="rr-row">
+              <div className="rr-row__head">
+                <div>
+                  <div className="rr-row__title">{r.ratee}</div>
+                  <div className="rr-row__meta">{r.eventType} · {r.at}</div>
                 </div>
-                <div className="rr-line"><strong>Rating comment:</strong> "{r.comment}"</div>
-                <div className="rr-line rr-line--last"><strong>Dispute grounds ({r.ratee}):</strong> "{r.disputeReason}"</div>
-                {deciding ? (
-                  <>
-                    <textarea placeholder="Reason for decision (required)…" value={reason} onChange={(e) => setDecisionReasons({ ...decisionReasons, [r.id]: e.target.value })} rows={2} className="rr-textarea" />
-                    <div className="rr-btn-row">
-                      <button onClick={() => confirm(r, isRemove)} disabled={!reason.trim()} className={isRemove ? 'rr-btn-danger' : 'rr-btn-success'} style={{ opacity: reason.trim() ? 1 : 0.5 }}>{isRemove ? 'Confirm Remove' : 'Confirm Uphold'}</button>
-                      <button onClick={() => { setDecidingId(null); setDecidingType(null); }} className="rr-btn-outline">Cancel</button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="rr-btn-row">
-                    <button onClick={() => { setDecidingId(r.id); setDecidingType('uphold'); }} className="rr-btn-success-outline">Uphold Rating…</button>
-                    <button onClick={() => { setDecidingId(r.id); setDecidingType('remove'); }} className="rr-btn-danger-outline">Remove Rating…</button>
-                  </div>
-                )}
+                <span className="rr-stars">{r.from}★ → {r.to}★</span>
               </div>
-            );
-          })}
+              <div className="rr-line rr-line--last"><strong>Reason:</strong> "{r.reason}"</div>
+              <div className="rr-btn-row">
+                <button onClick={() => approve(r)} disabled={busyId === r.id} className="rr-btn-success">{busyId === r.id ? 'Approving…' : 'Approve Downgrade'}</button>
+              </div>
+            </div>
+          ))}
         </div>
-        {pending.length === 0 && <div className="rr-empty">No rating disputes pending review.</div>}
+        {actionError && <div className="rr-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
+        {loading && <div className="rr-empty">Loading…</div>}
+        {!loading && pending.length === 0 && <div className="rr-empty">No rating changes pending review.</div>}
 
         {decided.length > 0 && (
           <>
-            <h2 className="rr-decided-title">Decided</h2>
+            <h2 className="rr-decided-title">Approved this session</h2>
             <div className="rr-decided-list">
               {decided.map((d) => (
                 <div key={d.id} className="rr-decided-row">
-                  <span className="rr-decided-status" style={{ color: d.status === 'UPHELD' ? 'var(--color-success)' : 'var(--color-danger)' }}>{d.status}</span>
-                  <span className="rr-decided-body"> — {d.rater}→{d.ratee} · DECIDED {d.at} BY Custodian</span>
-                  <div className="rr-decided-reason">{d.reason}</div>
+                  <span className="rr-decided-status" style={{ color: 'var(--color-success)' }}>APPROVED</span>
+                  <span className="rr-decided-body"> — {d.ratee} · {d.change} · {d.at}</span>
                 </div>
               ))}
             </div>

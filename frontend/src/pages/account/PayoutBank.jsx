@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
+import { me, account } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './PayoutBank.css';
 
 export default function PayoutBank() {
@@ -12,14 +14,37 @@ export default function PayoutBank() {
   const [editError, setEditError] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
-  const [pendingChange, setPendingChange] = useState(false);
-  const [pendingLast4, setPendingLast4] = useState('');
-  const pendingActivatesAt = 'Aug 4, 2026, 6:12 PM';
+  const [party, setParty] = useState({});
+  const [ticket, setTicket] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const proceedToOtp = () => {
-    if (!newHolder || newAccount.length < 6 || !newIfsc || !newBankName) { setEditError('Please fill in all fields before continuing.'); return; }
+  const load = () => me.account().then((res) => setParty(unwrap(res).party || {}));
+  useEffect(() => { load().catch(() => {}); }, []);
+
+  const last4 = (v) => (v ? String(v).slice(-4) : '');
+  const pendingChange = !!party.payout_bank_pending_account_number;
+  const pendingLast4 = last4(party.payout_bank_pending_account_number);
+  const pendingActivatesAt = party.payout_bank_pending_activates_at
+    ? new Date(party.payout_bank_pending_activates_at.replace(' ', 'T')).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'in 24 hours';
+
+  // Only the account number and IFSC are sent; holder and bank name are
+  // for the user's own check.
+  const proceedToOtp = async () => {
+    if (newAccount.length < 6 || !newIfsc) { setEditError('Enter the account number and IFSC before continuing.'); return; }
     setEditError('');
-    setMode('otp');
+    setBusy(true);
+    try {
+      const res = unwrap(await account.requestPayoutBankChange({ account_number: newAccount, ifsc: newIfsc }));
+      setTicket(res.pending_ticket);
+      setDevOtp(res.dev_otp || '');
+      setMode('otp');
+    } catch (err) {
+      setEditError(err.message || 'Could not start the change.');
+    } finally {
+      setBusy(false);
+    }
   };
   const cancelEdit = () => { setMode('view'); setOtp(['', '', '', '', '', '']); setOtpError(''); };
   const onOtpChange = (i, v) => {
@@ -30,9 +55,18 @@ export default function PayoutBank() {
   const onOtpKeyDown = (i, e) => {
     if (e.key === 'Backspace' && !otp[i] && i > 0) document.getElementById('pb-otp-' + (i - 1))?.focus();
   };
-  const verifyOtp = () => {
+  const verifyOtp = async () => {
     if (otp.join('').length !== 6) { setOtpError('Enter the complete 6-digit code.'); return; }
-    setMode('done'); setPendingChange(true); setPendingLast4(newAccount.slice(-4));
+    setBusy(true);
+    try {
+      await account.confirmPayoutBankChange({ pending_ticket: ticket, otp: otp.join('') });
+      await load().catch(() => {});
+      setMode('done');
+    } catch (err) {
+      setOtpError(err.message || 'Verification failed.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -46,8 +80,8 @@ export default function PayoutBank() {
           <>
             <div className="pb-active-card">
               <p className="pb-active-label">Active Account</p>
-              <p className="pb-active-number">···· ···· 4821</p>
-              <p className="pb-active-bank">HDFC Bank · HDFC0001234</p>
+              <p className="pb-active-number">{party.payout_bank_account_number ? `···· ···· ${last4(party.payout_bank_account_number)}` : 'No account on file'}</p>
+              <p className="pb-active-bank">{[party.payout_bank_name, party.payout_bank_ifsc].filter(Boolean).join(' · ')}</p>
             </div>
             {pendingChange && (
               <div className="pb-pending-card">
@@ -74,7 +108,7 @@ export default function PayoutBank() {
             {editError && <p className="pb-error">{editError}</p>}
             <div className="pb-btn-row">
               <button onClick={cancelEdit} className="pb-btn-outline">Cancel</button>
-              <button onClick={proceedToOtp} className="pb-btn-dark">Continue to Verify</button>
+              <button onClick={proceedToOtp} disabled={busy} className="pb-btn-dark">{busy ? 'Sending OTP…' : 'Continue to Verify'}</button>
             </div>
           </>
         )}
@@ -82,7 +116,8 @@ export default function PayoutBank() {
         {mode === 'otp' && (
           <>
             <div className="pb-form-card">
-              <p className="pb-otp-intro">To confirm this change is really you, enter the 6-digit code sent to <strong style={{ color: 'var(--color-text)' }}>+91 98765 43210</strong>.</p>
+              <p className="pb-otp-intro">To confirm this change is really you, enter the 6-digit code sent to <strong style={{ color: 'var(--color-text)' }}>{party.mobile_number || 'your registered mobile'}</strong>.</p>
+              {devOtp && <p className="pb-otp-intro"><strong>Dev mode</strong> (SMS provider not yet connected): your OTP is <strong>{devOtp}</strong></p>}
               <div className="pb-otp-row">
                 {otp.map((val, i) => (
                   <input key={i} id={`pb-otp-${i}`} type="text" inputMode="numeric" maxLength={1} value={val} onChange={(e) => onOtpChange(i, e.target.value)} onKeyDown={(e) => onOtpKeyDown(i, e)} className="pb-otp-digit" />
@@ -92,7 +127,7 @@ export default function PayoutBank() {
             </div>
             <div className="pb-btn-row">
               <button onClick={cancelEdit} className="pb-btn-outline">Cancel</button>
-              <button onClick={verifyOtp} className="pb-btn-gold">Verify &amp; Submit Change</button>
+              <button onClick={verifyOtp} disabled={busy} className="pb-btn-gold">{busy ? 'Verifying…' : <>Verify &amp; Submit Change</>}</button>
             </div>
           </>
         )}

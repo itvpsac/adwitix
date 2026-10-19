@@ -1,34 +1,52 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { nowStamp, pushLedger, loadJSON, saveJSON } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { saveBlob } from '../../api/client.js';
 import '../compliance/CustodianShared.css';
 import './StatutoryExport.css';
 
-const DATASETS = ['Users', 'Lots', 'Trading Sessions', 'Disputes', 'Payouts', 'Invoices'];
-const SEED_HISTORY = [
-  { at: '2026-07-15 10:00', dataset: 'Users', range: '2026-06-01 to 2026-06-30', format: 'XLSX' },
-  { at: '2026-07-01 09:30', dataset: 'Trading Sessions', range: '2026-05-01 to 2026-05-31', format: 'CSV' },
-];
+// Datasets the backend can export as CSV for a date range.
+const DATASETS = {
+  'Audit Ledger': { fetch: (range) => admin.auditLogExport(range), file: 'audit-log' },
+  'Consent Audit': { fetch: (range) => admin.consentAuditExport(range), file: 'consent-audit' },
+};
 
 export default function StatutoryExport() {
   const [showInfo, setShowInfo] = useState(false);
-  const [dataset, setDataset] = useState('Users');
-  const [format, setFormat] = useState('CSV');
+  const [dataset, setDataset] = useState('Audit Ledger');
+  const format = 'CSV';
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [history, setHistory] = useState(loadJSON('adwitix_export_history', SEED_HISTORY));
+  const [history, setHistory] = useState(loadJSON('adwitix_export_history', []).filter((h) => DATASETS[h.dataset]));
   const [justGenerated, setJustGenerated] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const rangeReady = dateFrom && dateTo;
-  const generate = () => {
-    if (!rangeReady) return;
-    const range = `${dateFrom} to ${dateTo}`;
-    const entry = { at: nowStamp(), dataset, range, format };
-    const next = [entry, ...history];
-    saveJSON('adwitix_export_history', next);
-    pushLedger('Generated Statutory Export', dataset, `${range} · ${format}`);
-    setHistory(next);
-    setJustGenerated(true);
+  const download = async (ds, from, to) => {
+    const blob = await DATASETS[ds].fetch({ from, to });
+    saveBlob(blob, `${DATASETS[ds].file}_${from}_${to}.csv`);
+  };
+  const generate = async () => {
+    if (!rangeReady || busy) return;
+    setBusy(true);
+    setError('');
+    setJustGenerated(false);
+    try {
+      await download(dataset, dateFrom, dateTo);
+      const range = `${dateFrom} to ${dateTo}`;
+      const entry = { at: nowStamp(), dataset, range, format, from: dateFrom, to: dateTo };
+      const next = [entry, ...history];
+      saveJSON('adwitix_export_history', next);
+      pushLedger('Generated Statutory Export', dataset, `${range} · ${format}`);
+      setHistory(next);
+      setJustGenerated(true);
+    } catch (err) {
+      setError(err.message || 'Export failed.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -51,16 +69,17 @@ export default function StatutoryExport() {
         <div className="se-form">
           <div className="se-fields">
             <label className="se-field"><span>Dataset</span>
-              <select value={dataset} onChange={(e) => setDataset(e.target.value)}>{DATASETS.map((d) => <option key={d} value={d}>{d}</option>)}</select>
+              <select value={dataset} onChange={(e) => setDataset(e.target.value)}>{Object.keys(DATASETS).map((d) => <option key={d} value={d}>{d}</option>)}</select>
             </label>
             <label className="se-field"><span>Format</span>
-              <select value={format} onChange={(e) => setFormat(e.target.value)}><option value="CSV">CSV</option><option value="XLSX">XLSX</option></select>
+              <select value={format} disabled><option value="CSV">CSV</option></select>
             </label>
             <label className="se-field"><span>From</span><input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} /></label>
             <label className="se-field"><span>To</span><input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} /></label>
           </div>
-          <button onClick={generate} disabled={!rangeReady} className="se-generate-btn" style={{ opacity: rangeReady ? 1 : 0.5 }}>Generate Export</button>
-          {justGenerated && <span className="se-confirm">✓ Export queued — appears below</span>}
+          <button onClick={generate} disabled={!rangeReady || busy} className="se-generate-btn" style={{ opacity: rangeReady && !busy ? 1 : 0.5 }}>{busy ? 'Generating…' : 'Generate Export'}</button>
+          {justGenerated && <span className="se-confirm">✓ Export downloaded — logged below</span>}
+          {error && <span className="se-confirm" style={{ color: 'var(--color-danger)' }}>{error}</span>}
         </div>
 
         <h2 className="custodian-decided-title" style={{ margin: '0 0 12px' }}>Export History</h2>
@@ -72,7 +91,7 @@ export default function StatutoryExport() {
               <span className="se-cell-dataset">{h.dataset}</span>
               <span className="se-cell-range">{h.range}</span>
               <span className="se-cell-range">{h.format}</span>
-              <a href="#" onClick={(e) => e.preventDefault()} className="se-download">Download</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); if (h.from && h.to) download(h.dataset, h.from, h.to).catch((err) => setError(err.message || 'Export failed.')); }} className="se-download">Download</a>
             </div>
           ))}
         </div>

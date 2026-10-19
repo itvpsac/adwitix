@@ -58,6 +58,27 @@ class Home extends BaseController
     // pending-work document used), same alias pattern as /profile↔/account.
     public function browse(): string
     {
+        $tenant = TenantContext::current();
+        $data = $this->browseData();
+        return view('browse', [
+            'title' => $tenant ? esc($tenant['name']) . ' — Browse' : 'Browse — AdwitiX', 'listings' => $data['listings'],
+            'allCategories' => $data['allCategories'],
+            'selectedCategory' => $data['category'], 'selectedFormat' => $data['format'],
+            'priceMin' => $data['priceMin'], 'priceMax' => $data['priceMax'], 'location' => $data['location'],
+            'minRating' => $data['minRating'], 'condition' => $data['condition'], 'posted' => $data['posted'], 'sort' => $data['sort'], 'q' => $data['q'],
+            'page' => $data['page'], 'perPage' => $data['perPage'], 'totalPages' => $data['totalPages'], 'total' => $data['total'],
+        ]);
+    }
+
+    // JSON counterpart of browse() for the React marketplace — same
+    // filters, sort, pagination and CLV match flag.
+    public function browseApi()
+    {
+        return $this->apiResponse($this->browseData());
+    }
+
+    private function browseData(): array
+    {
         $db = \Config\Database::connect();
         $category = $this->request->getGet('category');
         $format = $this->request->getGet('format');
@@ -171,13 +192,13 @@ class Home extends BaseController
         }
         $allCategories = $allCategoriesQuery->orderBy('l.category', 'ASC')->get()->getResultArray();
 
-        return view('browse', [
-            'title' => $tenant ? esc($tenant['name']) . ' — Browse' : 'Browse — AdwitiX', 'listings' => $listings,
+        return [
+            'listings' => $listings,
             'allCategories' => array_column($allCategories, 'category'),
-            'selectedCategory' => $category, 'selectedFormat' => $format,
+            'category' => $category, 'format' => $format,
             'priceMin' => $priceMin, 'priceMax' => $priceMax, 'location' => $location,
             'minRating' => $minRating, 'condition' => $condition, 'posted' => $posted, 'sort' => $sort, 'q' => $q,
             'page' => $pg['page'], 'perPage' => $pg['perPage'], 'totalPages' => Paginator::totalPages($total, $pg['perPage']), 'total' => $total,
-        ]);
+        ];
     }
 }

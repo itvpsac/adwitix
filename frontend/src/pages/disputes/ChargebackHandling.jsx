@@ -1,37 +1,68 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import { pushLedger } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import './ChargebackHandling.css';
 
-function nowStamp() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
-function logAudit(entry) {
-  try {
-    const key = 'adwitix_audit_ledger';
-    const existing = JSON.parse(localStorage.getItem(key) || '[]');
-    existing.push({ at: nowStamp(), ...entry });
-    localStorage.setItem(key, JSON.stringify(existing));
-  } catch (e) { /* noop */ }
-}
-const CASES = [
-  { id: 'cb1', caseId: 'CB-2201', lotTitle: 'Industrial Compressor Unit', buyer: '98xxxxxx21', amount: '₹4,52,000', filedAt: '2026-08-04', linkedForfeiture: false, status: 'represented' },
-  { id: 'cb2', caseId: 'CB-2214', lotTitle: 'Scrap Copper Coil — 12MT', buyer: '97xxxxxx08', amount: '₹1,86,500', filedAt: '2026-08-06', linkedForfeiture: true, status: 'represented' },
-  { id: 'cb3', caseId: 'CB-2190', lotTitle: 'Diesel Genset 125kVA', buyer: '99xxxxxx44', amount: '₹3,20,000', filedAt: '2026-07-29', linkedForfeiture: false, status: 'won' },
-];
+const day = (v) => (v || '').slice(0, 10);
+const money = (v) => (v == null ? '—' : `₹${Number(v).toLocaleString('en-IN')}`);
+// Buyer-side explainer; there is no buyer-facing chargeback list endpoint.
+const TRADER_SAMPLE = { id: 'cb2', caseId: 'CB-2214', lotTitle: 'Scrap Copper Coil — 12MT', amount: '₹1,86,500', filedAt: '2026-08-06', linkedForfeiture: true, status: 'represented' };
 const STATUS_META = {
+  filed: { label: 'Filed', bg: '#EEF0F4', color: 'var(--color-text-muted)' },
   represented: { label: 'Represented', bg: '#E9EEFB', color: '#33518F' },
-  won: { label: 'Representment Won', bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
-  lost: { label: 'Representment Lost', bg: 'var(--color-danger-bg)', color: 'var(--color-danger)' },
+  resolved_won: { label: 'Representment Won', bg: 'var(--color-success-bg)', color: 'var(--color-success)' },
+  resolved_lost: { label: 'Representment Lost', bg: 'var(--color-danger-bg)', color: 'var(--color-danger)' },
 };
 
 export default function ChargebackHandling() {
   const [role, setRole] = useState('admin');
-  const [integrityDecisions, setIntegrityDecisions] = useState({});
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState('');
 
-  const decide = (id, decision, caseId) => {
-    setIntegrityDecisions({ ...integrityDecisions, [id]: decision });
-    logAudit({ actor: 'SaaS Admin', action: `Logged Account-Integrity Event (penalty ${decision})`, target: caseId, reason: 'Chargeback filed against approved forfeiture' });
+  // GET /admin/chargebacks → { openRepresentment, pendingIntegrityReview, resolved }
+  const { data, loading, reload } = useApiQuery(() => admin.chargebacks(), []);
+  const byId = new Map();
+  const pendingIntegrity = new Set(((data && data.pendingIntegrityReview) || []).map((c) => c.id));
+  [...((data && data.openRepresentment) || []), ...((data && data.pendingIntegrityReview) || []), ...((data && data.resolved) || [])]
+    .forEach((c) => { if (!byId.has(c.id)) byId.set(c.id, c); });
+  const CASES = [...byId.values()].map((c) => ({
+    id: c.id,
+    caseId: `CB-${c.id.slice(0, 8).toUpperCase()}`,
+    lotTitle: c.sale_format ? `${c.sale_format.replace(/_/g, ' ')} sale ${c.sale_event_id.slice(0, 8)}` : `Sale ${c.sale_event_id.slice(0, 8)}`,
+    buyer: c.mobile_number,
+    amount: money(c.amount),
+    filedAt: day(c.filed_at),
+    reason: c.filed_reason,
+    linkedForfeiture: !!Number(c.against_approved_forfeiture),
+    integrityPending: pendingIntegrity.has(c.id),
+    integrityApplied: c.integrity_reviewed_at ? !!Number(c.integrity_rating_consequence_applied) : null,
+    integrityAt: day(c.integrity_reviewed_at),
+    status: c.status,
+  }));
+
+  const run = async (id, call, ledger) => {
+    setBusyId(id);
+    setActionError('');
+    try {
+      await call();
+      pushLedger(...ledger);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Action failed.');
+    } finally {
+      setBusyId(null);
+    }
   };
+  const decide = (c, apply) => run(c.id,
+    () => admin.reviewChargebackIntegrity(c.id, { apply_rating_consequence: apply ? '1' : '0', notes: 'Chargeback filed against approved forfeiture' }),
+    [`Logged Account-Integrity Event (penalty ${apply ? 'applied' : 'declined'})`, c.caseId, 'Chargeback filed against approved forfeiture']);
+  const recordOutcome = (c, outcome) => run(c.id,
+    () => admin.decideChargeback(c.id, { outcome, notes: `Gateway representment ${outcome}` }),
+    [`Recorded Representment ${outcome === 'won' ? 'Won' : 'Lost'}`, c.caseId, c.amount]);
 
-  const traderCase = CASES[1];
+  const traderCase = TRADER_SAMPLE;
   const traderMeta = STATUS_META[traderCase.status];
 
   return (
@@ -50,8 +81,7 @@ export default function ChargebackHandling() {
 
             <div className="cb-list">
               {CASES.map((c) => {
-                const meta = STATUS_META[c.status];
-                const decision = integrityDecisions[c.id];
+                const meta = STATUS_META[c.status] || STATUS_META.filed;
                 return (
                   <div key={c.id} className="cb-case" style={{ borderColor: c.linkedForfeiture ? '#F2CFC6' : 'var(--color-border)' }}>
                     <div className="cb-case__head">
@@ -61,23 +91,33 @@ export default function ChargebackHandling() {
                       </div>
                       <span className="cb-status" style={{ background: meta.bg, color: meta.color }}>{meta.label}</span>
                     </div>
+                    {c.reason && <div className="cb-case__meta">Reason: {c.reason}</div>}
+                    {c.status === 'represented' && (
+                      <div className="cb-flag-actions">
+                        <button onClick={() => recordOutcome(c, 'won')} disabled={busyId === c.id} className="cb-btn-outline">Representment Won</button>
+                        <button onClick={() => recordOutcome(c, 'lost')} disabled={busyId === c.id} className="cb-btn-outline">Representment Lost</button>
+                      </div>
+                    )}
                     <div className="cb-evidence">Evidence package: consent record (BR-51) · bid/transaction history · forfeiture approval chain{c.linkedForfeiture ? ' · linked to an approved forfeiture' : ''}</div>
                     {c.linkedForfeiture && (
                       <div className="cb-flag">
                         <strong>Filed against an already-approved forfeiture.</strong> Does not extinguish the buyer's underlying obligation (BR-52) — flagged as a distinct account-integrity event, independent of the representment outcome.
-                        {!decision && (
+                        {c.integrityPending && (
                           <div className="cb-flag-actions">
-                            <button onClick={() => decide(c.id, 'applied', c.caseId)} className="cb-btn-danger">Apply Penalty &amp; Log</button>
-                            <button onClick={() => decide(c.id, 'declined', c.caseId)} className="cb-btn-outline">Decline Penalty (log only)</button>
+                            <button onClick={() => decide(c, true)} disabled={busyId === c.id} className="cb-btn-danger">Apply Penalty &amp; Log</button>
+                            <button onClick={() => decide(c, false)} disabled={busyId === c.id} className="cb-btn-outline">Decline Penalty (log only)</button>
                           </div>
                         )}
-                        {decision && <div className="cb-flag-logged">✓ {decision === 'applied' ? "Penalty applied, logged on buyer's record" : 'Logged, no penalty applied'} — {nowStamp()}</div>}
+                        {c.integrityApplied !== null && <div className="cb-flag-logged">✓ {c.integrityApplied ? "Penalty applied, logged on buyer's record" : 'Logged, no penalty applied'} — {c.integrityAt}</div>}
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
+            {actionError && <p className="cb-intro" style={{ color: 'var(--color-danger)' }}>{actionError}</p>}
+            {loading && <p className="cb-intro">Loading cases…</p>}
+            {!loading && CASES.length === 0 && <p className="cb-intro">No chargeback cases on record.</p>}
           </>
         )}
 

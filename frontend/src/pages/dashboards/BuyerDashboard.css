@@ -30,7 +30,7 @@
 .bd-h2 { font-size: 18px; font-weight: 800; margin: 0; font-family: var(--font-display); }
 .bd-filters { display: flex; gap: 8px; }
 .bd-select { padding: 7px 10px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 12px; color: var(--color-text-muted); font-family: inherit; }
-.bd-export-link { font-size: 12px; font-weight: 700; }
+.bd-export-link { font-size: 12px; font-weight: 700; background: none; border: none; padding: 0; cursor: pointer; color: inherit; }
 
 .bd-table { background: #fff; border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
 .bd-bid-row { display: flex; align-items: center; justify-content: space-between; padding: 15px 20px; border-bottom: 1px solid var(--color-border-soft); }
@@ -45,7 +45,7 @@
 .bd-offer-label { font-size: 13.5px; color: var(--color-text); }
 .bd-offer-right { display: flex; align-items: center; gap: 14px; }
 .bd-offer-status { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--color-text-faint); }
-.bd-withdraw-btn { font-size: 11.5px; font-weight: 700; padding: 6px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); color: var(--color-text); }
+.bd-withdraw-btn { font-size: 11.5px; font-weight: 700; padding: 6px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-pill); color: var(--color-text); background: none; cursor: pointer; }
 
 .bd-purchase-row { display: grid; grid-template-columns: 100px 90px 120px 1fr 110px 110px; gap: 0; padding: 0 20px; border-bottom: 1px solid var(--color-border-soft); align-items: center; font-size: 13px; }
 .bd-purchase-row > div { padding: 12px 0; }

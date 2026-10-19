@@ -36,4 +36,21 @@ class LotReachController extends BaseController
         }
         return redirect()->to('/my-listings/reach');
     }
+
+    // ── JSON counterparts for the React app (jwtAuth-gated routes) ──
+
+    public function indexApi()
+    {
+        return $this->apiResponse((new ListingReachService())->getReachSummary(\App\Libraries\UserAuthContext::partyId()));
+    }
+
+    public function sendMessageApi(string $listingId)
+    {
+        try {
+            (new ListingReachService())->sendBulkMessage($listingId, \App\Libraries\UserAuthContext::partyId(), (string) $this->input('message_body'));
+        } catch (\RuntimeException $e) {
+            return $this->jsonError(422, 'message_failed', $e->getMessage());
+        }
+        return $this->apiResponse(['sent' => true], 'Message sent.');
+    }
 }

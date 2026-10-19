@@ -1,29 +1,69 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
-import { nowStamp, pushLedger, loadJSON, saveJSON } from '../../utils/auditLedger.js';
+import { pushLedger } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import '../compliance/CustodianShared.css';
 import './RulesAndSpecifications.css';
 
-const SECTIONS = [
-  { id: 'fee', title: 'Success Fee Schedule', value: 'CoCo Starter: 2.00% (min ₹500+GST)\nTSX Launch: 1.50%\nTSX Growth: 1.00%\nTSX Enterprise: 0.50% (min ₹500+GST)', changeLog: 'Last changed 2026-05-12 by Custodian' },
-  { id: 'formats', title: 'Trading Session Formats', value: 'Buy-Now: fixed price, instant settlement\nEasy: open ascending bid, no reserve required\nExpress: sealed-bid, single round, 24hr window\nTender: multi-round sealed bid, RV/EV disclosed post-close', changeLog: 'Last changed 2026-03-02 by Custodian' },
-  { id: 'cooloff', title: 'Cooling-Off Periods', value: 'Payout bank account change: 24 hours\nDispute appeal window: 5 days from ruling\nKYC re-verification after Suspended: 48 hours', changeLog: 'Last changed 2026-06-20 by Custodian' },
-  { id: 'ratings', title: 'Star Rating Point Values', value: 'Small event (< ₹50,000): ±0.1 per rating\nMedium event (₹50,000–₹5,00,000): ±0.3 per rating\nLarge event (> ₹5,00,000): ±0.5 per rating\nRecovery: +0.05 per clean event after a drop, capped at prior high', changeLog: 'Last changed 2026-04-18 by Custodian' },
-];
+const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
+const EMPTY = { title: '', statement: '', logic: '', reason: '' };
 
 export default function RulesAndSpecifications() {
   const [showInfo, setShowInfo] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [drafts, setDrafts] = useState({});
-  const [overrides, setOverrides] = useState(loadJSON('adwitix_rules_overrides', {}));
+  const [draft, setDraft] = useState(EMPTY);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  const save = (sec, draft) => {
-    const next = { ...overrides, [sec.id]: { value: draft, at: nowStamp() } };
-    saveJSON('adwitix_rules_overrides', next);
-    pushLedger('Edited Rules & Specifications', sec.title, `Updated ${sec.title.toLowerCase()}`);
-    setOverrides(next);
-    setEditingId(null);
+  // GET /admin/rules → { rules: [sovereign_rule] }; every edit is versioned
+  // server side and needs a Reason for Modification.
+  const { data, loading, reload } = useApiQuery(() => admin.rules(), []);
+  const rules = (data && data.rules) || [];
+
+  const startEdit = (rule) => {
+    setEditingId(rule ? rule.id : 'new');
+    setDraft(rule ? { title: rule.title, statement: rule.statement, logic: rule.logic, numeric_value: rule.numeric_value, reason: '' } : EMPTY);
+    setActionError('');
   };
+  const ready = draft.title.trim() && draft.statement.trim() && draft.reason.trim();
+  const save = async () => {
+    if (!ready || busy) return;
+    setBusy(true);
+    setActionError('');
+    const payload = { title: draft.title, statement: draft.statement, logic: draft.logic, reason_for_modification: draft.reason };
+    try {
+      if (editingId === 'new') {
+        await admin.createRule(payload);
+      } else {
+        await admin.editRule(editingId, { ...payload, numeric_value: draft.numeric_value });
+      }
+      pushLedger(editingId === 'new' ? 'Created Sovereign Rule' : 'Edited Rules & Specifications', draft.title, draft.reason);
+      setEditingId(null);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not save the rule.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editor = (
+    <>
+      <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} placeholder="Title" className="rs-textarea" />
+      <textarea value={draft.statement} onChange={(e) => setDraft({ ...draft, statement: e.target.value })} placeholder="Statement" rows={4} className="rs-textarea" />
+      <textarea value={draft.logic} onChange={(e) => setDraft({ ...draft, logic: e.target.value })} placeholder="Logic" rows={3} className="rs-textarea" />
+      {editingId !== 'new' && draft.numeric_value != null && (
+        <input type="number" value={draft.numeric_value} onChange={(e) => setDraft({ ...draft, numeric_value: e.target.value })} placeholder="Numeric value" className="rs-textarea" />
+      )}
+      <textarea value={draft.reason} onChange={(e) => setDraft({ ...draft, reason: e.target.value })} placeholder="Reason for modification (required)" rows={2} className="rs-textarea" />
+      {actionError && <div className="rs-section__log" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
+      <div className="custodian-btn-row">
+        <button onClick={save} disabled={!ready || busy} className="rs-save-btn" style={{ opacity: ready && !busy ? 1 : 0.5 }}>{busy ? 'Saving…' : 'Save Change'}</button>
+        <button onClick={() => setEditingId(null)} className="custodian-btn-outline">Cancel</button>
+      </div>
+    </>
+  );
 
   return (
     <div className="custodian-page">
@@ -42,36 +82,37 @@ export default function RulesAndSpecifications() {
           </div>
         )}
 
+        <div className="custodian-btn-row" style={{ marginBottom: 16 }}>
+          {editingId !== 'new' && <button onClick={() => startEdit(null)} className="rs-edit-btn">+ New Rule</button>}
+        </div>
+        {editingId === 'new' && <div className="rs-section">{editor}</div>}
+
         <div className="rs-list">
-          {SECTIONS.map((sec) => {
-            const editing = editingId === sec.id;
-            const override = overrides[sec.id];
-            const value = override ? override.value : sec.value;
-            const changeLog = override ? `Last changed ${override.at} by Custodian` : sec.changeLog;
-            const draft = sec.id in drafts ? drafts[sec.id] : value;
+          {rules.map((rule) => {
+            const editing = editingId === rule.id;
             return (
-              <div key={sec.id} className="rs-section">
+              <div key={rule.id} className="rs-section">
                 <div className="rs-section__head">
                   <div>
-                    <div className="rs-section__title">{sec.title}</div>
-                    <div className="rs-section__log">{changeLog}</div>
+                    <div className="rs-section__title">{rule.title}</div>
+                    <div className="rs-section__log">v{rule.version} · last changed {stamp(rule.updated_at)}{rule.rule_key ? ` · ${rule.rule_key}` : ''}</div>
                   </div>
-                  {!editing && <button onClick={() => { setEditingId(sec.id); setDrafts({ ...drafts, [sec.id]: value }); }} className="rs-edit-btn">Edit</button>}
+                  {!editing && <button onClick={() => startEdit(rule)} className="rs-edit-btn">Edit</button>}
                 </div>
-                {!editing && <div className="rs-value">{value}</div>}
-                {editing && (
-                  <>
-                    <textarea value={draft} onChange={(e) => setDrafts({ ...drafts, [sec.id]: e.target.value })} rows={5} className="rs-textarea" />
-                    <div className="custodian-btn-row">
-                      <button onClick={() => save(sec, draft)} className="rs-save-btn">Save Change</button>
-                      <button onClick={() => setEditingId(null)} className="custodian-btn-outline">Cancel</button>
-                    </div>
-                  </>
+                {!editing && (
+                  <div className="rs-value">
+                    {rule.statement}
+                    {rule.numeric_value != null && <div><strong>Value:</strong> {rule.numeric_value}</div>}
+                    {rule.logic && <div style={{ marginTop: 6 }}><strong>Logic:</strong> {rule.logic}</div>}
+                  </div>
                 )}
+                {editing && editor}
               </div>
             );
           })}
         </div>
+        {loading && <div className="custodian-empty">Loading rules…</div>}
+        {!loading && rules.length === 0 && <div className="custodian-empty">No rules on record.</div>}
       </main>
     </div>
   );

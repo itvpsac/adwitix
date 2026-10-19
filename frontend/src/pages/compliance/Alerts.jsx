@@ -19,20 +19,43 @@ export default function Alerts() {
   const [dismissed, setDismissed] = useState(loadJSON('adwitix_alerts_dismissed', []));
 
   const { data: apiData, loading: apiLoading } = useApiQuery(() => admin.alerts(), []);
-  const apiAlerts = (apiData && (apiData.alerts || apiData.rows)) || [];
-  const source = apiAlerts.map((a, i) => ({
-    id: a.id || `API-${i}`,
-    severity: a.severity === 'critical' ? 'Critical' : a.severity === 'warning' ? 'Warning' : 'Info',
-    category: a.category || a.type || 'Platform',
-    at: (a.created_at || a.at || '').slice(0, 16).replace('T', ' '),
-    title: a.title || a.message || 'Alert',
-    detail: a.detail || a.description || '',
-    href: a.href || '/custodian/dashboard',
-  }));
+  // GET /admin/alerts returns one list per condition; flatten them into
+  // the feed this screen renders.
+  const d = apiData || {};
+  const at = (v) => (v || '').slice(0, 16).replace('T', ' ');
+  const source = [
+    ...(d.amlFlags || []).map((f) => ({
+      id: `aml-${f.id}`, severity: 'Critical', category: 'AML', at: at(f.created_at),
+      title: `AML flag — ${f.mobile_number || f.party_id}`, detail: f.detail || f.flag_type || 'Open AML flag awaiting review.', href: '/aml-monitoring',
+    })),
+    ...(d.stalledSettlements || []).map((x) => ({
+      id: `stl-${x.id}`, severity: 'Critical', category: 'Settlement', at: at(x.created_at),
+      title: 'Settlement stalled', detail: `Settlement ${x.id} has passed its SLA without both NOCs.`, href: `/settlement?id=${x.id}`,
+    })),
+    ...(d.openDisputes || []).map((x) => ({
+      id: `dsp-${x.id}`, severity: 'Warning', category: 'Dispute', at: at(x.created_at),
+      title: `Dispute ${x.status === 'appealed' ? 'appealed' : 'open'}`, detail: x.description || `Dispute ${x.id} (${x.status}).`, href: `/dispute-center?id=${x.id}`,
+    })),
+    ...(d.pendingPayoutReviews || []).map((x) => ({
+      id: `pay-${x.id}`, severity: 'Warning', category: 'Payout', at: at(x.created_at),
+      title: 'Payout release awaiting review', detail: `₹${Number(x.amount || 0).toLocaleString('en-IN')} ${(x.release_type || '').replace(/_/g, ' ')} awaiting review.`, href: '/payout-reviews',
+    })),
+    ...(d.pendingRatingReviews || []).map((x) => ({
+      id: `rat-${x.id}`, severity: 'Info', category: 'Rating', at: at(x.created_at),
+      title: `Rating change pending — ${x.mobile_number || x.party_id}`, detail: x.reason || 'Downgrade awaiting approval.', href: '/rating-reviews',
+    })),
+    ...(d.driftAlerts || []).map((x) => ({
+      id: `drift-${x.id}`, severity: 'Critical', category: 'Server time', at: at(x.checked_at),
+      title: 'Server clock drift', detail: `Drift of ${x.drift_seconds ?? '?'}s is outside tolerance.`, href: '/alerts', driftId: x.id,
+    })),
+  ];
   let all = source.filter((a) => !dismissed.includes(a.id));
   if (sev !== 'all') all = all.filter((a) => a.severity === sev);
 
-  const dismiss = (a) => {
+  const dismiss = async (a) => {
+    if (a.driftId) {
+      try { await admin.acknowledgeServerTimeDrift(a.driftId); } catch (e) { /* keep the local dismiss */ }
+    }
     const next = [...dismissed, a.id];
     saveJSON('adwitix_alerts_dismissed', next);
     pushLedger('Dismissed Alert', a.title, a.detail);

@@ -1,35 +1,55 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
-import { nowStamp, pushLedger, loadJSON, saveJSON } from '../../utils/auditLedger.js';
+import { pushLedger } from '../../utils/auditLedger.js';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import '../compliance/CustodianShared.css';
 import './DelistMarketMaker.css';
 
-const MMS = [
-  { id: 'mm1', name: 'Northline Salvage Co.', mobile: '91xxxxxx02', tsx: 'Ironclad Metals TSX', rating: '3.8', activeLots: 6, openDisputes: 1 },
-  { id: 'mm2', name: 'Ravindra Auto Traders', mobile: '98xxxxxx31', tsx: 'AutoYard TSX', rating: '4.6', activeLots: 12, openDisputes: 0 },
-  { id: 'mm3', name: 'Coastal Scrap Metals', mobile: '97xxxxxx55', tsx: 'Ironclad Metals TSX', rating: '2.1', activeLots: 3, openDisputes: 3 },
-];
+const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
 
 export default function DelistMarketMaker() {
   const [showInfo, setShowInfo] = useState(false);
   const [query, setQuery] = useState('');
   const [reasons, setReasons] = useState({});
   const [confirmId, setConfirmId] = useState(null);
-  const [decisions, setDecisions] = useState(loadJSON('adwitix_delisted_mms', {}));
+  const [busyId, setBusyId] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [actionError, setActionError] = useState('');
 
-  const q = query.trim().toLowerCase();
-  let all = MMS.filter((m) => !decisions[m.id]);
-  if (q) all = all.filter((m) => [m.name, m.mobile, m.tsx].join(' ').toLowerCase().includes(q));
-  const delisted = Object.entries(decisions).map(([id, d]) => ({ id, ...d }));
+  // GET /admin/users?q= searches mobile, name, email and GSTIN server side.
+  const q = query.trim();
+  const { data, loading, reload } = useApiQuery(() => admin.users(q ? { q } : {}), [q]);
+  const users = (data && data.users) || [];
+  const toRow = (u) => ({
+    id: u.id,
+    name: u.full_name || u.mobile_number,
+    mobile: u.mobile_number,
+    entity: (u.entity_type || '').replace(/_/g, ' '),
+    rating: u.seller_star_rating != null ? Number(u.seller_star_rating).toFixed(1) : '—',
+    kyc: u.kyc_status,
+    delistedAt: stamp(u.seller_delisted_at),
+    delistReason: u.seller_delisted_reason,
+  });
+  const all = users.filter((u) => !u.seller_delisted_at).map(toRow);
+  const delisted = users.filter((u) => u.seller_delisted_at).map(toRow);
 
-  const confirmDelist = (m) => {
+  const confirmDelist = async (m) => {
     const reason = (reasons[m.id] || '').trim();
     if (!reason) return;
-    const next = { ...decisions, [m.id]: { name: m.name, reason, at: nowStamp() } };
-    saveJSON('adwitix_delisted_mms', next);
-    pushLedger('Delisted Market Maker', m.name, reason);
-    setDecisions(next);
-    setConfirmId(null);
+    setBusyId(m.id);
+    setActionError('');
+    try {
+      const res = await admin.delistSeller({ mobile_number: m.mobile, confirmed_fraud_reason: reason });
+      pushLedger('Delisted Market Maker', m.name, reason);
+      setNotice((res && res.data && res.data.message) || `${m.name} delisted.`);
+      setConfirmId(null);
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Delisting failed.');
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -50,10 +70,12 @@ export default function DelistMarketMaker() {
         )}
 
         <div className="custodian-search">
-          <input placeholder="Search — name, mobile, TradeSphereX…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input placeholder="Search — name, mobile, email, GSTIN…" value={query} onChange={(e) => setQuery(e.target.value)} />
           <span className="custodian-search__icon">⌕</span>
         </div>
 
+        {notice && <div className="custodian-info-box">{notice}</div>}
+        {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         <div className="dmm-list">
           {all.map((m) => {
             const confirming = confirmId === m.id;
@@ -63,19 +85,18 @@ export default function DelistMarketMaker() {
                 <div className="dmm-row__head">
                   <div>
                     <div className="dmm-name">{m.name}</div>
-                    <div className="dmm-meta">{m.mobile} · {m.tsx}</div>
+                    <div className="dmm-meta">{m.mobile}{m.entity ? ` · ${m.entity}` : ''}</div>
                   </div>
                   <div className="dmm-stats">
                     <span>MM★ {m.rating}</span>
-                    <span>{m.activeLots} active Lots</span>
-                    <span style={{ color: m.openDisputes > 0 ? 'var(--color-danger)' : 'var(--color-text-faint)' }}>{m.openDisputes} open disputes</span>
+                    <span>KYC {m.kyc || '—'}</span>
                   </div>
                 </div>
                 {confirming ? (
                   <div className="dmm-confirm">
                     <textarea placeholder="Reason for delisting (required, recorded to Audit Ledger)…" value={reason} onChange={(e) => setReasons({ ...reasons, [m.id]: e.target.value })} rows={2} className="custodian-textarea" />
                     <div className="custodian-btn-row">
-                      <button onClick={() => confirmDelist(m)} disabled={!reason.trim()} className="custodian-btn-danger" style={{ opacity: reason.trim() ? 1 : 0.5 }}>Confirm Delist</button>
+                      <button onClick={() => confirmDelist(m)} disabled={!reason.trim() || busyId === m.id} className="custodian-btn-danger" style={{ opacity: reason.trim() && busyId !== m.id ? 1 : 0.5 }}>{busyId === m.id ? 'Delisting…' : 'Confirm Delist'}</button>
                       <button onClick={() => setConfirmId(null)} className="custodian-btn-outline">Cancel</button>
                     </div>
                   </div>
@@ -87,6 +108,9 @@ export default function DelistMarketMaker() {
           })}
         </div>
 
+        {loading && <div className="custodian-empty">Loading…</div>}
+        {!loading && all.length === 0 && <div className="custodian-empty">No matching users.</div>}
+
         {delisted.length > 0 && (
           <>
             <h2 className="custodian-decided-title">Delisted</h2>
@@ -94,7 +118,7 @@ export default function DelistMarketMaker() {
               {delisted.map((d) => (
                 <div key={d.id} className="dmm-delisted-row">
                   <div className="dmm-delisted-name">{d.name} — DELISTED</div>
-                  <div className="dmm-delisted-meta">{d.at} by Custodian · {d.reason}</div>
+                  <div className="dmm-delisted-meta">{d.delistedAt} by Custodian · {d.delistReason}</div>
                 </div>
               ))}
             </div>

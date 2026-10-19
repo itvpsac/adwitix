@@ -9,7 +9,12 @@
 // (app/Filters/JwtAuthFilter.php). Logout is client-side only — the
 // backend has no /logout route; we simply discard the token.
 
-const RAW_BASE = '';
+// Production builds call the backend directly so each user reaches it from
+// their own IP: the host answers 429 to traffic coming through Vercel's
+// shared rewrite-proxy IPs. Dev (and VITE_API_BASE_URL="" in a build) uses
+// same-origin paths, which server.ts / vercel.json proxy to the backend.
+const DIRECT_BACKEND = 'https://admin.adwitix.com/public/index.php';
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? DIRECT_BACKEND : '');
 export const API_BASE = RAW_BASE.replace(/\/+$/, '');
 
 const TOKEN_KEY = 'adwitix_jwt';
@@ -102,7 +107,14 @@ async function request(method, path, { body, query, auth = true, raw = false, si
         console.error(`API Request Failed: ${method} ${path}`, { status: res.status, data, text });
       }
     }
-    throw new ApiError(res.status, (data && data.error) || 'request_failed', (data && data.error_description) || (data && data.message) || null, data);
+    // 429s come from the hosting layer's rate limiter, not the app, and
+    // carry no envelope.
+    if (res.status === 429) {
+      throw new ApiError(429, 'rate_limited', 'Too many requests — please wait a minute and try again.', data);
+    }
+    // Errors arrive in the envelope as { status: false, message, data: { error } }.
+    const inner = (data && data.data) || {};
+    throw new ApiError(res.status, inner.error || (data && data.error) || 'request_failed', (data && data.error_description) || (data && data.message) || null, data);
   }
   return data;
 }
