@@ -111,8 +111,9 @@ export const saleEvents = {
   fileDispute: (id, payload) => api.post(`${APP}/sale-events/${id}/dispute`, payload),
   fileChargeback: (id, payload) => api.post(`${APP}/sale-events/${id}/dev-file-chargeback`, payload),
 
-  emdConsentTerms: (id, holdId) => api.get(`${APP}/sale-events/${id}/emd-consent/${holdId}`),
-  confirmEmdConsent: (id, holdId, payload) => api.post(`${APP}/sale-events/${id}/emd-consent/${holdId}/confirm`, payload),
+  // action: 'easy_or_tender' | 'buy_now' | 'express' (EmdConsentController)
+  emdConsentTerms: (id, action) => api.get(`${APP}/sale-events/${id}/emd-consent/${action}`),
+  confirmEmdConsent: (id, action, payload) => api.post(`${APP}/sale-events/${id}/emd-consent/${action}/confirm`, payload),
 };
 
 // ── Settlement & ratings (BR-33/BR-39) ──────────────────────────────

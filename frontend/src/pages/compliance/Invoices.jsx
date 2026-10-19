@@ -1,32 +1,49 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
-import { invoices } from '../../api/endpoints.js';
+import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
 import '../compliance/CustodianShared.css';
 import './Invoices.css';
 
 const STATUS_META = {
   Paid: { color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
-  Unbilled: { color: 'var(--color-text-muted)', bg: '#EEF0F4' },
-  Overdue: { color: 'var(--color-danger)', bg: 'var(--color-danger-bg)' },
+  Pending: { color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
 };
-const STATUSES = ['all', 'Paid', 'Unbilled', 'Overdue'];
+const STATUSES = ['all', 'Paid', 'Pending'];
 
 export default function Invoices() {
   const [showInfo, setShowInfo] = useState(false);
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
 
-  const { data: apiData, loading: apiLoading } = useApiQuery(() => invoices.index(), []);
-  const apiRows = (apiData && (apiData.invoices || apiData.rows)) || [];
+  const [busyId, setBusyId] = useState(null);
+  const [actionError, setActionError] = useState('');
+
+  // GET /admin/tenant-invoices → { pending: [tenant_monthly_invoice] }
+  const { data: apiData, loading: apiLoading, reload } = useApiQuery(() => admin.tenantInvoices(), []);
+  const apiRows = (apiData && apiData.pending) || [];
   let all = apiRows.map((i) => ({
-    tsx: i.tenant_name || i.tsx || '—',
+    id: i.id,
+    tsx: i.tenant_name || i.tenant_id || '—',
     invoiceId: i.invoice_number || i.id,
-    period: i.period || i.billing_month || '—',
-    amount: i.total_amount != null ? `₹${Number(i.total_amount).toLocaleString('en-IN')}` : (i.amount || '—'),
-    due: (i.due_date || '').slice(0, 10),
-    status: i.status === 'paid' ? 'Paid' : i.status === 'overdue' ? 'Overdue' : 'Unbilled',
+    period: `${(i.period_start || '').slice(0, 10)} → ${(i.period_end || '').slice(0, 10)}`,
+    amount: i.total_amount != null ? `₹${Number(i.total_amount).toLocaleString('en-IN')}` : '—',
+    due: (i.generated_at || '').slice(0, 10),
+    status: i.status === 'paid' ? 'Paid' : 'Pending',
   }));
+
+  const markPaid = async (inv) => {
+    setBusyId(inv.id);
+    setActionError('');
+    try {
+      await admin.markInvoicePaid(inv.id, {});
+      reload();
+    } catch (err) {
+      setActionError(err.message || 'Could not mark the invoice paid.');
+    } finally {
+      setBusyId(null);
+    }
+  };
   if (status !== 'all') all = all.filter((i) => i.status === status);
   const q = query.trim().toLowerCase();
   if (q) all = all.filter((i) => `${i.tsx} ${i.invoiceId}`.toLowerCase().includes(q));
@@ -59,7 +76,7 @@ export default function Invoices() {
         </div>
 
         <div className="iv-table">
-          <div className="iv-row iv-row--head"><span>TradeSphereX</span><span>Invoice</span><span>Period</span><span style={{ textAlign: 'right' }}>Amount</span><span>Due</span><span>Status</span></div>
+          <div className="iv-row iv-row--head"><span>TradeSphereX</span><span>Invoice</span><span>Period</span><span style={{ textAlign: 'right' }}>Amount</span><span>Generated</span><span>Status</span></div>
           {all.map((i) => {
             const meta = STATUS_META[i.status];
             return (
@@ -69,11 +86,19 @@ export default function Invoices() {
                 <span className="iv-cell-muted">{i.period}</span>
                 <span className="iv-cell-amount">{i.amount}</span>
                 <span className="iv-cell-muted">{i.due}</span>
-                <span><span className="iv-status" style={{ color: meta.color, background: meta.bg }}>{i.status}</span></span>
+                <span>
+                  <span className="iv-status" style={{ color: meta.color, background: meta.bg }}>{i.status}</span>
+                  {i.status === 'Pending' && (
+                    <button className="custodian-filter-pill" style={{ marginLeft: 8 }} disabled={busyId === i.id} onClick={() => markPaid(i)}>
+                      {busyId === i.id ? 'Saving…' : 'Mark paid'}
+                    </button>
+                  )}
+                </span>
               </div>
             );
           })}
         </div>
+        {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         {!apiLoading && all.length === 0 && <div className="custodian-empty">No invoices yet.</div>}
       </main>
     </div>

@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
+import { disputes as disputesApi, saleEvents } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './DisputeCenter.css';
 
 const CATEGORIES = [
@@ -46,12 +48,32 @@ const ROLE_TABS = [
 
 function catLabel(id) { return (CATEGORIES.find((c) => c.id === id) || {}).label || id; }
 function nowStamp() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
+const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
+
+// Maps GET /disputes/:id → { dispute, evidence } into the shape this screen renders.
+function toLocal({ dispute: d, evidence }) {
+  return {
+    id: d.id, live: true,
+    saleEventRef: `Sale event ${d.sale_event_id}`,
+    category: d.category, rulingAuthorityType: d.ruling_authority_type || 'tenant_admin',
+    description: d.description, status: d.status,
+    evidence: (evidence || []).map((e) => ({ content: e.content, createdAt: stamp(e.created_at) })),
+    rulingOutcome: d.ruling_outcome, rulingRationale: d.ruling_rationale || '',
+    appealed: !!d.appealed_at, appealRationale: d.appeal_rationale || '',
+  };
+}
 
 export default function DisputeCenter() {
   const [role, setRole] = useState('party');
   const [view, setView] = useState('list');
   const [selectedId, setSelectedId] = useState(null);
+  const [params, setParams] = useSearchParams();
+  const liveId = params.get('id');
+  // ?saleEvent=<id> files against a real sale event; without it the form is a demo.
+  const liveSaleEventId = params.get('saleEvent');
   const [disputes, setDisputes] = useState(INITIAL_DISPUTES);
+  const [apiError, setApiError] = useState('');
+  const [busy, setBusy] = useState(false);
   const [evidenceDraft, setEvidenceDraft] = useState('');
   const [rulingOutcome, setRulingOutcome] = useState('');
   const [rulingAtFaultParty, setRulingAtFaultParty] = useState('');
@@ -60,7 +82,36 @@ export default function DisputeCenter() {
   const [appealRationale, setAppealRationale] = useState('');
   const [fileCategory, setFileCategory] = useState('payment');
   const [fileDescription, setFileDescription] = useState('');
-  const fileSaleEventId = 'SE-2026-0731-042';
+  const fileSaleEventId = liveSaleEventId || 'SE-2026-0731-042';
+
+  const loadLive = async (id) => {
+    const local = toLocal(unwrap(await disputesApi.show(id)));
+    setDisputes((cur) => [local, ...cur.filter((d) => d.id !== id)]);
+    return local;
+  };
+  useEffect(() => {
+    if (!liveId) return;
+    loadLive(liveId)
+      .then(() => { setSelectedId(liveId); setView('detail'); })
+      .catch((err) => setApiError(err.message || 'Could not load the dispute.'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveId]);
+
+  // Live disputes POST then reload from the backend; demo ones update locally.
+  const liveAction = async (call) => {
+    setBusy(true);
+    setApiError('');
+    try {
+      await call();
+      await loadLive(selectedId);
+      return true;
+    } catch (err) {
+      setApiError(err.message || 'Action failed.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const relevant = disputes.filter((d) => {
     if (role === 'party') return true;
@@ -69,7 +120,7 @@ export default function DisputeCenter() {
     return true;
   });
   const selected = disputes.find((d) => d.id === selectedId);
-  const meta = selected ? STATUS_META[selected.status] : null;
+  const meta = selected ? STATUS_META[selected.status] || STATUS_META.filed : null;
   const canSubmitEvidence = selected && role === 'party' && (selected.status === 'filed' || selected.status === 'evidence_window');
   const canRule = selected && (selected.status === 'filed' || selected.status === 'evidence_window') &&
     ((role === 'tenant_admin' && selected.rulingAuthorityType === 'tenant_admin') || (role === 'super_admin' && selected.rulingAuthorityType === 'super_admin'));
@@ -77,24 +128,49 @@ export default function DisputeCenter() {
   const canRuleAppeal = selected && selected.status === 'appealed' && role === 'super_admin';
   const rulingNeedsParty = rulingOutcome === 'order_forfeiture' || rulingOutcome === 'rating_consequence';
 
-  const openDispute = (id) => { setSelectedId(id); setView('detail'); setEvidenceDraft(''); setRulingOutcome(''); setRulingAtFaultParty(''); setRulingRationale(''); setRulingError(''); setAppealRationale(''); };
+  const openDispute = (id) => { setApiError(''); setSelectedId(id); setView('detail'); setEvidenceDraft(''); setRulingOutcome(''); setRulingAtFaultParty(''); setRulingRationale(''); setRulingError(''); setAppealRationale(''); };
 
-  const submitEvidence = () => {
+  const submitEvidence = async () => {
     if (!evidenceDraft.trim()) return;
+    if (selected.live) {
+      if (await liveAction(() => disputesApi.submitEvidence(selectedId, { content: evidenceDraft }))) setEvidenceDraft('');
+      return;
+    }
     setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'evidence_window', evidence: [...d.evidence, { content: evidenceDraft, createdAt: nowStamp() }] } : d)));
     setEvidenceDraft('');
   };
   const issueRuling = () => {
     if (!rulingOutcome) { setRulingError('Select an outcome before submitting.'); return; }
     if (!rulingRationale.trim()) { setRulingError('Rationale is required — identifies the evidence relied upon.'); return; }
+    if (selected.live) {
+      liveAction(() => disputesApi.rule(selectedId, { outcome: rulingOutcome, rationale: rulingRationale, at_fault_party_id: rulingAtFaultParty || undefined }));
+      return;
+    }
     setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'ruled', rulingOutcome, rulingRationale } : d)));
   };
-  const appeal = () => setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'appealed' } : d)));
+  const appeal = () => (selected.live ? liveAction(() => disputesApi.appeal(selectedId, {})) : setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'appealed' } : d))));
   const ruleOnAppeal = () => {
     if (!appealRationale.trim()) return;
+    if (selected.live) {
+      liveAction(() => disputesApi.ruleOnAppeal(selectedId, { rationale: appealRationale }));
+      return;
+    }
     setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'closed', appealRationale } : d)));
   };
-  const fileSubmit = () => {
+  const fileSubmit = async () => {
+    if (liveSaleEventId) {
+      setBusy(true);
+      setApiError('');
+      try {
+        const res = unwrap(await saleEvents.fileDispute(liveSaleEventId, { category: fileCategory, description: fileDescription }));
+        setParams({ id: res.dispute.id });
+      } catch (err) {
+        setApiError(err.message || 'Could not file the dispute.');
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const id = 'DSP-' + Math.floor(10000 + Math.random() * 89999);
     const cat = CATEGORIES.find((c) => c.id === fileCategory);
     const newD = { id, saleEventRef: fileSaleEventId, category: fileCategory, rulingAuthorityType: cat.authority, description: fileDescription || '(no description provided)', status: 'filed', evidence: [], rulingOutcome: null, rulingRationale: '', appealed: false, appealRationale: '' };
@@ -116,12 +192,14 @@ export default function DisputeCenter() {
           ))}
         </div>
 
+        {apiError && <p className="dc-error">{apiError}</p>}
+
         {view === 'list' && (
           <>
             {role === 'party' && <button onClick={() => { setView('file'); setFileCategory('payment'); setFileDescription(''); }} className="dc-file-btn">+ File a Dispute</button>}
             <div className="dc-list">
               {relevant.map((d) => {
-                const m = STATUS_META[d.status];
+                const m = STATUS_META[d.status] || STATUS_META.filed;
                 return (
                   <button key={d.id} onClick={() => openDispute(d.id)} className="dc-row">
                     <div>
@@ -149,7 +227,7 @@ export default function DisputeCenter() {
               </select>
               <label className="dc-label">Description</label>
               <textarea value={fileDescription} onChange={(e) => setFileDescription(e.target.value)} rows={5} className="dc-textarea" />
-              <button onClick={fileSubmit} className="dc-submit">File Dispute</button>
+              <button onClick={fileSubmit} disabled={busy} className="dc-submit">{busy ? 'Filing…' : 'File Dispute'}</button>
             </div>
           </>
         )}
@@ -198,7 +276,7 @@ export default function DisputeCenter() {
 
             {(selected.status === 'ruled' || selected.status === 'appealed') && (
               <div className="dc-ruled-box">
-                <p><strong>Ruling:</strong> {OUTCOME_LABELS[selected.rulingOutcome]}</p>
+                <p><strong>Ruling:</strong> {OUTCOME_LABELS[selected.rulingOutcome] || selected.rulingOutcome}</p>
                 <p><strong>Rationale:</strong> {selected.rulingRationale}</p>
                 {canAppeal && <button onClick={appeal} className="dc-appeal-btn">Appeal to Super Admin</button>}
               </div>

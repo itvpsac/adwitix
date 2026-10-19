@@ -1,30 +1,76 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import './UserDetail.css';
 
-const PARTY = {
-  name: 'Ramesh Agarwal', mobile: '+91 98xxxxxx12', entityType: 'Individual', kyc: 'Verified',
-  buyerStars: '4.2', buyerOffences: 0, sellerStars: '3.8', sellerOffences: 1, complaints: 0, cbsOffences: 0,
-  delisted: false, delistedAt: '', delistedReason: '',
-};
-const TENANT_OPTIONS = [
-  { id: 't1', name: 'Northline Industrial Auctions' }, { id: 't2', name: 'Coastal Salvage Co-op' }, { id: 't3', name: 'Apex Fleet Disposals' },
-];
-const ROLES = ['Trader — platform-wide', 'Market Maker — Northline Industrial Auctions'];
-const PURCHASES = [{ amount: '₹3,10,000', status: 'Completed', date: '2026-07-18' }, { amount: '₹1,15,000', status: 'Stalled', date: '2026-06-25' }];
-const SALES = [{ amount: '₹4,52,000', status: 'Completed', date: '2026-07-31' }];
-const DISPUTES = [{ category: 'Condition/Delivery', status: 'Resolved', role: 'Filed by them', date: '2026-06-30' }];
+const titleCase = (v) => (v ? String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—');
+const money = (v) => (v == null ? '—' : `₹${Number(v).toLocaleString('en-IN')}`);
+const day = (v) => (v || '').slice(0, 10);
+const stars = (v) => (v == null ? '—' : Number(v).toFixed(1));
 
 export default function UserDetail() {
+  const [params] = useSearchParams();
+  const partyId = params.get('id');
   const [promoteTenantId, setPromoteTenantId] = useState('');
-  const [granted, setGranted] = useState(false);
-  const grantedTenantName = (TENANT_OPTIONS.find((t) => t.id === promoteTenantId) || {}).name;
+  const [granted, setGranted] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  // GET /admin/users/:id → { party, roles, tenantNames, purchases, sales, disputes, tenants }
+  const { data, loading, error: loadError, reload } = useApiQuery(() => admin.userDetail(partyId), [partyId], { skip: !partyId });
+  const p = (data && data.party) || {};
+  const tenantNames = (data && data.tenantNames) || {};
+  const TENANT_OPTIONS = (data && data.tenants) || [];
+  const PARTY = {
+    name: p.full_name || p.mobile_number || '—',
+    mobile: p.mobile_number || '—',
+    entityType: titleCase(p.entity_type),
+    kyc: titleCase(p.kyc_status),
+    buyerStars: stars(p.star_rating), buyerOffences: p.offence_count_buyer ?? 0,
+    sellerStars: stars(p.seller_star_rating), sellerOffences: p.offence_count_seller ?? 0,
+    complaints: p.forced_neutral_count_buyer ?? 0, cbsOffences: p.forced_neutral_count_seller ?? 0,
+    delisted: !!p.seller_delisted_at, delistedAt: day(p.seller_delisted_at), delistedReason: p.seller_delisted_reason,
+  };
+  const ROLES = ((data && data.roles) || []).map((r) => `${titleCase(r.role)} — ${r.tenant_id ? tenantNames[r.tenant_id] || r.tenant_id : 'platform-wide'}`);
+  const settlementRow = (x) => ({ amount: money(x.final_price), status: titleCase(x.status), date: day(x.created_at) });
+  const PURCHASES = ((data && data.purchases) || []).map(settlementRow);
+  const SALES = ((data && data.sales) || []).map(settlementRow);
+  const DISPUTES = ((data && data.disputes) || []).map((d) => ({
+    category: titleCase(d.category), status: titleCase(d.status),
+    role: d.filed_by_party_id === partyId ? 'Filed by them' : 'Filed against them', date: day(d.created_at),
+  }));
+
+  const promote = async () => {
+    if (!promoteTenantId || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      await admin.promoteTenantAdmin(partyId, { tenant_id: promoteTenantId });
+      setGranted((TENANT_OPTIONS.find((t) => t.id === promoteTenantId) || {}).name || 'the selected TradeSphereX');
+      reload();
+    } catch (err) {
+      setError(err.message || 'Could not grant Tenant Admin.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (!partyId || loadError) {
+    return (
+      <div className="udet-page">
+        <DashboardHeader navItems={[{ label: '← Users', to: '/user-directory' }]} />
+        <main className="udet-main"><p className="udet-meta">{partyId ? (loadError.message || 'User not found.') : 'Select a user from the User Directory.'}</p></main>
+      </div>
+    );
+  }
 
   return (
     <div className="udet-page">
       <DashboardHeader navItems={[{ label: '← Users', to: '/user-directory' }]} />
       <main className="udet-main">
-        <h1 className="udet-title">{PARTY.name}</h1>
+        <h1 className="udet-title">{loading ? 'Loading…' : PARTY.name}</h1>
         <p className="udet-meta">{PARTY.mobile} · {PARTY.entityType} · KYC: {PARTY.kyc}</p>
 
         <div className="udet-stats">
@@ -42,13 +88,14 @@ export default function UserDetail() {
           <div className="udet-promote-title">Promote to Tenant Admin</div>
           <p className="udet-promote-note">This auto-demotes whoever currently holds Tenant Admin for the selected TradeSphereX.</p>
           <div className="udet-promote-row">
-            <select value={promoteTenantId} onChange={(e) => { setPromoteTenantId(e.target.value); setGranted(false); }} className="udet-promote-select">
+            <select value={promoteTenantId} onChange={(e) => { setPromoteTenantId(e.target.value); setGranted(''); }} className="udet-promote-select">
               <option value="">Select a TradeSphereX…</option>
               {TENANT_OPTIONS.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
-            <button onClick={() => promoteTenantId && setGranted(true)} disabled={!promoteTenantId} className="udet-grant-btn" style={{ background: promoteTenantId ? 'var(--color-success)' : '#E9EBF2', color: promoteTenantId ? '#fff' : 'var(--color-text-faint)' }}>Grant</button>
+            <button onClick={promote} disabled={!promoteTenantId || busy} className="udet-grant-btn" style={{ background: promoteTenantId ? 'var(--color-success)' : '#E9EBF2', color: promoteTenantId ? '#fff' : 'var(--color-text-faint)' }}>Grant</button>
           </div>
-          {granted && <p className="udet-granted-note">Granted Tenant Admin on {grantedTenantName}.</p>}
+          {granted && <p className="udet-granted-note">Granted Tenant Admin on {granted}.</p>}
+          {error && <p className="udet-granted-note" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </div>
 
         <h3 className="udet-h3">Recent Purchases (as Trader)</h3>

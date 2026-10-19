@@ -180,7 +180,7 @@ export default function LotDetail() {
                     <Link to={`/bidding-room?id=${lot.id}&format=${se.sale_format}`} className="ldp-cta">{meta.ctaLabel}</Link>
                   ) : (
                     <>
-                      <p className="ldp-emd-note">Bidding requires <Link to="/emd-consent">EMD consent</Link></p>
+                      <p className="ldp-emd-note">Bidding requires <Link to={`/emd-consent?saleEvent=${se.id}&lot=${lot.id}&format=${se.sale_format}`}>EMD consent</Link></p>
                       <Link to={`/bidding-room?id=${lot.id}&format=${se.sale_format}`} className="ldp-cta">{meta.ctaLabel}</Link>
                     </>
                   )

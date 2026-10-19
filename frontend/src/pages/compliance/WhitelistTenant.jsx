@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import { admin } from '../../api/endpoints.js';
 import '../compliance/CustodianShared.css';
 import './WhitelistTenant.css';
 
@@ -11,8 +12,24 @@ export default function WhitelistTenant() {
   const [tenantClass, setTenantClass] = useState('general');
   const [tier, setTier] = useState('coco_starter');
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  const valid = !!(name && subdomain);
+  const valid = !!(name && subdomain) && !busy;
+
+  const submit = async () => {
+    if (!valid) return;
+    setBusy(true);
+    setError('');
+    try {
+      await admin.createTenant({ name, subdomain, custom_domain: customDomain || undefined, tenant_class: tenantClass, subscription_tier: tier });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || 'Could not whitelist the tenant.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="custodian-page">
@@ -55,7 +72,8 @@ export default function WhitelistTenant() {
                 </select>
               </div>
             </div>
-            <button onClick={() => { if (valid) setSubmitted(true); }} disabled={!valid} className="wt-submit-btn" style={{ background: valid ? 'var(--color-bg-dark)' : '#E9EBF2', color: valid ? '#fff' : 'var(--color-text-faint)' }}>Whitelist TradeSphereX</button>
+            {error && <p className="wt-tier-note" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+            <button onClick={submit} disabled={!valid} className="wt-submit-btn" style={{ background: valid ? 'var(--color-bg-dark)' : '#E9EBF2', color: valid ? '#fff' : 'var(--color-text-faint)' }}>{busy ? 'Whitelisting…' : 'Whitelist TradeSphereX'}</button>
           </>
         ) : (
           <div className="wt-success">

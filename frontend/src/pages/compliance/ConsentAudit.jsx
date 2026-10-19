@@ -1,27 +1,29 @@
 import { useState } from 'react';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import { admin } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import '../compliance/CustodianShared.css';
 import './ConsentAudit.css';
 
-const ENTRIES = [
-  { at: '2026-08-01 08:02', user: 'Priya Rao', role: 'Trader', type: 'Terms of Usage', version: 'v3.2' },
-  { at: '2026-08-01 08:02', user: 'Priya Rao', role: 'Trader', type: 'Privacy Policy', version: 'v2.4' },
-  { at: '2026-07-31 15:40', user: 'Northline Salvage Co.', role: 'Market Maker', type: 'KYC Data Consent', version: 'v1.1' },
-  { at: '2026-07-30 12:10', user: 'Arjun Verma', role: 'Trader', type: 'Cookie Policy', version: 'v1.0' },
-  { at: '2026-07-29 09:22', user: 'Ravindra Auto Traders', role: 'Market Maker', type: 'Terms of Usage', version: 'v3.2' },
-  { at: '2026-07-28 17:05', user: 'Coastal Scrap Metals', role: 'Market Maker', type: 'KYC Data Consent', version: 'v1.1' },
-];
-const TYPES = ['all', 'Terms of Usage', 'Privacy Policy', 'Cookie Policy', 'KYC Data Consent'];
+const TYPE_LABEL = { registration_terms: 'Registration Terms', emd_pledge: 'EMD Pledge' };
+const TYPES = ['all', ...Object.keys(TYPE_LABEL)];
 
 export default function ConsentAudit() {
   const [showInfo, setShowInfo] = useState(false);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
 
-  let all = ENTRIES;
-  if (type !== 'all') all = all.filter((e) => e.type === type);
+  // GET /admin/consent-audit?consent_type= → { entries: [...] } (latest 200)
+  const { data, loading } = useApiQuery(() => admin.consentAudit(type === 'all' ? {} : { consent_type: type }), [type]);
+  let all = ((data && data.entries) || []).map((e) => ({
+    at: (e.created_at || '').slice(0, 16).replace('T', ' '),
+    user: e.mobile_number,
+    type: TYPE_LABEL[e.consent_type] || e.consent_type,
+    version: e.terms_version,
+    ip: e.ip_address,
+  }));
   const q = query.trim().toLowerCase();
-  if (q) all = all.filter((e) => [e.user, e.role].join(' ').toLowerCase().includes(q));
+  if (q) all = all.filter((e) => [e.user, e.ip].join(' ').toLowerCase().includes(q));
 
   return (
     <div className="custodian-page">
@@ -41,12 +43,12 @@ export default function ConsentAudit() {
         )}
 
         <div className="custodian-search">
-          <input placeholder="Search — user name, mobile…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input placeholder="Search — mobile, IP address…" value={query} onChange={(e) => setQuery(e.target.value)} />
           <span className="custodian-search__icon">⌕</span>
         </div>
         <div className="custodian-filters">
           {TYPES.map((v) => (
-            <button key={v} onClick={() => setType(v)} className={`custodian-filter-pill${type === v ? ' custodian-filter-pill--active' : ''}`}>{v === 'all' ? 'All' : v}</button>
+            <button key={v} onClick={() => setType(v)} className={`custodian-filter-pill${type === v ? ' custodian-filter-pill--active' : ''}`}>{v === 'all' ? 'All' : TYPE_LABEL[v]}</button>
           ))}
         </div>
 
@@ -55,13 +57,14 @@ export default function ConsentAudit() {
           {all.map((e, i) => (
             <div key={i} className="ca-row">
               <span className="ca-cell-time">{e.at}</span>
-              <span>{e.user} <span className="ca-cell-role">({e.role})</span></span>
+              <span>{e.user}{e.ip && <span className="ca-cell-role"> ({e.ip})</span>}</span>
               <span>{e.type}</span>
               <span className="ca-cell-version">{e.version}</span>
             </div>
           ))}
         </div>
-        {all.length === 0 && <div className="custodian-empty">No consent records match your search/filter.</div>}
+        {loading && <div className="custodian-empty">Loading consent records…</div>}
+        {!loading && all.length === 0 && <div className="custodian-empty">No consent records match your search/filter.</div>}
       </main>
     </div>
   );

@@ -102,7 +102,9 @@ async function request(method, path, { body, query, auth = true, raw = false, si
         console.error(`API Request Failed: ${method} ${path}`, { status: res.status, data, text });
       }
     }
-    throw new ApiError(res.status, (data && data.error) || 'request_failed', (data && data.error_description) || (data && data.message) || null, data);
+    // Errors arrive in the envelope as { status: false, message, data: { error } }.
+    const inner = (data && data.data) || {};
+    throw new ApiError(res.status, inner.error || (data && data.error) || 'request_failed', (data && data.error_description) || (data && data.message) || null, data);
   }
   return data;
 }
