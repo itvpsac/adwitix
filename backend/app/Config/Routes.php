@@ -165,6 +165,7 @@ $routes->get('/sale-events/(:segment)/tender/report', 'TenderController::auction
 // logout is client-side — the React app just discards the token.)
 $routes->get('/browse', 'Home::browse');
 $routes->get('/listings', 'Home::browse');
+$routes->get('/api/v1/app/browse', 'Home::browseApi');
 $routes->get('/api/v1/app/admin/audit-log', 'AuditLogController::index', ['filter' => 'jwtSuperAdmin']);
 $routes->get('/api/v1/app/admin/audit-log/verify', 'AuditLogController::verifyIntegrity', ['filter' => 'jwtSuperAdmin']);
 $routes->get('/api/v1/app/admin/audit-log/export', 'AuditLogController::export', ['filter' => 'jwtSuperAdmin']);
@@ -234,6 +235,12 @@ $routes->post('/my-searches', 'DiscoveryController::saveSearchSubmit');
 $routes->post('/my-searches/(:segment)/delete', 'DiscoveryController::deleteSearch/$1');
 $routes->get('/search-history', 'DiscoveryController::searchHistory');
 $routes->get('/recommendations', 'DiscoveryController::recommendations');
+$routes->get('/api/v1/app/my-favorites', 'DiscoveryController::favoritesApi', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/my-searches', 'DiscoveryController::searchesApi', ['filter' => 'jwtAuth']);
+$routes->post('/api/v1/app/my-searches', 'DiscoveryController::saveSearchApi', ['filter' => 'jwtAuth']);
+$routes->post('/api/v1/app/my-searches/(:segment)/delete', 'DiscoveryController::deleteSearchApi/$1', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/search-history', 'DiscoveryController::searchHistoryApi', ['filter' => 'jwtAuth']);
+$routes->get('/api/v1/app/recommendations', 'DiscoveryController::recommendationsApi', ['filter' => 'jwtAuth']);
 
 // D-105: Lot Reach & Interest -- per-listing reach analytics + real
 // in-app bulk messaging to matched buyers.

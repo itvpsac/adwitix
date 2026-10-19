@@ -83,6 +83,11 @@ class DiscoveryController extends BaseController
         $partyId = $this->requireLogin();
         if (!$partyId) return redirect()->to('/login');
 
+        return view('my/recommendations', ['title' => 'Recommendations — AdwitiX'] + $this->recommendationData($partyId));
+    }
+
+    private function recommendationData(string $partyId): array
+    {
         $db = \Config\Database::connect();
 
         $trending = $db->table('bid b')
@@ -128,6 +133,52 @@ class DiscoveryController extends BaseController
             $basedOnBids = $query->orderBy('l.created_at', 'DESC')->limit(12)->get()->getResultArray();
         }
 
-        return view('my/recommendations', ['title' => 'Recommendations — AdwitiX', 'trending' => $trending, 'basedOnBids' => $basedOnBids]);
+        return ['trending' => $trending, 'basedOnBids' => $basedOnBids];
+    }
+
+    // ── JSON counterparts for the React app (jwtAuth-gated routes) ──
+
+    public function favoritesApi()
+    {
+        return $this->apiResponse(['favorites' => (new ListingFavoriteModel())->findForParty(\App\Libraries\UserAuthContext::partyId())]);
+    }
+
+    public function searchesApi()
+    {
+        return $this->apiResponse(['searches' => (new SavedSearchModel())->findForParty(\App\Libraries\UserAuthContext::partyId())]);
+    }
+
+    public function saveSearchApi()
+    {
+        $filters = [];
+        foreach (['category', 'format', 'price_min', 'price_max', 'location', 'min_rating', 'condition', 'posted', 'sort', 'q'] as $key) {
+            $value = $this->input($key);
+            if ($value !== null && $value !== '') {
+                $filters[$key] = $value;
+            }
+        }
+        $search = (new SavedSearchModel())->create(\App\Libraries\UserAuthContext::partyId(), $this->input('label') ?: 'Untitled search', $filters);
+        return $this->apiResponse(['search' => $search], 'Search saved.', 201);
+    }
+
+    public function deleteSearchApi(string $searchId)
+    {
+        (new SavedSearchModel())->where('id', $searchId)->where('party_id', \App\Libraries\UserAuthContext::partyId())->delete();
+        return $this->apiResponse(['deleted' => true]);
+    }
+
+    public function searchHistoryApi()
+    {
+        $history = (new SearchHistoryModel())->findRecentForParty(\App\Libraries\UserAuthContext::partyId(), 20);
+        foreach ($history as &$h) {
+            $h['filtersDecoded'] = json_decode($h['filters'], true) ?: [];
+        }
+        unset($h);
+        return $this->apiResponse(['history' => $history]);
+    }
+
+    public function recommendationsApi()
+    {
+        return $this->apiResponse($this->recommendationData(\App\Libraries\UserAuthContext::partyId()));
     }
 }

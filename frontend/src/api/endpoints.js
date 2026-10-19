@@ -75,7 +75,9 @@ export const listings = {
     
     return api.post(`${APP}/listings`, payload);
   },
-  show: (id) => api.get(`${APP}/listings/${id}`, { auth: false }),
+  // Public route; the token is sent when present so viewer-specific fields
+  // (myEmdHold, isOwner, …) come back filled in.
+  show: (id) => api.get(`${APP}/listings/${id}`),
   edit: (id, payload) => api.post(`${APP}/listings/${id}/edit`, payload),
   favorite: (id) => api.post(`${APP}/listings/${id}/favorite`),
   unfavorite: (id) => api.post(`${APP}/listings/${id}/unfavorite`),
@@ -172,14 +174,12 @@ export const account = {
 
 // ── KYC (BR-17/18/55) ───────────────────────────────────────────────
 export const kyc = {
+  // GET /kyc returns the whole dossier (party, documents, addressesByType);
+  // the questionnaire/documents/addresses/banking routes are POST-only.
   form: () => api.get(`${APP}/kyc`),
-  getQuestionnaire: () => api.get(`${APP}/kyc/questionnaire`),
   saveQuestionnaire: (payload) => api.post(`${APP}/kyc/questionnaire`, payload),
-  getDocuments: () => api.get(`${APP}/kyc/documents`),
   uploadDocument: (formData) => api.post(`${APP}/kyc/documents`, formData),
-  getAddresses: () => api.get(`${APP}/kyc/addresses`),
   saveAddress: (payload) => api.post(`${APP}/kyc/addresses`, payload),
-  getBanking: () => api.get(`${APP}/kyc/banking`),
   saveBanking: (payload) => api.post(`${APP}/kyc/banking`, payload),
   submit: () => api.post(`${APP}/kyc/submit`),
 };
@@ -289,15 +289,19 @@ export const tender = {
 };
 
 // ── Discovery, browse, ticker (Phase 3C+) ───────────────────────────
+// The /browse, /my-searches… page routes render HTML; these are their JSON
+// counterparts under /api/v1/app. browse sends the token when present so
+// results carry the CLV match flag.
 export const discovery = {
-  browse: (query) => api.get('/browse', { query, auth: false }),
-  favorites: () => api.get('/my-favorites'),
-  savedSearches: () => api.get('/my-searches'),
-  saveSearch: (payload) => api.post('/my-searches', payload),
-  deleteSearch: (id) => api.post(`/my-searches/${id}/delete`),
-  searchHistory: () => api.get('/search-history'),
-  recommendations: () => api.get('/recommendations'),
-  tickerFeed: () => api.get('/ticker-feed', { auth: false }),
+  browse: (query) => api.get(`${APP}/browse`, { query }),
+  favorites: () => api.get(`${APP}/my-favorites`),
+  savedSearches: () => api.get(`${APP}/my-searches`),
+  saveSearch: (payload) => api.post(`${APP}/my-searches`, payload),
+  deleteSearch: (id) => api.post(`${APP}/my-searches/${id}/delete`),
+  searchHistory: () => api.get(`${APP}/search-history`),
+  recommendations: () => api.get(`${APP}/recommendations`),
+  // Viewer-scoped (own bids + interest matches), so the token is sent.
+  tickerFeed: () => api.get('/ticker-feed'),
 };
 
 // ── Lot Reach & Interest (D-105) ────────────────────────────────────

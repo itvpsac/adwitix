@@ -1,14 +1,47 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
+import { account } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './ChangeMpin.css';
 
 export default function ChangeMpin() {
   const [stage, setStage] = useState('request');
   const [otp, setOtp] = useState('');
   const [newMpin, setNewMpin] = useState('');
-  const devOtp = '482913';
-  const valid = otp.length === 6 && newMpin.length === 4;
+  const [devOtp, setDevOtp] = useState('');
+  const [ticket, setTicket] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const valid = otp.length === 6 && newMpin.length === 4 && !busy;
+
+  const requestOtp = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const res = unwrap(await account.changeMpinRequestOtp());
+      setTicket(res.pending_ticket);
+      setDevOtp(res.dev_otp || '');
+      setStage('confirm');
+    } catch (err) {
+      setError(err.message || 'Could not send the OTP.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const confirm = async () => {
+    if (!valid) return;
+    setBusy(true);
+    setError('');
+    try {
+      await account.changeMpinConfirm({ pending_ticket: ticket, otp, new_mpin: newMpin });
+      setStage('done');
+    } catch (err) {
+      setError(err.message || 'Could not change your mPIN.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="cmp-page">
@@ -18,18 +51,20 @@ export default function ChangeMpin() {
           <>
             <h1 className="cmp-title">Change mPIN</h1>
             <p className="cmp-sub">We'll send an OTP to your registered mobile to confirm this change.</p>
-            <button onClick={() => setStage('confirm')} className="cmp-btn-dark">Send OTP</button>
+            {error && <p className="cmp-sub" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+            <button onClick={requestOtp} disabled={busy} className="cmp-btn-dark">{busy ? 'Sending…' : 'Send OTP'}</button>
           </>
         )}
         {stage === 'confirm' && (
           <>
             <h1 className="cmp-title">Confirm New mPIN</h1>
-            <div className="cmp-devnote"><strong>Dev mode</strong> (SMS provider not yet connected): your OTP is <strong>{devOtp}</strong></div>
+            {devOtp && <div className="cmp-devnote"><strong>Dev mode</strong> (SMS provider not yet connected): your OTP is <strong>{devOtp}</strong></div>}
             <label className="cmp-label">6-digit OTP</label>
             <input placeholder="000000" value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} className="cmp-input cmp-input--otp" />
             <label className="cmp-label">New 4-digit mPIN</label>
             <input type="password" placeholder="····" value={newMpin} onChange={(e) => setNewMpin(e.target.value.replace(/\D/g, '').slice(0, 4))} maxLength={4} className="cmp-input cmp-input--pin" />
-            <button onClick={() => { if (valid) setStage('done'); }} disabled={!valid} className="cmp-btn-dark" style={{ background: valid ? 'var(--color-bg-dark)' : '#E9EBF2', color: valid ? '#fff' : 'var(--color-text-faint)' }}>Confirm</button>
+            {error && <p className="cmp-sub" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+            <button onClick={confirm} disabled={!valid} className="cmp-btn-dark" style={{ background: valid ? 'var(--color-bg-dark)' : '#E9EBF2', color: valid ? '#fff' : 'var(--color-text-faint)' }}>Confirm</button>
           </>
         )}
         {stage === 'done' && (

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth as authApi } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import { establishSession, loginUser } from '../../utils/auth.js';
 import '../onboarding/Onboarding.css';
 import './ForgotMpin.css';
@@ -30,7 +31,7 @@ export default function ForgotMpin() {
     setBusy(true); setMobileError('');
     try {
       const res = await authApi.forgotPassword(`+91${mobile}`);
-      setPendingTicket((res && res.pending_ticket) || '');
+      setPendingTicket(unwrap(res).pending_ticket || '');
       setStep('verify');
     } catch (err) {
       setOffline(true); setStep('verify');
@@ -44,7 +45,7 @@ export default function ForgotMpin() {
     setBusy(true); setVerifyError('');
     try {
       const res = await authApi.forgotPasswordVerify(pendingTicket, otp, emailOtp);
-      setPendingTicket((res && res.pending_ticket) || pendingTicket);
+      setPendingTicket(unwrap(res).pending_ticket || pendingTicket);
       setStep('reset');
     } catch (err) {
       if (err.status) { setVerifyError(err.message || 'Those codes did not match.'); }
@@ -65,7 +66,7 @@ export default function ForgotMpin() {
     setBusy(true);
     try {
       const res = await authApi.completeMpin(pendingTicket, mpin);
-      establishSession(res);
+      establishSession(unwrap(res));
       navigate('/profile');
     } catch (err) {
       setMpinError(err.status ? err.message : 'Could not reach the server. Try again.');

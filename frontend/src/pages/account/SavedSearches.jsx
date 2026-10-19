@@ -1,20 +1,34 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
+import { discovery } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 import './SavedSearches.css';
 
-const INITIAL_SEARCHES = [
-  { label: 'Industrial machinery under ₹5L', query: 'category=Industrial+Machinery&maxValue=500000' },
-  { label: 'Vehicles — Easy Auctions near Delhi', query: 'category=Vehicles&format=EASY&loc=Delhi&radius=100' },
-];
-const HISTORY = [
-  { query: 'category=Heavy+Equipment&format=TENDER' },
-  { query: 'category=Office+IT+Assets&maxValue=100000' },
-  { query: 'format=BUYNOW&loc=Mumbai' },
-  { query: 'category=Fleet+Vehicles' },
-];
+// Saved filters / history filters → a /marketplace URL that re-runs them.
+const toHref = (filters) => `/marketplace?${new URLSearchParams(filters || {}).toString()}`;
+const describe = (filters) => Object.entries(filters || {}).map(([k, v]) => `${k}=${v}`).join('&') || 'All listings';
 
 export default function SavedSearches() {
-  const [searches, setSearches] = useState(INITIAL_SEARCHES);
+  const [error, setError] = useState('');
+  // GET /my-searches → { searches }, GET /search-history → { history }
+  const { data, reload } = useApiQuery(() => discovery.savedSearches(), []);
+  const { data: historyData } = useApiQuery(() => discovery.searchHistory(), []);
+  const searches = ((data && data.searches) || []).map((sv) => {
+    const filters = typeof sv.filters === 'string' ? JSON.parse(sv.filters || '{}') : (sv.filters || {});
+    return { id: sv.id, label: sv.label, query: describe(filters), href: toHref(filters) };
+  });
+  const HISTORY = ((historyData && historyData.history) || []).map((h) => ({ query: describe(h.filtersDecoded), href: toHref(h.filtersDecoded) }));
+
+  const remove = async (sv) => {
+    setError('');
+    try {
+      await discovery.deleteSearch(sv.id);
+      reload();
+    } catch (err) {
+      setError(err.message || 'Could not delete the search.');
+    }
+  };
 
   return (
     <div className="ss-page">
@@ -24,19 +38,20 @@ export default function SavedSearches() {
         <p className="ss-sub">Save a filter combination from <a href="/marketplace">Marketplace</a>, then re-run it here anytime.</p>
 
         <div className="ss-list">
-          {searches.map((sv, i) => (
-            <div key={i} className="ss-row">
+          {searches.map((sv) => (
+            <div key={sv.id} className="ss-row">
               <div className="ss-row__body">
                 <div className="ss-row__label">{sv.label}</div>
                 <div className="ss-row__query">{sv.query}</div>
               </div>
               <div className="ss-row__actions">
-                <a href="/marketplace" className="ss-run-btn">Run</a>
-                <button onClick={() => setSearches(searches.filter((_, si) => si !== i))} className="ss-delete-btn">Delete</button>
+                <Link to={sv.href} className="ss-run-btn">Run</Link>
+                <button onClick={() => remove(sv)} className="ss-delete-btn">Delete</button>
               </div>
             </div>
           ))}
           {searches.length === 0 && <p className="ss-empty">No saved searches yet.</p>}
+          {error && <p className="ss-empty" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </div>
 
         <h2 className="ss-history-title">Search History</h2>
@@ -45,7 +60,7 @@ export default function SavedSearches() {
           {HISTORY.map((h, i) => (
             <div key={i} className="ss-history-row">
               <span className="ss-history-query">{h.query}</span>
-              <a href="/marketplace" className="ss-rerun">Re-run →</a>
+              <Link to={h.href} className="ss-rerun">Re-run →</Link>
             </div>
           ))}
         </div>

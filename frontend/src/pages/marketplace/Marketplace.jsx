@@ -1,37 +1,82 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import './Marketplace.css';
 import AppHeader from '../../components/AppHeader.jsx';
 import { discovery } from '../../api/endpoints.js';
+import { unwrap, getToken } from '../../api/client.js';
 
 const FORMATS = ['all', 'BUY-NOW', 'EASY', 'EXPRESS', 'TENDER'];
-const CATEGORIES = ['all', 'Heavy Equipment', 'Industrial Machinery', 'Vehicles', 'Textiles', 'Scrap Metal', 'Furniture'];
-const PER_PAGE = 6;
+const FORMAT_PARAM = { 'BUY-NOW': 'buy_now', EASY: 'easy', EXPRESS: 'express', TENDER: 'tender' };
+const FORMAT_LABEL = { buy_now: 'BUY-NOW', easy: 'EASY', express: 'EXPRESS', tender: 'TENDER' };
+const PER_PAGE = 12;
+
+// UI filter state → GET /api/v1/app/browse query params.
+function toQuery(f) {
+  return {
+    q: f.query, location: f.location, price_min: f.priceMin, price_max: f.priceMax,
+    min_rating: f.minRating, condition: f.condition, posted: f.posted,
+    format: FORMAT_PARAM[f.format] || '', category: f.category === 'all' ? '' : f.category,
+    sort: f.sort,
+  };
+}
+
+// Seeds filters from the URL so saved searches and search history can
+// re-run here; accepts both the snake_case keys saved searches store and
+// the camelCase keys search history records.
+function fromParams(params) {
+  const get = (...keys) => keys.map((k) => params.get(k)).find((v) => v) || '';
+  const format = get('format');
+  return {
+    query: get('q'), location: get('location'), priceMin: get('price_min', 'priceMin'), priceMax: get('price_max', 'priceMax'),
+    minRating: get('min_rating', 'minRating'), condition: get('condition'), posted: get('posted'),
+    format: FORMAT_LABEL[format] || 'all', category: get('category') || 'all', sort: get('sort') || 'recent', page: 1,
+  };
+}
 
 export default function Marketplace() {
+  const [params] = useSearchParams();
   const [lots, setLots] = useState([]);
-  const [f, setF] = useState({ query: '', location: '', priceMin: '', priceMax: '', minRating: '', condition: '', posted: '', format: 'all', category: 'all', sort: 'recent', page: 1 });
+  const [categories, setCategories] = useState(['all']);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [saveError, setSaveError] = useState('');
+  const [f, setF] = useState(() => fromParams(params));
   const [searchSaved, setSearchSaved] = useState(false);
   const set = (patch) => setF({ ...f, ...patch, page: patch.page ?? 1 });
 
   useEffect(() => {
-    discovery.browse({
-      query: f.query,
-      location: f.location,
-      priceMin: f.priceMin,
-      priceMax: f.priceMax,
-      minRating: f.minRating,
-      condition: f.condition,
-      posted: f.posted,
-      format: f.format === 'all' ? '' : f.format,
-      category: f.category === 'all' ? '' : f.category,
-      sort: f.sort
-    }).then(setLots).catch(console.error);
+    discovery.browse({ ...toQuery(f), page: f.page, per_page: PER_PAGE }).then((res) => {
+      const d = unwrap(res);
+      setLots((d.listings || []).map((l) => ({
+        id: l.listing_id,
+        format: FORMAT_LABEL[l.sale_format] || l.sale_format,
+        matches: !!l.clvMatch,
+        condition: l.physical_condition || '—',
+        category: [l.category, l.subcategory].filter(Boolean).join(' › '),
+        price: l.display_price != null ? Number(l.display_price) : null,
+        sellerRating: l.seller_star_rating != null ? Number(l.seller_star_rating) : null,
+      })));
+      setCategories(['all', ...(d.allCategories || [])]);
+      setTotal(d.total || 0);
+      setTotalPages(Math.max(1, d.totalPages || 1));
+    }).catch(console.error);
   }, [f]);
 
-  const totalPages = Math.max(1, Math.ceil(lots.length / PER_PAGE));
   const page = Math.min(f.page, totalPages);
-  const visible = lots.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const visible = lots;
+
+  const saveSearch = async () => {
+    setSaveError('');
+    if (!getToken()) { setSaveError('Log in to save searches.'); return; }
+    const filters = toQuery(f);
+    const label = [f.category !== 'all' && f.category, f.format !== 'all' && f.format, f.query].filter(Boolean).join(' · ') || 'All listings';
+    try {
+      await discovery.saveSearch({ label, ...filters });
+      setSearchSaved(true);
+    } catch (err) {
+      setSaveError(err.message || 'Could not save this search.');
+    }
+  };
 
   return (
     <div className="mk-page">
@@ -40,10 +85,11 @@ export default function Marketplace() {
       <main className="mk-main">
         <div className="mk-title-row">
           <h1>Browse All Listings</h1>
-          <span className="mk-count">{lots.length} active Listings</span>
+          <span className="mk-count">{total} active Listings</span>
         </div>
-        <p className="mk-sub">Adjust filters below, then <button onClick={() => setSearchSaved(true)} className="mk-link-btn">save this search</button> to re-run it later.</p>
+        <p className="mk-sub">Adjust filters below, then <button onClick={saveSearch} className="mk-link-btn">save this search</button> to re-run it later.</p>
         {searchSaved && <p className="mk-saved">Search saved — find it under Saved Searches.</p>}
+        {saveError && <p className="mk-saved" style={{ color: 'var(--color-danger)' }}>{saveError}</p>}
 
         <div className="mk-layout">
           <aside className="mk-filters">
@@ -88,7 +134,7 @@ export default function Marketplace() {
             <div>
               <div className="mk-label">Category</div>
               <div className="mk-chip-row">
-                {CATEGORIES.map((v) => (
+                {categories.map((v) => (
                   <button key={v} onClick={() => set({ category: v })} className={`mk-chip${f.category === v ? ' mk-chip--active' : ''}`}>{v === 'all' ? 'All' : v}</button>
                 ))}
               </div>

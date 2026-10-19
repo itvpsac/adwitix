@@ -5,8 +5,10 @@ import LocationMultiSelect from '../../components/LocationMultiSelect.jsx';
 import ValueRangeSlider from '../../components/ValueRangeSlider.jsx';
 import {
   CATEGORIES, SUBCATS_BY_CAT, MICROCATS_BY_SUBCAT, LOC_OPTIONS,
-  VALUE_MAX_INDEX, formatValueRange, formatLocList,
+  VALUE_BANDS, VALUE_MAX_INDEX, formatValueRange, formatLocList,
 } from '../../data/classification.js';
+import { account } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import './Preferences.css';
 
 const CTAS = [{ label: '← Trader Dashboard', to: '/buyer/dashboard' }];
@@ -28,6 +30,28 @@ function loadInitial() {
   return null;
 }
 
+// The backend keeps a flat profile (categories, states, budget) that drives
+// CLV matching; the row/override detail lives in localStorage on top of it.
+function toApiPayload({ universalLoc, universalValueLo, universalValueHi, rows }) {
+  const categories = [...new Set(rows.map((r) => (CATEGORIES.find((c) => c.id === r.catId) || {}).apiValue).filter(Boolean))];
+  const states = universalLoc.filter((id) => id.startsWith('state:')).map((id) => id.slice(6));
+  return {
+    categories,
+    states_text: states.join(', '),
+    budget_min: universalValueLo > 0 ? VALUE_BANDS[universalValueLo] : '',
+    budget_max: universalValueHi < VALUE_MAX_INDEX ? VALUE_BANDS[universalValueHi] : '',
+  };
+}
+
+// Nearest band index for a stored budget figure.
+function bandIndex(value, fallback) {
+  if (value == null) return fallback;
+  const v = Number(value);
+  let idx = 0;
+  VALUE_BANDS.forEach((b, i) => { if (b <= v) idx = i; });
+  return idx;
+}
+
 export default function Preferences() {
   const initial = loadInitial();
   const [universalLoc, setUniversalLoc] = useState(initial?.universalLoc || []);
@@ -36,6 +60,23 @@ export default function Preferences() {
   const [rows, setRows] = useState(initial?.rows || []);
   const [saved, setSaved] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+
+  // First visit on this device: seed from the profile saved server side.
+  useEffect(() => {
+    if (initial) return;
+    account.preferences().then((res) => {
+      const { existing, selectedCategories } = unwrap(res);
+      if (!existing) return;
+      const states = existing.comfort_states ? JSON.parse(existing.comfort_states) : [];
+      setUniversalLoc(states.map((st) => `state:${st}`).filter((id) => LOC_OPTIONS.some((o) => o.id === id)));
+      setUniversalValueLo(bandIndex(existing.budget_min, 0));
+      setUniversalValueHi(existing.budget_max != null ? bandIndex(existing.budget_max, VALUE_MAX_INDEX) : VALUE_MAX_INDEX);
+      setRows((selectedCategories || []).map((apiValue) => CATEGORIES.find((c) => c.apiValue === apiValue)).filter(Boolean).map((c) => ({ ...newRow(), catId: c.id })));
+    }).catch(() => { /* offline — start empty */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { setSaved(false); }, [universalLoc, universalValueLo, universalValueHi, rows]);
 
@@ -56,9 +97,22 @@ export default function Preferences() {
     return { ...row, overrideEnabled: true, loc: row.loc.length ? row.loc : universalLoc, valueLo: universalValueLo, valueHi: universalValueHi };
   }));
 
-  const save = () => {
+  const save = async () => {
     const payload = { universalLoc, universalValueLo, universalValueHi, rows };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    const body = toApiPayload(payload);
+    setSaveError('');
+    // The backend rejects an all-empty profile; nothing to sync then.
+    if (body.categories.length || body.states_text || body.budget_min !== '' || body.budget_max !== '') {
+      setSaving(true);
+      try {
+        await account.savePreferences(body);
+      } catch (err) {
+        setSaveError(err.message || 'Saved on this device, but the server could not be updated.');
+      } finally {
+        setSaving(false);
+      }
+    }
     setSaved(true);
   };
 
@@ -97,7 +151,7 @@ export default function Preferences() {
           You'll still see every Listing by default; this just curates what's highlighted for you on the feed and Live Ticker.
         </p>
 
-        {saved && <div className="prf-saved-banner"><p>Preferences saved.</p></div>}
+        {saved && <div className="prf-saved-banner"><p>{saveError || 'Preferences saved.'}</p></div>}
 
         <section className="prf-universal-card">
           <div className="prf-universal-head">
@@ -205,7 +259,7 @@ export default function Preferences() {
         </section>
 
         <div className="prf-actions">
-          <button onClick={save} className="prf-save-btn">Save Preferences</button>
+          <button onClick={save} disabled={saving} className="prf-save-btn">{saving ? 'Saving…' : 'Save Preferences'}</button>
           {!confirmReset ? (
             <button onClick={() => setConfirmReset(true)} className="prf-reset-btn">Reset all</button>
           ) : (
