@@ -70,27 +70,28 @@ saveBlob(await me.purchasesExport(), 'my-purchases.csv');
 
 ## Screens wired to live data
 
-Each keeps its designed data as an offline fallback, so a screen renders
-normally when the backend isn't running.
-
-| Screen | Endpoint |
+| Area | Screens → endpoints |
 | --- | --- |
-| Onboarding | `auth.registerRequestOtp` / `registerVerifyOtp` / `completeMpin` |
-| Audit Ledger | `admin.auditLog` |
-| Alerts | `admin.alerts` |
-| KYC Queue | `admin.kycQueue`, `admin.kycDecide` |
-| Invoices | `admin.tenantInvoices` |
-| User Directory | `admin.users` |
-| TradeSphereX Directory | `tenants.directory`, `tenants.applyToSell` |
-| Rating History | `me.ratingHistory` |
+| Auth & account | Onboarding, Forgot mPIN (`auth.*`); Change mPIN, Delete Account, Payout Bank (`account.*`); Preferences (`account.preferences`/`savePreferences`); KYC (`kyc.*` — questionnaire, banking, addresses, document upload, submit) |
+| Trader | Buyer Dashboard (`me.buyerDashboard`, `me.purchases`, `discovery.tickerFeed`, offer withdraw, CSV export); Marketplace + Saved Searches (`discovery.*`); Lot Detail, Bidding Room `?id=` (`listings.show`, `saleEvents.placeBid`/`expressBid`/`submitOffer`); EMD Consent `?saleEvent=&format=`; Star Ratings, Rating History |
+| Market Maker | Seller Dashboard, Create Lot, Apply to Sell `?tenant=`, Lot Reach & Interest (`lotReach.*`), Defect Disclosure `?saleEvent=` |
+| Settlement & disputes | Settlement `?id=` (NOCs, ratings), Dispute Center `?id=` / `?saleEvent=`, AX Chronicle `?id=`, Chronicle Verify `?token=` |
+| TSX Master | Tenant Admin Dashboard, Lot Approval, Lot Directory |
+| Custodian | Dashboard, Alerts, KYC Queue, AML Monitoring, Audit Ledger, Audit Chain Verify, Consent Audit, Statutory Export, Delist Market Maker, Media Waivers, Rules & Specifications, Whitelist Tenant, Invoices (`admin.tenantInvoices`), User Directory/Detail, Trading Session Directory, TradeSphereX Directory, Payout Reviews, Rating Reviews, Chargeback Handling |
 
-Remaining screens still render their designed data. To connect one, add
-a `useApiQuery` against the matching group in `endpoints.js` and map the
-response into the shape the screen already renders — the same pattern as
-the seven above.
+Screens opened without their `?id=`-style parameter keep their designed
+demo data. Still on designed data, because the backend has no JSON route
+for them yet: the Tender screens (`TenderController` is session/redirect
+based), Lot Chronicle (lot-wide history), Activity Log (no session
+telemetry), and the static legal/info pages.
+
+`/browse`, `/my-searches`, `/my-listings/reach` and `/chronicles/:id`
+render HTML server side; the app uses their JSON counterparts under
+`/api/v1/app` instead.
 
 ## Response conventions
 
-- Success: 2xx, plain JSON object (no envelope)
-- Failure: 4xx/5xx with `{ error, error_description }` → thrown as `ApiError` (`.status`, `.code`, `.description`)
+- Every response is wrapped as `{ status, message, data }`. `useApiQuery`
+  and `useApiAction` unwrap it; direct calls use `unwrap(res)`.
+- Failure: 4xx/5xx with `{ status: false, message, data: { error } }` → thrown as `ApiError` (`.status`, `.code`, `.description`)
 - Field names come back snake_case; mapping happens at each call site
