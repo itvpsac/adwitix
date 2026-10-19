@@ -150,7 +150,7 @@ export default function Settlement() {
 
   return (
     <div className="stl-page">
-      <LightDashboardHeader ctas={[{ label: role === 'buyer' ? 'My Purchases' : 'My Sales', to: role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard' }, { label: 'Chronicle', to: '#' }]} />
+      <LightDashboardHeader ctas={[{ label: role === 'buyer' ? 'My Purchases' : 'My Sales', to: role === 'buyer' ? '/buyer/dashboard' : '/seller/dashboard' }, { label: 'Chronicle', to: live && data && data.chronicle ? `/ax-chronicle?id=${data.chronicle.id}` : '/ax-chronicle' }]} />
       <main className="stl-main">
         <div className="legal-eyebrow">Settlement · {LOT.id}</div>
         <div className="stl-title-row">
@@ -211,7 +211,7 @@ export default function Settlement() {
           <div className="stl-complete">
             <div className="stl-complete__title">Settlement Complete</div>
             <p className="stl-complete__body">All four settlement steps are in. {LOT.emdBalance ? `${LOT.emdBalance} of held EMD has been released to the Trader.` : 'Held EMD has been released to the Trader.'} This transaction is now closed and reflected in the Trading Session Chronicle.</p>
-            <Link to="#" className="stl-complete__cta">View Chronicle →</Link>
+            <Link to={live && data && data.chronicle ? `/ax-chronicle?id=${data.chronicle.id}` : '/ax-chronicle'} className="stl-complete__cta">View Chronicle →</Link>
           </div>
         )}
 

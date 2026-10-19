@@ -1,11 +1,33 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import './DefectDisclosure.css';
 import AppHeader from '../../components/AppHeader.jsx';
+import { saleEvents } from '../../api/endpoints.js';
 
 export default function DefectDisclosure() {
   const [form, setForm] = useState({ knownDamage: '', missingComponents: '', nonfunctional: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  // ?saleEvent=<express sale event id> attaches the disclosure to it.
+  const [params] = useSearchParams();
+  const saleEventId = params.get('saleEvent');
+
+  const submit = async () => {
+    if (!saleEventId) { setSubmitted(true); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await saleEvents.defectDisclosure(saleEventId, {
+        known_damage: form.knownDamage, missing_components: form.missingComponents, nonfunctional_aspects: form.nonfunctional,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || 'Could not save the disclosure.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="ddis-page">
@@ -30,7 +52,8 @@ export default function DefectDisclosure() {
                 <textarea placeholder="e.g. AC not working, none if not applicable" rows={3} value={form.nonfunctional} onChange={(e) => setForm({ ...form, nonfunctional: e.target.value })} />
               </div>
             </div>
-            <button className="ddis-submit" onClick={() => setSubmitted(true)}>Complete Disclosure</button>
+            {error && <p className="ddis-desc" style={{ color: 'var(--color-danger)' }}>{error}</p>}
+            <button className="ddis-submit" onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Complete Disclosure'}</button>
           </>
         ) : (
           <div className="ddis-success">

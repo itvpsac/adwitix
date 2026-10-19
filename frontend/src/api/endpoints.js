@@ -306,15 +306,17 @@ export const discovery = {
 
 // ── Lot Reach & Interest (D-105) ────────────────────────────────────
 export const lotReach = {
-  index: (query) => api.get('/my-listings/reach', { query }),
-  sendMessage: (listingId, payload) => api.post(`/listings/${listingId}/reach/message`, payload),
+  index: (query) => api.get(`${APP}/my-listings/reach`, { query }),
+  sendMessage: (listingId, payload) => api.post(`${APP}/listings/${listingId}/reach/message`, payload),
 };
 
 // ── Chronicle (Section 7.10) — verify routes are token-only, public ──
+// view/verify are the JSON routes; the PDFs come from the page routes
+// (download needs the token — only parties to the settlement may fetch it).
 export const chronicle = {
-  view: (id) => api.get(`/chronicles/${id}`, { auth: false }),
-  download: (id) => api.download(`/chronicles/${id}/download`, { auth: false }),
-  verify: (token) => api.get(`/chronicle/verify/${token}`, { auth: false }),
+  view: (id) => api.get(`${APP}/chronicles/${id}`),
+  download: (id) => api.download(`/chronicles/${id}/download`),
+  verify: (token) => api.get(`${APP}/chronicle/verify/${token}`, { auth: false }),
   verifyPdf: (token) => api.download(`/chronicle/verify/${token}/pdf`, { auth: false }),
 };
 

@@ -1,29 +1,43 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './LotReachInterest.css';
 import AppHeader from '../../components/AppHeader.jsx';
+import { lotReach } from '../../api/endpoints.js';
+import { useApiQuery } from '../../api/hooks.js';
 
-const LISTINGS = [
-  { id: 1, title: 'CNC Lathe (Surplus)', viewCount: 64, matchedBuyers: [
-    { partyId: 'b19f2a7c-11', categoryMatch: true, locationMatch: true, valueMatch: true, viewed: true, favorited: true },
-    { partyId: '4d0e88b3-22', categoryMatch: true, locationMatch: true, valueMatch: false, viewed: true, favorited: false },
-    { partyId: 'a7c15e90-33', categoryMatch: true, locationMatch: false, valueMatch: true, viewed: false, favorited: false },
-  ]},
-  { id: 2, title: 'Repossessed Excavator, CAT 320D', viewCount: 22, matchedBuyers: [
-    { partyId: '9b2fa011-44', categoryMatch: true, locationMatch: true, valueMatch: true, viewed: true, favorited: false },
-  ]},
-  { id: 3, title: 'Office IT Assets Lot', viewCount: 8, matchedBuyers: [] },
-];
 const mark = (b) => (b ? '✓' : '—');
 
 export default function LotReachInterest() {
   const [composerId, setComposerId] = useState(null);
   const [message, setMessage] = useState('');
   const [flash, setFlash] = useState('');
+  const [sending, setSending] = useState(false);
 
-  const fullMatchCounts = useMemo(() => LISTINGS.map((l) => l.matchedBuyers.filter((m) => m.categoryMatch && m.locationMatch && m.valueMatch).length), []);
-  const totals = { lots: LISTINGS.length, matched: fullMatchCounts.reduce((a, b) => a + b, 0), viewed: LISTINGS.reduce((a, l) => a + l.viewCount, 0) };
+  // GET /my-listings/reach → { totals, listings: [{ listing, matchedBuyers, fullMatchCount }] }
+  const { data, loading } = useApiQuery(() => lotReach.index(), []);
+  const LISTINGS = ((data && data.listings) || []).map((r) => ({
+    id: r.listing.id,
+    title: r.listing.title || r.listing.category,
+    viewCount: Number(r.listing.view_count || 0),
+    fullMatches: r.fullMatchCount,
+    matchedBuyers: r.matchedBuyers || [],
+  }));
+  const totals = (data && data.totals) || { lots: 0, matched: 0, viewed: 0 };
   const composerListing = LISTINGS.find((l) => l.id === composerId);
+
+  const send = async () => {
+    if (!message.trim()) return;
+    setSending(true);
+    try {
+      await lotReach.sendMessage(composerId, { message_body: message });
+      setFlash('Message sent.');
+      setComposerId(null);
+    } catch (err) {
+      setFlash(err.message || 'Could not send the message.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="lri-page">
@@ -39,12 +53,14 @@ export default function LotReachInterest() {
           <div className="lri-stat"><b>{totals.viewed}</b><span>Total Views</span></div>
         </div>
 
-        {LISTINGS.map((l, i) => (
+        {loading && <p className="lri-no-match">Loading…</p>}
+        {!loading && LISTINGS.length === 0 && <p className="lri-no-match">No live Listings yet.</p>}
+        {LISTINGS.map((l) => (
           <div key={l.id} className="lri-card">
             <div className="lri-card__head">
               <div>
-                <p className="lri-card__title"><Link to="/lot-detail">{l.title}</Link></p>
-                <p className="lri-card__meta">{l.viewCount} views · {fullMatchCounts[i]} full match{fullMatchCounts[i] === 1 ? '' : 'es'}</p>
+                <p className="lri-card__title"><Link to={`/lot-detail?id=${l.id}`}>{l.title}</Link></p>
+                <p className="lri-card__meta">{l.viewCount} views · {l.fullMatches} full match{l.fullMatches === 1 ? '' : 'es'}</p>
               </div>
               {l.matchedBuyers.length > 0 && <button className="lri-msg-btn" onClick={() => { setComposerId(l.id); setMessage(''); }}>Message matched buyers</button>}
             </div>
@@ -75,7 +91,7 @@ export default function LotReachInterest() {
             <textarea className="lri-modal__textarea" placeholder="e.g. This listing matches your preferences and closes soon." value={message} onChange={(e) => setMessage(e.target.value)} />
             <div className="lri-modal__actions">
               <button className="lri-modal__cancel" onClick={() => setComposerId(null)}>Cancel</button>
-              <button className="lri-modal__send" onClick={() => { setComposerId(null); setFlash('Message sent.'); }}>Send</button>
+              <button className="lri-modal__send" onClick={send} disabled={sending || !message.trim()}>{sending ? 'Sending…' : 'Send'}</button>
             </div>
           </div>
         </div>
