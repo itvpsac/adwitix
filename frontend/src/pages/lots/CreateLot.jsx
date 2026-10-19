@@ -16,6 +16,9 @@ const FORMATS = [
   { id: 'tender', label: 'Tender Auction', desc: 'Fully private, invite-only — you control participation.' },
 ];
 
+// MediaService::MIN_PHOTOS on the backend.
+const MIN_PHOTOS = 5;
+
 export default function CreateLot() {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -109,6 +112,7 @@ export default function CreateLot() {
         file
       }));
       setMediaFiles(prev => [...prev, ...newMedia]);
+      setStep2Error('');
     } catch (error) {
       console.error('Compression failed:', error);
       alert('Error processing files. Please try again.');
@@ -128,7 +132,21 @@ export default function CreateLot() {
   const [preCheckStatus, setPreCheckStatus] = useState('idle');
   const [loading, setLoading] = useState(false);
   const [createdLotId, setCreatedLotId] = useState('');
-  const [mediaUploaded, setMediaUploaded] = useState(false);
+  // Files already sent to the backend for the created lot, so a retry
+  // (e.g. after adding photos) uploads only the new ones.
+  const uploadedFilesRef = useRef(new Set());
+  const [step2Error, setStep2Error] = useState('');
+  const photoCount = mediaFiles.filter((m) => m.type.startsWith('image/')).length;
+
+  // BR-11: the backend refuses approval with fewer than MIN_PHOTOS photos.
+  const goToStep3 = () => {
+    if (photoCount < MIN_PHOTOS) {
+      setStep2Error(`Add at least ${MIN_PHOTOS} photos before continuing (currently ${photoCount}).`);
+      return;
+    }
+    setStep2Error('');
+    setStep(3);
+  };
 
   const goToStep2 = () => {
     if (!catId || !condition || !title.trim()) { setStep1Error('Fill in category, condition, and title before continuing.'); return; }
@@ -177,26 +195,29 @@ export default function CreateLot() {
         setCreatedLotId(lotId);
       }
 
-      if (!mediaUploaded && (mediaFiles.length || documents.length)) {
+      const pendingMedia = mediaFiles.filter(m => !uploadedFilesRef.current.has(m.file));
+      const pendingDocs = documents.filter(d => !uploadedFilesRef.current.has(d.file));
+      if (pendingMedia.length || pendingDocs.length) {
         const formData = new FormData();
-        mediaFiles.forEach(m => formData.append(m.type.startsWith('video/') ? 'videos[]' : 'photos[]', m.file, m.name));
-        documents.forEach(d => formData.append('documents[]', d.file, d.name));
+        pendingMedia.forEach(m => formData.append(m.type.startsWith('video/') ? 'videos[]' : 'photos[]', m.file, m.name));
+        pendingDocs.forEach(d => formData.append('documents[]', d.file, d.name));
 
         const uploadRes = await listings.uploadMedia(lotId, formData);
         const failed = ((uploadRes && (uploadRes.data || uploadRes)) || {}).failed || [];
+        const failedNames = new Set(failed.map(f => f.original_filename));
+        [...pendingMedia, ...pendingDocs].forEach(f => { if (!failedNames.has(f.name)) uploadedFilesRef.current.add(f.file); });
         if (failed.length) {
           setStep3Error(`Lot saved, but ${failed.length} file(s) failed to upload: ${failed.map(f => `${f.original_filename} (${f.error})`).join('; ')}`);
           return;
         }
       }
-      setMediaUploaded(true);
 
       // A new lot starts in the seller's inventory; this moves it to
       // pending_approval so it reaches the TSX Master's Lot Approval queue.
       try {
         await listings.submitForApproval(lotId);
       } catch (err) {
-        setStep3Error(`Lot saved to your inventory, but it could not be sent for approval: ${err.description || err.message}`);
+        setStep3Error(`Lot saved to your inventory, but it could not be sent for approval: ${err.description || err.message}. Go back, fix this, and submit again — the saved lot will be reused.`);
         return;
       }
       setNewLotId(lotId);
@@ -360,7 +381,7 @@ export default function CreateLot() {
             {step === 2 && (
               <>
                 <h2 className="cl-h2">2. Upload media</h2>
-                <p className="cl-hint">At least 5 real photos of the actual item, captured through the app — no stock images. Location/timestamp is captured automatically.</p>
+                <p className="cl-hint">At least {MIN_PHOTOS} real photos of the actual item, captured through the app — no stock images. Location/timestamp is captured automatically.</p>
                 <div className="cl-row-between">
                   <p className="cl-strong">Photos ({5 + extraBatches * 5}/50)</p>
                   <button className="cl-outline-btn" onClick={() => mediaFileInputRef.current?.click()}>⇪ Bulk Upload</button>
@@ -380,7 +401,7 @@ export default function CreateLot() {
                       <button onClick={() => removeMedia(i)} style={{position: 'absolute', top: 2, right: 2, cursor: 'pointer', background: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: '50%'}}>×</button>
                     </div>
                   ))}
-                  {Array.from({ length: Math.max(0, 5 - mediaFiles.length) }, (_, i) => (
+                  {Array.from({ length: Math.max(0, MIN_PHOTOS - mediaFiles.length) }, (_, i) => (
                     <div key={mediaFiles.length + i} className="cl-photo-slot">Slot {mediaFiles.length + i + 1}</div>
                   ))}
                 </div>
@@ -407,8 +428,9 @@ export default function CreateLot() {
 
                 <div className="cl-nav-row">
                   <button className="cl-link-btn" onClick={() => setStep(1)}>← Back</button>
-                  <button className="cl-btn-primary cl-btn-primary--right" onClick={() => setStep(3)}>Continue to Review</button>
+                  <button className="cl-btn-primary cl-btn-primary--right" onClick={goToStep3}>Continue to Review</button>
                 </div>
+                {step2Error && <p className="cl-error">{step2Error}</p>}
               </>
             )}
 
