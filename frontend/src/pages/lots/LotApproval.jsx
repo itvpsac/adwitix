@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { auth as authApi, tenants as tenantsApi, listings as listingsApi, saleEvents as saleEventsApi } from '../../api/endpoints.js';
-import { unwrap } from '../../api/client.js';
+import { unwrap, mediaUrl } from '../../api/client.js';
 import { readAuth } from '../../utils/auth.js';
 import { formatCurrency } from '../../utils/format.js';
 import './LotApproval.css';
@@ -22,7 +22,6 @@ const REJECTION_REASONS = {
 };
 
 const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '');
-const mediaUrl = (path) => (path ? `/${String(path).replace(/^\/+/, '')}` : '');
 const shortDateTime = (d) => (d ? String(d).slice(0, 16) : '');
 const now = () => new Date().toISOString().slice(0, 16).replace('T', ' ');
 

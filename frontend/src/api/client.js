@@ -17,6 +17,13 @@ const DIRECT_BACKEND = 'https://admin.adwitix.com/public/index.php';
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.PROD ? DIRECT_BACKEND : '');
 export const API_BASE = RAW_BASE.replace(/\/+$/, '');
 
+// URL for a user file the API returns as a path like
+// "uploads/listings/<id>/<file>". The backend serves these from persistent
+// storage (UploadController), so they load from the same origin as the API.
+export function mediaUrl(path) {
+  return path ? `${API_BASE}/${String(path).replace(/^\/+/, '')}` : '';
+}
+
 const TOKEN_KEY = 'adwitix_jwt';
 
 export function getToken() {
