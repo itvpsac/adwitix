@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -17,6 +18,20 @@ const FLAG_TYPES = {
 const STATUS_LABEL = { open: 'Open', reviewed_str_filed: 'Escalated', reviewed_no_action: 'Cleared' };
 const STATUSES = ['all', 'Open', 'Escalated', 'Cleared'];
 const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
+// aml_flag.detail is a JSON-encoded object (AmlFlagModel::createFlag);
+// render it as "key: value" pairs rather than raw JSON.
+const formatDetail = (v) => {
+  if (!v) return '';
+  try {
+    const obj = typeof v === 'string' ? JSON.parse(v) : v;
+    if (obj && typeof obj === 'object') {
+      return Object.entries(obj)
+        .map(([k, val]) => `${k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').toLowerCase()}: ${typeof val === 'object' ? JSON.stringify(val) : val}`)
+        .join(' · ');
+    }
+  } catch (e) { /* not JSON — show as-is */ }
+  return String(v);
+};
 
 export default function AmlMonitoring() {
   const [showInfo, setShowInfo] = useState(false);
@@ -28,7 +43,7 @@ export default function AmlMonitoring() {
   const [actionError, setActionError] = useState('');
 
   // GET /admin/aml → { open: [...], reviewed: [...] }
-  const { data, loading, reload } = useApiQuery(() => admin.aml(), []);
+  const { data, loading, error, reload } = useApiQuery(() => admin.aml(), []);
   const rows = [...((data && data.open) || []), ...((data && data.reviewed) || [])];
   let all = rows.map((f) => {
     const type = FLAG_TYPES[f.flag_type] || { label: f.flag_type, severity: 'Warning' };
@@ -39,7 +54,7 @@ export default function AmlMonitoring() {
       flagType: type.label,
       who: f.mobile_number || f.party_id,
       at: stamp(f.created_at),
-      detail: f.detail,
+      detail: formatDetail(f.detail),
       status,
       decision: status === 'Open' ? null : { at: stamp(f.reviewed_at), by: f.reviewer_mobile, reason: f.str_reference ? `STR ${f.str_reference}${f.review_notes ? ` · ${f.review_notes}` : ''}` : f.review_notes },
     };
@@ -69,8 +84,8 @@ export default function AmlMonitoring() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'AML Monitoring', to: '/aml-monitoring', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'AML Monitoring', to: '/aml-monitoring', active: true }]} />
       <main className="custodian-main custodian-main--wide">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -133,8 +148,10 @@ export default function AmlMonitoring() {
         </div>
         {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         {loading && <div className="custodian-empty">Loading flags…</div>}
-        {!loading && all.length === 0 && <div className="custodian-empty">No flags match this filter.</div>}
+        {!loading && error && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load AML flags: {error.message || 'request failed'}.</div>}
+        {!loading && !error && all.length === 0 && <div className="custodian-empty">No flags match this filter.</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }
