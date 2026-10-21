@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { nowStamp, pushLedger, loadJSON, saveJSON } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -23,7 +24,8 @@ export default function StatutoryExport() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const rangeReady = dateFrom && dateTo;
+  const rangeInvalid = dateFrom && dateTo && dateFrom > dateTo;
+  const rangeReady = dateFrom && dateTo && !rangeInvalid;
   const download = async (ds, from, to) => {
     const blob = await DATASETS[ds].fetch({ from, to });
     saveBlob(blob, `${DATASETS[ds].file}_${from}_${to}.csv`);
@@ -50,8 +52,8 @@ export default function StatutoryExport() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Statutory Export', to: '/statutory-export', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Statutory Export', to: '/statutory-export', active: true }]} />
       <main className="custodian-main" style={{ maxWidth: 820 }}>
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -79,10 +81,11 @@ export default function StatutoryExport() {
           </div>
           <button onClick={generate} disabled={!rangeReady || busy} className="se-generate-btn" style={{ opacity: rangeReady && !busy ? 1 : 0.5 }}>{busy ? 'Generating…' : 'Generate Export'}</button>
           {justGenerated && <span className="se-confirm">✓ Export downloaded — logged below</span>}
+          {rangeInvalid && <span className="se-confirm" style={{ color: 'var(--color-danger)' }}>"From" must be on or before "To".</span>}
           {error && <span className="se-confirm" style={{ color: 'var(--color-danger)' }}>{error}</span>}
         </div>
 
-        <h2 className="custodian-decided-title" style={{ margin: '0 0 12px' }}>Export History</h2>
+        <h2 className="custodian-decided-title" style={{ margin: '0 0 12px' }}>Export History <span style={{ fontWeight: 400, fontSize: 13 }}>(this browser — the server-side record is in the Audit Ledger)</span></h2>
         <div className="se-table">
           <div className="se-row se-row--head"><span>Generated</span><span>Dataset</span><span>Range</span><span>Format</span><span></span></div>
           {history.map((h, i) => (
@@ -95,8 +98,9 @@ export default function StatutoryExport() {
             </div>
           ))}
         </div>
-        {history.length === 0 && <div className="custodian-empty" style={{ padding: '40px 20px' }}>No exports generated yet.</div>}
+        {history.length === 0 && <div className="custodian-empty" style={{ padding: '40px 20px' }}>No exports generated from this browser yet.</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

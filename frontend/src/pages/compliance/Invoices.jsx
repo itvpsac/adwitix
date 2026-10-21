@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -9,22 +10,25 @@ const STATUS_META = {
   Paid: { color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
   Pending: { color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
 };
-const STATUSES = ['all', 'Paid', 'Pending'];
 
 export default function Invoices() {
   const [showInfo, setShowInfo] = useState(false);
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
 
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState('');
 
-  // GET /admin/tenant-invoices → { pending: [tenant_monthly_invoice] }
-  const { data: apiData, loading: apiLoading, reload } = useApiQuery(() => admin.tenantInvoices(), []);
+  // GET /admin/tenant-invoices → { pending: [tenant_monthly_invoice] }.
+  // The backend returns only *pending* invoices (no paid history) and only
+  // tenant_id, so tenant names are resolved from GET /admin/tenants.
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.tenantInvoices(), []);
+  const { data: tenantData } = useApiQuery(() => admin.tenants(), []);
+  const tenantNames = {};
+  ((tenantData && tenantData.tenants) || []).forEach((t) => { tenantNames[t.id] = t.name; });
   const apiRows = (apiData && apiData.pending) || [];
   let all = apiRows.map((i) => ({
     id: i.id,
-    tsx: i.tenant_name || i.tenant_id || '—',
+    tsx: tenantNames[i.tenant_id] || i.tenant_id || '—',
     invoiceId: i.invoice_number || i.id,
     period: `${(i.period_start || '').slice(0, 10)} → ${(i.period_end || '').slice(0, 10)}`,
     amount: i.total_amount != null ? `₹${Number(i.total_amount).toLocaleString('en-IN')}` : '—',
@@ -44,13 +48,12 @@ export default function Invoices() {
       setBusyId(null);
     }
   };
-  if (status !== 'all') all = all.filter((i) => i.status === status);
   const q = query.trim().toLowerCase();
   if (q) all = all.filter((i) => `${i.tsx} ${i.invoiceId}`.toLowerCase().includes(q));
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Invoices', to: '/invoices', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Invoices', to: '/invoices', active: true }]} />
       <main className="custodian-main custodian-main--wide">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -70,9 +73,7 @@ export default function Invoices() {
           <span className="custodian-search__icon">⌕</span>
         </div>
         <div className="custodian-filters">
-          {STATUSES.map((v) => (
-            <button key={v} onClick={() => setStatus(v)} className={`custodian-filter-pill${status === v ? ' custodian-filter-pill--active' : ''}`}>{v === 'all' ? 'All' : v}</button>
-          ))}
+          <span className="custodian-filter-pill custodian-filter-pill--active">Pending</span>
         </div>
 
         <div className="iv-table">
@@ -80,7 +81,7 @@ export default function Invoices() {
           {all.map((i) => {
             const meta = STATUS_META[i.status];
             return (
-              <div key={i.invoiceId} className="iv-row">
+              <div key={i.id} className="iv-row">
                 <span className="iv-cell-tsx">{i.tsx}</span>
                 <span className="iv-cell-mono">{i.invoiceId}</span>
                 <span className="iv-cell-muted">{i.period}</span>
@@ -99,8 +100,11 @@ export default function Invoices() {
           })}
         </div>
         {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
-        {!apiLoading && all.length === 0 && <div className="custodian-empty">No invoices yet.</div>}
+        {apiError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load invoices — {apiError.message || 'the service is not reachable'}.</div>}
+        {apiLoading && <div className="custodian-empty">Loading invoices…</div>}
+        {!apiLoading && !apiError && all.length === 0 && <div className="custodian-empty">{q ? 'No invoices match your search.' : 'No pending invoices.'}</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }
