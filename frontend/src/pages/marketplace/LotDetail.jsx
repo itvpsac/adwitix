@@ -46,16 +46,45 @@ export default function LotDetail() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [activeMedia, setActiveMedia] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [newFiles, setNewFiles] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState('');
 
   useEffect(() => {
-    setData(null); setError(''); setActiveMedia(0);
+    if (!reloadKey) { setData(null); setActiveMedia(0); }
+    setError('');
     if (!id) return;
     let cancelled = false;
     listings.show(id)
       .then((res) => { if (!cancelled) setData(unwrap(res)); })
       .catch((err) => { if (!cancelled) setError(err.status === 404 ? 'This lot was not found. It may have been removed.' : (err.message || 'Could not load this lot.')); });
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id, reloadKey]);
+
+  // Seller adds photos/videos/documents to an existing lot (same endpoint
+  // Create Lot uses).
+  const uploadNewFiles = async () => {
+    if (!newFiles.length) return;
+    setUploading(true); setUploadMsg('');
+    try {
+      const formData = new FormData();
+      newFiles.forEach((f) => formData.append(
+        f.type.startsWith('video/') ? 'videos[]' : f.type === 'application/pdf' ? 'documents[]' : 'photos[]', f, f.name,
+      ));
+      const result = unwrap(await listings.uploadMedia(id, formData)) || {};
+      const failed = result.failed || [];
+      setUploadMsg(failed.length
+        ? `${result.message} ${failed.map((f) => `${f.original_filename}: ${f.error}`).join('; ')}`
+        : (result.message || 'Uploaded.'));
+      setNewFiles([]);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setUploadMsg(err.description || err.message || 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const header = <AppHeader variant="light" contextNav={[{ label: 'Marketplace', to: '/marketplace' }, { label: 'Lot Detail', to: id ? `/lot-detail?id=${id}` : '/lot-detail', active: true }]} />;
   const message = (text) => (
@@ -116,6 +145,28 @@ export default function LotDetail() {
               </div>
             )}
             {photos.length === 0 && <p className="ldp-bid-note">No photos uploaded yet.</p>}
+            {data.isOwner && (data.missingMediaCount > 0 || data.canAddMedia) && (
+              <div className="ldp-add-media">
+                {data.missingMediaCount > 0 && (
+                  <p className="ldp-add-media-warn">
+                    {data.missingMediaCount} file{data.missingMediaCount === 1 ? '' : 's'} of this lot {data.missingMediaCount === 1 ? 'is' : 'are'} missing from the server and hidden here.
+                    {data.canAddMedia ? ' Add the photos again below.' : ''}
+                  </p>
+                )}
+                {data.canAddMedia ? (
+                  <div className="ldp-add-media-row">
+                    <input type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,application/pdf"
+                      onChange={(e) => { setNewFiles(Array.from(e.target.files || [])); setUploadMsg(''); }} disabled={uploading} />
+                    <button type="button" className="ldp-cta" onClick={uploadNewFiles} disabled={uploading || !newFiles.length}>
+                      {uploading ? 'Uploading…' : `Add ${newFiles.length || ''} file${newFiles.length === 1 ? '' : 's'}`}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="ldp-bid-note">Photos can be added while the lot is in Inventory or Pending Approval.</p>
+                )}
+                {uploadMsg && <p className="ldp-bid-note">{uploadMsg}</p>}
+              </div>
+            )}
 
             <h1 className="ldp-title">{lot.title || lot.make_model || `${lot.category} lot`}</h1>
             <div className="ldp-tags">

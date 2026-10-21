@@ -49,3 +49,9 @@
 .ldp-matches span:last-child { font-weight: 700; }
 @media (max-width: 900px) { .ldp-layout { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .ldp-nav { display: none; } }
+.ldp-add-media { border: 1px dashed var(--color-border); border-radius: 12px; padding: 12px 14px; margin: 4px 0 18px; }
+.ldp-add-media-warn { font-size: 12.5px; color: #9A5B00; margin: 0 0 10px; }
+.ldp-add-media-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 6px; }
+.ldp-add-media-row input[type="file"] { flex: 1 1 220px; min-width: 0; font-size: 12.5px; }
+.ldp-add-media-row .ldp-cta { width: auto; margin: 0; padding: 10px 18px; }
+.ldp-add-media-row .ldp-cta:disabled { opacity: 0.5; cursor: default; }
