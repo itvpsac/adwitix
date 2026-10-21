@@ -80,3 +80,8 @@
 .dq-field textarea { resize: vertical; }
 .dq-notice { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0; padding: 12px 16px; border-radius: 10px; background: var(--color-success-bg); color: var(--color-success); font: 600 13.5px var(--font-sans); }
 .dq-notice button { border: none; background: none; font-size: 18px; color: inherit; cursor: pointer; width: 32px; height: 32px; }
+
+/* Existing admin pages rendered inside the shell keep their own layout,
+   minus the full-page height and the eyebrow that named the console. */
+.cs .cs-main > [class$="-page"] { min-height: 0; background: transparent; }
+.cs .cs-main > [class$="-page"] > main { padding-top: 0; }
