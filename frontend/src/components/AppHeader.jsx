@@ -65,6 +65,18 @@ export default function AppHeader({
   }, []);
 
   const kyc = KYC_MAP[(user && user.kycStatus) || 'verified'] || KYC_MAP.verified;
+  // The account's own dashboard: one menu entry, named for Super Admins.
+  const isCustodian = !!user && (user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian');
+  const dashboard = !user ? null : isCustodian
+    ? { to: '/custodian/dashboard', label: 'Super Admin Dashboard' }
+    : {
+      to: user.matrixRole === 'tsx_master' || user.entityType === 'tenant_admin' || user.roles?.includes('tenant_admin')
+        ? '/tenant-admin/dashboard'
+        : (user.matrixRole === 'mkt_maker' || user.entityType === 'corporate' || user.roles?.includes('market_maker')
+          ? '/seller/dashboard'
+          : '/buyer/dashboard'),
+      label: 'My Dashboard',
+    };
   const groupActive = (g) => (g.items ? g.items.some((it) => it.to === pathname) : g.to === pathname);
   const resolvedMaxWidth = (!maxWidth || maxWidth === 1240) ? '100%' : (typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth);
   
@@ -195,18 +207,7 @@ export default function AppHeader({
               {accountOpen && (
                 <div className="ah__menu ah__menu--right" role="menu">
                   <Link to="/profile" role="menuitem" className="ah__menu-link">Profile</Link>
-                  {(user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian') && (
-                    <Link to="/custodian/dashboard" role="menuitem" className="ah__menu-link">Super Admin Dashboard</Link>
-                  )}
-                  <Link to={
-                    (user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian')
-                      ? '/custodian/dashboard'
-                      : (user.matrixRole === 'tsx_master' || user.entityType === 'tenant_admin' || user.roles?.includes('tenant_admin')
-                        ? '/tenant-admin/dashboard'
-                        : (user.matrixRole === 'mkt_maker' || user.entityType === 'corporate' || user.roles?.includes('market_maker')
-                          ? '/seller/dashboard'
-                          : '/buyer/dashboard'))
-                  } role="menuitem" className="ah__menu-link">My Dashboard</Link>
+                  <Link to={dashboard.to} role="menuitem" className="ah__menu-link">{dashboard.label}</Link>
                   <Link to="/preferences" role="menuitem" className="ah__menu-link">Preferences</Link>
                   <button type="button" role="menuitem" className="ah__menu-link ah__menu-link--danger" onClick={() => { setAccountOpen(false); handleLogout(); }}>Log Out</button>
                 </div>
@@ -326,18 +327,7 @@ export default function AppHeader({
                 </div>
                 <div className="ah__drawer-account-links">
                   <Link to="/profile" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Profile</Link>
-                  {(user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian') && (
-                    <Link to="/custodian/dashboard" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Super Admin Dashboard</Link>
-                  )}
-                  <Link to={
-                    user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian'
-                      ? '/custodian/dashboard'
-                      : (user.matrixRole === 'tsx_master' || user.entityType === 'tenant_admin' || user.roles?.includes('tenant_admin')
-                        ? '/tenant-admin/dashboard'
-                        : (user.matrixRole === 'mkt_maker' || user.entityType === 'corporate' || user.roles?.includes('market_maker')
-                          ? '/seller/dashboard'
-                          : '/buyer/dashboard'))
-                  } className="ah__drawer-link" onClick={() => setMobileOpen(false)}>My Dashboard</Link>
+                  <Link to={dashboard.to} className="ah__drawer-link" onClick={() => setMobileOpen(false)}>{dashboard.label}</Link>
                   <Link to="/preferences" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Preferences</Link>
                 </div>
                 <button type="button" className="ah__drawer-logout" onClick={() => { setMobileOpen(false); handleLogout(); }}>Log Out</button>
