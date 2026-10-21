@@ -22,12 +22,6 @@ const STATUS_META = {
   appealed: { label: 'Appealed', color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
   closed: { label: 'Closed (Final)', color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
 };
-const ROLE_TABS = [
-  { id: 'party', label: 'Filer / Respondent' },
-  { id: 'tenant_admin', label: 'Tenant Admin (Ruling)' },
-  { id: 'super_admin', label: 'Super Admin (Appeal)' },
-];
-
 function catLabel(id) { return (CATEGORIES.find((c) => c.id === id) || {}).label || id; }
 const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
 
@@ -41,6 +35,7 @@ function toLocal({ dispute: d, evidence }) {
     // List rows don't carry ruling_authority_type; it follows from the category.
     category: d.category, rulingAuthorityType: d.ruling_authority_type || (CATEGORIES.find((c) => c.id === d.category) || {}).authority || 'tenant_admin',
     description: d.description, status: d.status,
+    filedBy: d.filed_by_party_id, respondent: d.respondent_party_id,
     createdAt: stamp(d.created_at), evidenceDeadlineAt: stamp(d.evidence_deadline_at), ruledAt: stamp(d.ruled_at),
     evidence: (evidence || []).map((e) => ({ content: e.content, createdAt: stamp(e.created_at) })),
     rulingOutcome: d.ruling_outcome, rulingRationale: d.ruling_rationale || '',
@@ -49,7 +44,6 @@ function toLocal({ dispute: d, evidence }) {
 }
 
 export default function DisputeCenter() {
-  const [role, setRole] = useState('party');
   const [view, setView] = useState('list');
   const [selectedId, setSelectedId] = useState(null);
   const [params, setParams] = useSearchParams();
@@ -59,6 +53,12 @@ export default function DisputeCenter() {
   const liveSaleEventId = params.get('saleEvent');
   const { user } = useAuth();
   const custodian = isCustodian(user);
+  // What this account can do here: Super Admin rules appeals (and
+  // super-admin-category disputes), a Tenant Admin rules their tenant's
+  // disputes, everyone else is a filer or respondent. The backend enforces
+  // the same authority on every action.
+  const isTenantAdmin = !!user && (user.roles?.includes('tenant_admin') || user.matrixRole === 'tsx_master' || (user.adminTenants || []).length > 0);
+  const role = custodian ? 'super_admin' : isTenantAdmin ? 'tenant_admin' : 'party';
   // GET /disputes lists the caller's disputes (all of them for a Super Admin);
   // the selected dispute is loaded in full (with evidence) from GET /disputes/:id.
   const [disputes, setDisputes] = useState([]);
@@ -129,18 +129,17 @@ export default function DisputeCenter() {
     }
   };
 
-  const relevant = disputes.filter((d) => {
-    if (role === 'party') return true;
-    if (role === 'tenant_admin') return d.rulingAuthorityType === 'tenant_admin';
-    if (role === 'super_admin') return d.rulingAuthorityType === 'super_admin' || d.status === 'appealed' || d.status === 'closed';
-    return true;
-  });
+  // The backend already returns exactly the disputes this account may see.
+  const relevant = disputes;
   const selected = (detail && detail.id === selectedId) ? detail : disputes.find((d) => d.id === selectedId);
   const meta = selected ? STATUS_META[selected.status] || STATUS_META.filed : null;
-  const canSubmitEvidence = selected && role === 'party' && (selected.status === 'filed' || selected.status === 'evidence_window');
+  // Filer/respondent actions follow the account's part in this dispute,
+  // so a Tenant Admin who is also a buyer or seller keeps them.
+  const isParty = !!selected && !!user && [selected.filedBy, selected.respondent].includes(user.id);
+  const canSubmitEvidence = selected && isParty && (selected.status === 'filed' || selected.status === 'evidence_window');
   const canRule = selected && (selected.status === 'filed' || selected.status === 'evidence_window') &&
     ((role === 'tenant_admin' && selected.rulingAuthorityType === 'tenant_admin') || (role === 'super_admin' && selected.rulingAuthorityType === 'super_admin'));
-  const canAppeal = selected && selected.status === 'ruled' && selected.rulingAuthorityType === 'tenant_admin' && role === 'party';
+  const canAppeal = selected && selected.status === 'ruled' && selected.rulingAuthorityType === 'tenant_admin' && isParty;
   const canRuleAppeal = selected && selected.status === 'appealed' && role === 'super_admin';
   const rulingNeedsParty = rulingOutcome === 'order_forfeiture' || rulingOutcome === 'rating_consequence';
 
@@ -186,19 +185,15 @@ export default function DisputeCenter() {
       <main className="dc-main">
         <div className="legal-eyebrow">Trust &amp; Support</div>
         <h1 className="dc-title">Dispute Center</h1>
-        <p className="dc-sub">One screen, role-conditional — the live app serves this route identically for the filer, respondent, Tenant Admin, and Super Admin; only what renders below changes.</p>
-
-        <div className="dc-tabs">
-          {ROLE_TABS.map((rt) => (
-            <button key={rt.id} onClick={() => { setRole(rt.id); setView('list'); }} className={`dc-tab${role === rt.id ? ' dc-tab--active' : ''}`}>{rt.label}</button>
-          ))}
-        </div>
+        <p className="dc-sub">{custodian ? 'Every dispute on the platform. Appeals and Super Admin disputes are ruled here.'
+          : role === 'tenant_admin' ? 'Disputes on your TradeSphereX and the ones you are part of. Rule on your tenant\'s disputes here.'
+            : 'Disputes you have filed or that were filed against you — submit evidence, follow the ruling, and appeal if needed.'}</p>
 
         {apiError && <p className="dc-error">{apiError}</p>}
 
         {view === 'list' && (
           <>
-            {role === 'party' && <button onClick={() => { setView('file'); setFileCategory('payment'); setFileDescription(''); }} className="dc-file-btn">+ File a Dispute</button>}
+            {!custodian && <button onClick={() => { setView('file'); setFileCategory('payment'); setFileDescription(''); }} className="dc-file-btn">+ File a Dispute</button>}
             <div className="dc-list">
               {relevant.map((d) => {
                 const m = STATUS_META[d.status] || STATUS_META.filed;
@@ -216,7 +211,7 @@ export default function DisputeCenter() {
             </div>
             {listLoading && relevant.length === 0 && <div className="dc-empty">Loading disputes…</div>}
             {!listLoading && relevant.length === 0 && (
-              <div className="dc-empty">{disputes.length > 0 ? 'Nothing here for this role right now.' : custodian ? 'No disputes on record.' : 'You have no disputes yet.'}</div>
+              <div className="dc-empty">{disputes.length > 0 ? 'Nothing here right now.' : custodian ? 'No disputes on record.' : 'You have no disputes yet.'}</div>
             )}
           </>
         )}
