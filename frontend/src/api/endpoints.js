@@ -145,6 +145,8 @@ export const settlements = {
 
 // ── Disputes (BR-40) ────────────────────────────────────────────────
 export const disputes = {
+  // The caller's disputes (filed, responding, tenant-admin scope, or all for Super Admin).
+  mine: () => api.get(`${APP}/disputes`),
   show: (id) => api.get(`${APP}/disputes/${id}`),
   submitEvidence: (id, payload) => api.post(`${APP}/disputes/${id}/evidence`, payload),
   rule: (id, payload) => api.post(`${APP}/disputes/${id}/rule`, payload),
