@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { label: 'Compliance', to: '/custodian/dashboard#compliance' },
   { label: 'Dashboard', to: '/custodian/dashboard', active: true },
 ];
-const CTAS = [{ label: 'Screen Flow', to: '/screen-flow' }];
 
 const STATS = { tenants: 42, openDisputes: 6, stalledSettlements: 3, openAmlFlags: 2 };
 const TODAY = { bidsPlaced: 318, salesClosed: 24, disputesFiled: 2, newByFormat: [{ format: 'EASY', count: 11 }, { format: 'TENDER', count: 3 }] };
@@ -73,7 +72,7 @@ export default function CustodianDashboard() {
 
   return (
     <div className="cd-page">
-      <DashboardHeader consoleLabel="Custodian Console" homeTo="/" navItems={NAV_ITEMS} ctas={CTAS} />
+      <DashboardHeader consoleLabel="Custodian Console" homeTo="/" navItems={NAV_ITEMS} />
 
       <main className="cd-main">
         <h1 className="cd-h1">Custodian Dashboard</h1>
