@@ -11,13 +11,17 @@ export default function AuditLedger() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [expandedIdx, setExpandedIdx] = useState(null);
-  const [pageSize, setPageSize] = useState(40);
+  const [page, setPage] = useState(1);
 
-  // GET /admin/audit-log → { entries: [{ id, occurred_at, event_type,
-  // actor_party_id, ip_address, payload, record_hash, sequence_number,
-  // mobile_number }] } — the latest 100 entries by sequence number. The
-  // backend records no actor role or name.
-  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.auditLog(), []);
+  // GET /admin/audit-log?from&to&page&per_page → { entries: [{ id,
+  // occurred_at, event_type, actor_party_id, ip_address, payload,
+  // record_hash, sequence_number, mobile_number }], total, page, perPage,
+  // totalPages } — newest first; the date range is applied server-side.
+  // The backend records no actor role or name.
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(
+    () => admin.auditLog({ from: dateFrom || undefined, to: dateTo || undefined, page, per_page: 100 }),
+    [dateFrom, dateTo, page],
+  );
   const apiEntries = (apiData && apiData.entries) || [];
   const all = apiEntries.map((e) => ({
     id: e.id,
@@ -28,13 +32,12 @@ export default function AuditLedger() {
     action: e.event_type || '—',
     detail: typeof e.payload === 'string' ? e.payload : (e.payload ? JSON.stringify(e.payload) : ''),
   }));
-  let filtered = all;
-  if (dateFrom) filtered = filtered.filter((e) => e.at.slice(0, 10) >= dateFrom);
-  if (dateTo) filtered = filtered.filter((e) => e.at.slice(0, 10) <= dateTo);
+  const serverTotal = (apiData && apiData.total) || 0;
+  const totalPages = Math.max(1, (apiData && apiData.totalPages) || 1);
   const q = query.trim().toLowerCase();
-  if (q) filtered = filtered.filter((e) => [e.action, e.detail, e.actorMobile, e.actorId, e.id, e.seq].join(' ').toLowerCase().includes(q));
-  const total = filtered.length;
-  const page = filtered.slice(0, pageSize);
+  const rows = q ? all.filter((e) => [e.action, e.detail, e.actorMobile, e.actorId, e.id, e.seq].join(' ').toLowerCase().includes(q)) : all;
+  const changeFilter = (fn) => (e) => { fn(e.target.value); setPage(1); setExpandedIdx(null); };
+  const goTo = (p) => { setPage(p); setExpandedIdx(null); };
 
   return (
     <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Audit Ledger', to: '/audit-ledger', active: true }, { label: 'Integrity Check', to: '/audit-chain-verify' }]} />}>
@@ -45,28 +48,28 @@ export default function AuditLedger() {
           <h1 className="custodian-title">Audit Ledger</h1>
         </div>
         {apiError && <p className="custodian-sub" style={{ color: 'var(--color-danger)' }}>Could not load the audit log — {apiError.message || 'the service is not reachable'}.</p>}
-        <p className="custodian-sub" style={{ maxWidth: 660 }}>Every consequential action across the platform — by Trader, Market Maker, TSX Master, or Custodian — is recorded here for your review and the audit team's records. Nothing is excluded. This view shows the latest 100 entries; use Statutory Export for a full date-range extract.</p>
+        <p className="custodian-sub" style={{ maxWidth: 660 }}>Every consequential action across the platform — by Trader, Market Maker, TSX Master, or Custodian — is recorded here for your review and the audit team's records. Nothing is excluded.</p>
 
         <div className="custodian-search">
-          <input placeholder="Search — mobile, action, payload, entry ID…" value={query} onChange={(e) => { setQuery(e.target.value); setPageSize(40); }} />
+          <input placeholder="Search this page — mobile, action, payload, entry ID…" value={query} onChange={(e) => { setQuery(e.target.value); setExpandedIdx(null); }} />
           <span className="custodian-search__icon">⌕</span>
         </div>
 
         <div className="custodian-filters">
-          <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPageSize(40); }} className="al-date" />
+          <input type="date" value={dateFrom} onChange={changeFilter(setDateFrom)} className="al-date" />
           <span className="al-to">to</span>
-          <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPageSize(40); }} className="al-date" />
-          <button onClick={() => { setQuery(''); setDateFrom(''); setDateTo(''); setPageSize(40); }} className="al-clear">Clear</button>
+          <input type="date" value={dateTo} onChange={changeFilter(setDateTo)} className="al-date" />
+          <button onClick={() => { setQuery(''); setDateFrom(''); setDateTo(''); setPage(1); setExpandedIdx(null); }} className="al-clear">Clear</button>
           <button onClick={reload} disabled={apiLoading} className="al-refresh">↻ Refresh</button>
         </div>
 
-        <div className="al-count">{total}{total === 1 ? ' matching entry' : ' matching entries'}{total > page.length ? ` · showing ${page.length}` : ''}</div>
+        <div className="al-count">Page {apiData && apiData.page ? apiData.page : page} of {totalPages} · {serverTotal}{serverTotal === 1 ? ' entry' : ' entries'}{q ? ` · ${rows.length} matching search on this page` : ''}</div>
 
         <div className="al-table">
           <div className="al-row al-row--head">
             <span>Timestamp</span><span>Seq #</span><span>Action</span><span>Payload</span><span style={{ textAlign: 'right' }}>Actor</span>
           </div>
-          {page.map((e, i) => {
+          {rows.map((e, i) => {
             const expanded = expandedIdx === i;
             return (
               <button key={e.id || i} onClick={() => setExpandedIdx(expanded ? null : i)} className="al-row al-row--data" style={{ background: expanded ? '#FAFAF8' : i % 2 === 1 ? '#FCFCFB' : '#fff', whiteSpace: expanded ? 'normal' : 'nowrap' }}>
@@ -80,8 +83,14 @@ export default function AuditLedger() {
           })}
         </div>
         {apiLoading && <div className="custodian-empty">Loading audit entries…</div>}
-        {!apiLoading && !apiError && total === 0 && <div className="custodian-empty">{apiEntries.length === 0 ? 'No audit entries yet.' : 'No entries match your search/filters.'}</div>}
-        {total > page.length && <button onClick={() => setPageSize(pageSize + 40)} className="al-load-more">Load {Math.min(40, total - page.length)} more</button>}
+        {!apiLoading && !apiError && rows.length === 0 && <div className="custodian-empty">{apiEntries.length === 0 ? (dateFrom || dateTo ? 'No entries in this date range.' : 'No audit entries yet.') : 'No entries on this page match your search.'}</div>}
+        {totalPages > 1 && (
+          <div className="al-pager">
+            <button onClick={() => goTo(page - 1)} disabled={apiLoading || page <= 1} className="al-load-more">← Previous</button>
+            <span className="al-count">Page {page} of {totalPages}</span>
+            <button onClick={() => goTo(page + 1)} disabled={apiLoading || page >= totalPages} className="al-load-more">Next →</button>
+          </div>
+        )}
       </main>
       <footer className="al-footer"><p>This ledger is append-only and cannot be edited or deleted by any role, including the Custodian.</p></footer>
     </div>
