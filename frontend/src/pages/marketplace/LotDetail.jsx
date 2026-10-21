@@ -144,7 +144,12 @@ export default function LotDetail() {
                 ))}
               </div>
             )}
-            {photos.length === 0 && <p className="ldp-bid-note">No photos uploaded yet.</p>}
+            {photos.length === 0 && !data.missingMediaCount && <p className="ldp-bid-note">No photos uploaded yet.</p>}
+            {data.missingMediaCount > 0 && !data.isOwner && (
+              <p className="ldp-add-media-warn">
+                {data.missingMediaCount} uploaded file{data.missingMediaCount === 1 ? ' is' : 's are'} missing from the server; the seller needs to add {data.missingMediaCount === 1 ? 'it' : 'them'} again.
+              </p>
+            )}
             {data.isOwner && (data.missingMediaCount > 0 || data.canAddMedia) && (
               <div className="ldp-add-media">
                 {data.missingMediaCount > 0 && (
