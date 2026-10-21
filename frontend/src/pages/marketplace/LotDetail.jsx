@@ -3,13 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import './LotDetail.css';
 import AppHeader from '../../components/AppHeader.jsx';
 import { listings } from '../../api/endpoints.js';
-import { unwrap } from '../../api/client.js';
+import { unwrap, mediaUrl } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
 
 // Data: GET /api/v1/app/listings/:id (ListingController::show) →
 // { listing, saleEvent, tenant, media, sellerStarRating, ... }.
-// Media files live under the backend's public/uploads/, which vercel.json
-// forwards like /api/v1, so file_path is used as a same-origin URL.
+// Media file_path values are turned into URLs by mediaUrl() (api/client.js).
 const FORMAT_META = {
   easy: { label: 'EASY', ctaLabel: 'Place Bid', note: 'Open ascending bid. Highest bid wins at close.' },
   express: { label: 'EXPRESS', ctaLabel: 'Submit Sealed Bid', note: 'Starts once 3 Traders pledge; closes within the hour.' },
@@ -26,7 +25,6 @@ const SALE_STATUS = {
 };
 const CONDITION = { non_functional: 'Non-functional' };
 
-const mediaUrl = (path) => (path ? `/${String(path).replace(/^\/+/, '')}` : '');
 const humanize = (s) => (s ? String(s).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '');
 const formatDate = (d) => (d ? new Date(String(d).replace(' ', 'T')).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '');
 

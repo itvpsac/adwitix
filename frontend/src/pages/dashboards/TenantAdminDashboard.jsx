@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { auth as authApi, tenants as tenantsApi } from '../../api/endpoints.js';
-import { unwrap } from '../../api/client.js';
+import { unwrap, mediaUrl } from '../../api/client.js';
 import { readAuth } from '../../utils/auth.js';
 import { formatCurrency } from '../../utils/format.js';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
@@ -213,7 +213,7 @@ export default function TenantAdminDashboard() {
           <div className="ta-verify-list">
             {d.pendingListings.map((v) => (
               <Link to={`/lot-detail?id=${v.id}`} key={v.id} className="ta-verify-row">
-                <div className="ta-verify-thumb" style={v.primaryPhotoPath ? { background: `center / cover no-repeat url(/${String(v.primaryPhotoPath).replace(/^\/+/, '')})` } : undefined} />
+                <div className="ta-verify-thumb" style={v.primaryPhotoPath ? { background: `center / cover no-repeat url(${mediaUrl(v.primaryPhotoPath)})` } : undefined} />
                 <div>
                   <p className="ta-verify-cat">{v.title || v.category}</p>
                   <p className="ta-verify-summary">
