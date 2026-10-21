@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -15,11 +16,11 @@ export default function RatingReviews() {
   const [decided, setDecided] = useState([]);
 
   // GET /admin/rating-reviews → { pending: rating_event rows awaiting approval }
-  const { data, loading, reload } = useApiQuery(() => admin.ratingReviews(), []);
+  const { data, loading, error: loadError, reload } = useApiQuery(() => admin.ratingReviews(), []);
   const pending = ((data && data.pending) || []).map((r) => ({
     id: r.id,
     ratee: r.mobile_number,
-    eventType: `${ROLE_LABEL[r.rating_role] || r.rating_role} · ${r.event_type.replace(/_/g, ' ')}`,
+    eventType: `${ROLE_LABEL[r.rating_role] || r.rating_role} · ${(r.event_type || '').replace(/_/g, ' ')}`,
     from: r.previous_value != null ? Number(r.previous_value).toFixed(1) : '—',
     to: r.new_value != null ? Number(r.new_value).toFixed(1) : '—',
     at: stamp(r.created_at),
@@ -42,8 +43,8 @@ export default function RatingReviews() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/tenant-admin/dashboard' }, { label: 'Rating Reviews', to: '/rating-reviews', active: true }]} />}>
     <div className="rr-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Rating Reviews', to: '/rating-reviews', active: true }]} />
       <main className="rr-main">
         <div className="legal-eyebrow">Custodian</div>
         <div className="rr-title-row">
@@ -77,7 +78,8 @@ export default function RatingReviews() {
         </div>
         {actionError && <div className="rr-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         {loading && <div className="rr-empty">Loading…</div>}
-        {!loading && pending.length === 0 && <div className="rr-empty">No rating changes pending review.</div>}
+        {!loading && loadError && <div className="rr-empty" style={{ color: 'var(--color-danger)' }}>Could not load rating reviews: {loadError.message || 'request failed'}.</div>}
+        {!loading && !loadError && pending.length === 0 && <div className="rr-empty">No rating changes pending review.</div>}
 
         {decided.length > 0 && (
           <>
@@ -94,5 +96,6 @@ export default function RatingReviews() {
         )}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

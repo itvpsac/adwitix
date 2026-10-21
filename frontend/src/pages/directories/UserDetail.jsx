@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
+import { unwrap } from '../../api/client.js';
 import './UserDetail.css';
 
 const titleCase = (v) => (v ? String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—');
@@ -30,7 +32,8 @@ export default function UserDetail() {
     kyc: titleCase(p.kyc_status),
     buyerStars: stars(p.star_rating), buyerOffences: p.offence_count_buyer ?? 0,
     sellerStars: stars(p.seller_star_rating), sellerOffences: p.offence_count_seller ?? 0,
-    complaints: p.forced_neutral_count_buyer ?? 0, cbsOffences: p.forced_neutral_count_seller ?? 0,
+    // Standing Review counters (party.standing_review_*), not the forced-neutral counts.
+    complaints: p.standing_review_complaint_count ?? 0, cbsOffences: p.standing_review_cbs_offense_count ?? 0,
     delisted: !!p.seller_delisted_at, delistedAt: day(p.seller_delisted_at), delistedReason: p.seller_delisted_reason,
   };
   const ROLES = ((data && data.roles) || []).map((r) => `${titleCase(r.role)} — ${r.tenant_id ? tenantNames[r.tenant_id] || r.tenant_id : 'platform-wide'}`);
@@ -47,8 +50,9 @@ export default function UserDetail() {
     setBusy(true);
     setError('');
     try {
-      await admin.promoteTenantAdmin(partyId, { tenant_id: promoteTenantId });
-      setGranted((TENANT_OPTIONS.find((t) => t.id === promoteTenantId) || {}).name || 'the selected TradeSphereX');
+      const res = unwrap(await admin.promoteTenantAdmin(partyId, { tenant_id: promoteTenantId }));
+      const tenantName = (TENANT_OPTIONS.find((t) => t.id === promoteTenantId) || {}).name || 'the selected TradeSphereX';
+      setGranted(res.message || `Granted Tenant Admin on ${tenantName}.`);
       reload();
     } catch (err) {
       setError(err.message || 'Could not grant Tenant Admin.');
@@ -59,18 +63,20 @@ export default function UserDetail() {
 
   if (!partyId || loadError) {
     return (
+      <ConsoleFrame header={<DashboardHeader navItems={[{ label: '← Users', to: '/user-directory' }]} />}>
       <div className="udet-page">
-        <DashboardHeader navItems={[{ label: '← Users', to: '/user-directory' }]} />
         <main className="udet-main"><p className="udet-meta">{partyId ? (loadError.message || 'User not found.') : 'Select a user from the User Directory.'}</p></main>
       </div>
+      </ConsoleFrame>
     );
   }
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: '← Users', to: '/user-directory' }]} />}>
     <div className="udet-page">
-      <DashboardHeader navItems={[{ label: '← Users', to: '/user-directory' }]} />
       <main className="udet-main">
         <h1 className="udet-title">{loading ? 'Loading…' : PARTY.name}</h1>
+        {loading ? null : (<>
         <p className="udet-meta">{PARTY.mobile} · {PARTY.entityType} · KYC: {PARTY.kyc}</p>
 
         <div className="udet-stats">
@@ -79,10 +85,10 @@ export default function UserDetail() {
           <div className="udet-stat-card"><div className="udet-stat-num">{PARTY.complaints}</div><div className="udet-stat-label">Standing Complaints · {PARTY.cbsOffences} CBS offenses</div></div>
         </div>
 
-        {PARTY.delisted && <div className="udet-delisted">Delisted for confirmed fraud on {PARTY.delistedAt} — {PARTY.delistedReason}</div>}
+        {PARTY.delisted && <div className="udet-delisted">Seller delisted on {PARTY.delistedAt}{PARTY.delistedReason ? ` — ${PARTY.delistedReason}` : ''}</div>}
 
         <h3 className="udet-h3">Roles</h3>
-        <ul className="udet-roles">{ROLES.map((r) => <li key={r}>{r}</li>)}</ul>
+        <ul className="udet-roles">{ROLES.length ? ROLES.map((r, i) => <li key={i}>{r}</li>) : <li>No active roles.</li>}</ul>
 
         <div className="udet-promote-card">
           <div className="udet-promote-title">Promote to Tenant Admin</div>
@@ -94,25 +100,27 @@ export default function UserDetail() {
             </select>
             <button onClick={promote} disabled={!promoteTenantId || busy} className="udet-grant-btn" style={{ background: promoteTenantId ? 'var(--color-success)' : '#E9EBF2', color: promoteTenantId ? '#fff' : 'var(--color-text-faint)' }}>Grant</button>
           </div>
-          {granted && <p className="udet-granted-note">Granted Tenant Admin on {granted}.</p>}
+          {granted && <p className="udet-granted-note">{granted}</p>}
           {error && <p className="udet-granted-note" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </div>
 
         <h3 className="udet-h3">Recent Purchases (as Trader)</h3>
-        <div className="udet-table">{PURCHASES.map((p, i) => (
+        <div className="udet-table">{PURCHASES.length === 0 && <div className="udet-table-row"><span className="udet-cell-faint">No purchases.</span></div>}{PURCHASES.map((p, i) => (
           <div key={i} className="udet-table-row udet-table-row--3col"><span>{p.amount}</span><span className="udet-cell-muted">{p.status}</span><span className="udet-cell-faint">{p.date}</span></div>
         ))}</div>
 
         <h3 className="udet-h3">Recent Sales (as Market Maker)</h3>
-        <div className="udet-table">{SALES.map((sl, i) => (
+        <div className="udet-table">{SALES.length === 0 && <div className="udet-table-row"><span className="udet-cell-faint">No sales.</span></div>}{SALES.map((sl, i) => (
           <div key={i} className="udet-table-row udet-table-row--3col"><span>{sl.amount}</span><span className="udet-cell-muted">{sl.status}</span><span className="udet-cell-faint">{sl.date}</span></div>
         ))}</div>
 
         <h3 className="udet-h3">Disputes (filed or against)</h3>
-        <div className="udet-table udet-table--last">{DISPUTES.map((d, i) => (
+        <div className="udet-table udet-table--last">{DISPUTES.length === 0 && <div className="udet-table-row"><span className="udet-cell-faint">No disputes.</span></div>}{DISPUTES.map((d, i) => (
           <div key={i} className="udet-table-row udet-table-row--4col"><span>{d.category}</span><span className="udet-cell-muted">{d.status}</span><span className="udet-cell-faint">{d.role}</span><span className="udet-cell-faint">{d.date}</span></div>
         ))}</div>
+        </>)}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

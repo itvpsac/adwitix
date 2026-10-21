@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -18,7 +19,7 @@ export default function RulesAndSpecifications() {
 
   // GET /admin/rules → { rules: [sovereign_rule] }; every edit is versioned
   // server side and needs a Reason for Modification.
-  const { data, loading, reload } = useApiQuery(() => admin.rules(), []);
+  const { data, loading, error: loadError, reload } = useApiQuery(() => admin.rules(), []);
   const rules = (data && data.rules) || [];
 
   const startEdit = (rule) => {
@@ -66,8 +67,8 @@ export default function RulesAndSpecifications() {
   );
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Rules & Specifications', to: '/rules-and-specifications', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Rules & Specifications', to: '/rules-and-specifications', active: true }]} />
       <main className="custodian-main">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -112,8 +113,10 @@ export default function RulesAndSpecifications() {
           })}
         </div>
         {loading && <div className="custodian-empty">Loading rules…</div>}
-        {!loading && rules.length === 0 && <div className="custodian-empty">No rules on record.</div>}
+        {loadError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load rules — {loadError.message || 'the service is not reachable'}.</div>}
+        {!loading && !loadError && rules.length === 0 && <div className="custodian-empty">No rules on record.</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -19,7 +20,7 @@ export default function MediaWaivers() {
 
   // GET /admin/media-waivers → { pending: [...], active: [...] }, both
   // tenant_media_waiver rows joined with tenant_name.
-  const { data, loading, reload } = useApiQuery(() => admin.mediaWaivers(), []);
+  const { data, loading, error, reload } = useApiQuery(() => admin.mediaWaivers(), []);
   const toRow = (w) => ({
     id: w.id,
     category: w.category,
@@ -61,8 +62,8 @@ export default function MediaWaivers() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Media Waivers', to: '/media-waivers', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Media Waivers', to: '/media-waivers', active: true }]} />
       <main className="custodian-main">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -110,7 +111,8 @@ export default function MediaWaivers() {
         </div>
         {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         {loading && <div className="custodian-empty">Loading waivers…</div>}
-        {!loading && pending.length === 0 && <div className="custodian-empty">No pending media waiver requests.</div>}
+        {!loading && error && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load media waivers: {error.message || 'request failed'}.</div>}
+        {!loading && !error && pending.length === 0 && <div className="custodian-empty">No pending media waiver requests.</div>}
 
         {active.length > 0 && (
           <>
@@ -142,5 +144,6 @@ export default function MediaWaivers() {
         )}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

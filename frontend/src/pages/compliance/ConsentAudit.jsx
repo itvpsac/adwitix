@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -14,7 +15,7 @@ export default function ConsentAudit() {
   const [type, setType] = useState('all');
 
   // GET /admin/consent-audit?consent_type= → { entries: [...] } (latest 200)
-  const { data, loading } = useApiQuery(() => admin.consentAudit(type === 'all' ? {} : { consent_type: type }), [type]);
+  const { data, loading, error } = useApiQuery(() => admin.consentAudit(type === 'all' ? {} : { consent_type: type }), [type]);
   let all = ((data && data.entries) || []).map((e) => ({
     at: (e.created_at || '').slice(0, 16).replace('T', ' '),
     user: e.mobile_number,
@@ -26,15 +27,15 @@ export default function ConsentAudit() {
   if (q) all = all.filter((e) => [e.user, e.ip].join(' ').toLowerCase().includes(q));
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Consent Audit', to: '/consent-audit', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Consent Audit', to: '/consent-audit', active: true }]} />
       <main className="custodian-main custodian-main--wide">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
           <h1 className="custodian-title">Consent Audit</h1>
           <button onClick={() => setShowInfo(!showInfo)} title="Why this screen exists" className="custodian-info-btn">i</button>
         </div>
-        <p className="custodian-sub">Append-only log of every consent a user has given — Terms of Usage, Privacy Policy, Cookie Policy, KYC data-sharing — with the document version and timestamp on record.</p>
+        <p className="custodian-sub">Append-only log of every consent a user has given — registration Terms of Usage &amp; Privacy Policy, and EMD pledges — with the document version and timestamp on record (latest 200 shown).</p>
         {showInfo && (
           <div className="custodian-info-box">
             <strong>Why this screen exists:</strong> Every acceptance of Terms of Usage, Privacy Policy, Cookie Policy, or KYC data consent is recorded with the document version and timestamp, forming an append-only compliance record.
@@ -64,8 +65,10 @@ export default function ConsentAudit() {
           ))}
         </div>
         {loading && <div className="custodian-empty">Loading consent records…</div>}
-        {!loading && all.length === 0 && <div className="custodian-empty">No consent records match your search/filter.</div>}
+        {!loading && error && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load consent records: {error.message || 'request failed'}.</div>}
+        {!loading && !error && all.length === 0 && <div className="custodian-empty">No consent records match your search/filter.</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

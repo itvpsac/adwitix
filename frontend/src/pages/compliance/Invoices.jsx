@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -9,19 +10,22 @@ const STATUS_META = {
   Paid: { color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
   Pending: { color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
 };
-const STATUSES = ['all', 'Paid', 'Pending'];
 
 export default function Invoices() {
   const [showInfo, setShowInfo] = useState(false);
   const [query, setQuery] = useState('');
-  const [status, setStatus] = useState('all');
 
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState('');
 
-  // GET /admin/tenant-invoices → { pending: [tenant_monthly_invoice] }
-  const { data: apiData, loading: apiLoading, reload } = useApiQuery(() => admin.tenantInvoices(), []);
-  const apiRows = (apiData && apiData.pending) || [];
+  const [status, setStatus] = useState('pending');
+
+  // GET /admin/tenant-invoices?status=pending|paid|all → { invoices:
+  // [{ id, tenant_id, tenant_name, invoice_number, period_start, period_end,
+  // total_amount, gst_amount, status, generated_at, paid_at,
+  // paid_by_party_id }], status }. The legacy `pending` array is ignored.
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.tenantInvoices({ status }), [status]);
+  const apiRows = (apiData && apiData.invoices) || [];
   let all = apiRows.map((i) => ({
     id: i.id,
     tsx: i.tenant_name || i.tenant_id || '—',
@@ -29,6 +33,7 @@ export default function Invoices() {
     period: `${(i.period_start || '').slice(0, 10)} → ${(i.period_end || '').slice(0, 10)}`,
     amount: i.total_amount != null ? `₹${Number(i.total_amount).toLocaleString('en-IN')}` : '—',
     due: (i.generated_at || '').slice(0, 10),
+    paidAt: (i.paid_at || '').slice(0, 10),
     status: i.status === 'paid' ? 'Paid' : 'Pending',
   }));
 
@@ -44,13 +49,12 @@ export default function Invoices() {
       setBusyId(null);
     }
   };
-  if (status !== 'all') all = all.filter((i) => i.status === status);
   const q = query.trim().toLowerCase();
   if (q) all = all.filter((i) => `${i.tsx} ${i.invoiceId}`.toLowerCase().includes(q));
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Invoices', to: '/invoices', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Invoices', to: '/invoices', active: true }]} />
       <main className="custodian-main custodian-main--wide">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -70,17 +74,17 @@ export default function Invoices() {
           <span className="custodian-search__icon">⌕</span>
         </div>
         <div className="custodian-filters">
-          {STATUSES.map((v) => (
-            <button key={v} onClick={() => setStatus(v)} className={`custodian-filter-pill${status === v ? ' custodian-filter-pill--active' : ''}`}>{v === 'all' ? 'All' : v}</button>
+          {[['pending', 'Pending'], ['paid', 'Paid'], ['all', 'All']].map(([key, label]) => (
+            <button key={key} onClick={() => { setStatus(key); setActionError(''); }} className={`custodian-filter-pill${status === key ? ' custodian-filter-pill--active' : ''}`}>{label}</button>
           ))}
         </div>
 
         <div className="iv-table">
           <div className="iv-row iv-row--head"><span>TradeSphereX</span><span>Invoice</span><span>Period</span><span style={{ textAlign: 'right' }}>Amount</span><span>Generated</span><span>Status</span></div>
-          {all.map((i) => {
+          {!apiLoading && all.map((i) => {
             const meta = STATUS_META[i.status];
             return (
-              <div key={i.invoiceId} className="iv-row">
+              <div key={i.id} className="iv-row">
                 <span className="iv-cell-tsx">{i.tsx}</span>
                 <span className="iv-cell-mono">{i.invoiceId}</span>
                 <span className="iv-cell-muted">{i.period}</span>
@@ -88,6 +92,7 @@ export default function Invoices() {
                 <span className="iv-cell-muted">{i.due}</span>
                 <span>
                   <span className="iv-status" style={{ color: meta.color, background: meta.bg }}>{i.status}</span>
+                  {i.status === 'Paid' && i.paidAt && <span className="iv-cell-muted" style={{ marginLeft: 8 }}>on {i.paidAt}</span>}
                   {i.status === 'Pending' && (
                     <button className="custodian-filter-pill" style={{ marginLeft: 8 }} disabled={busyId === i.id} onClick={() => markPaid(i)}>
                       {busyId === i.id ? 'Saving…' : 'Mark paid'}
@@ -99,8 +104,11 @@ export default function Invoices() {
           })}
         </div>
         {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
-        {!apiLoading && all.length === 0 && <div className="custodian-empty">No invoices yet.</div>}
+        {apiError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load invoices — {apiError.message || 'the service is not reachable'}.</div>}
+        {apiLoading && <div className="custodian-empty">Loading invoices…</div>}
+        {!apiLoading && !apiError && all.length === 0 && <div className="custodian-empty">{q ? 'No invoices match your search.' : status === 'all' ? 'No invoices yet.' : `No ${status} invoices.`}</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

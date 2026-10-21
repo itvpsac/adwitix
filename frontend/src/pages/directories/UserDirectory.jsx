@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import { Link, useSearchParams } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
@@ -13,10 +14,26 @@ export default function UserDirectory() {
   const [type, setType] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [kycFilter, setKycFilter] = useState('all');
-  const [pageSize, setPageSize] = useState(40);
+  const [page, setPage] = useState(1);
 
-  const { data: apiData, loading: apiLoading } = useApiQuery(() => admin.users(), []);
-  const apiRows = (apiData && (apiData.users || apiData.parties || apiData.rows)) || [];
+  // Search and paging run server-side (UserController::index matches mobile,
+  // name, recovery email and GSTIN; sorted by mobile). Wait for typing to
+  // pause before querying; a new search starts again at page 1.
+  const PER_PAGE = 50;
+  const [debouncedQuery, setDebouncedQuery] = useState(query.trim());
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const next = query.trim();
+      if (next !== debouncedQuery) { setDebouncedQuery(next); setPage(1); }
+    }, 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.users({ q: debouncedQuery, page, per_page: PER_PAGE }), [debouncedQuery, page]);
+  const apiRows = (!apiError && apiData && apiData.users) || [];
+  const serverTotal = Number((apiData && apiData.total) ?? apiRows.length);
+  const totalPages = Math.max(1, Number((apiData && apiData.totalPages) || 1));
+  const filtersActive = type !== 'all' || statusFilter !== 'all' || kycFilter !== 'all';
   const statusStyle = (st) => st === 'Delisted'
     ? { statusColor: 'var(--color-danger)', statusBg: 'var(--color-danger-bg)' }
     : st === 'Shadow-banned'
@@ -40,42 +57,45 @@ export default function UserDirectory() {
   if (type !== 'all') filtered = filtered.filter((u) => u.type === type);
   if (statusFilter !== 'all') filtered = filtered.filter((u) => u.status === statusFilter);
   if (kycFilter !== 'all') filtered = filtered.filter((u) => u.kyc === kycFilter);
-  const q = query.trim().toLowerCase();
-  if (q) filtered = filtered.filter((u) => `${u.mobile} ${u.name} ${u.type}`.toLowerCase().includes(q));
   const total = filtered.length;
-  const page = filtered.slice(0, pageSize);
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Users', to: '/user-directory', active: true }, { label: 'Lots', to: '/lot-directory' }, { label: 'Sessions', to: '/trading-session-directory' }]} />}>
     <div className="ud-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Users', to: '/user-directory', active: true }, { label: 'Lots', to: '/lot-directory' }, { label: 'Sessions', to: '/trading-session-directory' }]} />
       <main className="ud-main">
         <div className="legal-eyebrow">Custodian</div>
         <h1 className="ud-title">User Directory</h1>
         <p className="ud-sub">Every registered user, platform-wide, with dual Trader★/Market Maker★ ratings, KYC status, and account standing.</p>
 
         <div className="ud-search">
-          <input placeholder="Search — mobile, name, email, GSTIN, PAN…" value={query} onChange={(e) => { setQuery(e.target.value); setPageSize(40); }} />
+          <input placeholder="Search — mobile, name, email, GSTIN…" value={query} onChange={(e) => { setQuery(e.target.value); }} />
           <span className="ud-search__icon">⌕</span>
         </div>
         <div className="ud-filters">
           {['all', 'Individual', 'Business'].map((t) => (
-            <button key={t} onClick={() => { setType(t); setPageSize(40); }} className={`ud-pill${type === t ? ' ud-pill--active' : ''}`}>{t === 'all' ? 'All Types' : t}</button>
+            <button key={t} onClick={() => { setType(t); }} className={`ud-pill${type === t ? ' ud-pill--active' : ''}`}>{t === 'all' ? 'All Types' : t}</button>
           ))}
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPageSize(40); }} className="ud-select">
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); }} className="ud-select">
             <option value="all">All Statuses</option><option value="Active">Active</option><option value="Shadow-banned">Shadow-banned</option><option value="Delisted">Delisted</option>
           </select>
-          <select value={kycFilter} onChange={(e) => { setKycFilter(e.target.value); setPageSize(40); }} className="ud-select">
-            <option value="all">All KYC</option><option value="Verified">Verified</option><option value="Pending">Pending</option><option value="Suspended">Suspended</option>
+          <select value={kycFilter} onChange={(e) => { setKycFilter(e.target.value); }} className="ud-select">
+            <option value="all">All KYC</option><option value="Verified">Verified</option><option value="Pending">Pending</option><option value="Submitted">Submitted</option><option value="Suspended">Suspended</option>
           </select>
-          <button onClick={() => { setQuery(''); setType('all'); setStatusFilter('all'); setKycFilter('all'); setPageSize(40); }} className="ud-clear">Clear</button>
-          <button onClick={() => setPageSize(pageSize)} className="ud-refresh">↻ Refresh</button>
+          <button onClick={() => { setQuery(''); setType('all'); setStatusFilter('all'); setKycFilter('all'); }} className="ud-clear">Clear</button>
+          <button onClick={reload} disabled={apiLoading} className="ud-refresh">↻ Refresh</button>
         </div>
 
-        <div className="ud-count">{total}{total === 1 ? ' matching user' : ' matching users'}{total > page.length ? ` · showing ${page.length}` : ''}</div>
+        {!apiError && (
+          <div className="ud-count">
+            {apiLoading
+              ? 'Loading…'
+              : `Page ${page} of ${totalPages} · ${serverTotal}${serverTotal === 1 ? ' user' : ' users'}${filtersActive ? ` · ${total} on this page match the type/status/KYC filters (filters apply to the current page only)` : ''}`}
+          </div>
+        )}
 
         <div className="ud-table">
           <div className="ud-row ud-row--head"><span>Mobile</span><span>Name</span><span>Type</span><span>KYC</span><span>Trader★</span><span>MM★</span><span>Status</span></div>
-          {page.map((u, i) => (
+          {filtered.map((u, i) => (
             <Link to={`/user-detail?id=${u.id}`} key={u.id || u.mobile} className="ud-row" style={{ background: i % 2 === 1 ? '#FCFCFB' : '#fff' }}>
               <span className="ud-cell-mono">{u.mobile}</span>
               <span className="ud-cell-name">{u.name}</span>
@@ -87,10 +107,24 @@ export default function UserDirectory() {
             </Link>
           ))}
         </div>
-        {!apiLoading && total === 0 && <div className="ud-empty">{apiRows.length === 0 ? 'No users yet.' : 'No users match your search/filters.'}</div>}
-        {total > page.length && <button onClick={() => setPageSize(pageSize + 40)} className="ud-load-more">Load {Math.min(40, total - page.length)} more</button>}
+        {apiError && (
+          <div className="ud-empty">
+            {apiError.status === 401 || apiError.status === 403
+              ? 'You need to be signed in as Custodian (Super Admin) to view the User Directory.'
+              : (apiError.message || 'Could not load users. Please try again.')}
+          </div>
+        )}
+        {!apiLoading && !apiError && total === 0 && <div className="ud-empty">{apiRows.length === 0 ? (debouncedQuery ? 'No users match your search.' : 'No users yet.') : 'No users on this page match the filters — try another page or clear the filters.'}</div>}
+        {!apiError && totalPages > 1 && (
+          <div className="ud-pager">
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={apiLoading || page <= 1} className="ud-pager__btn">← Previous</button>
+            <span className="ud-pager__label">Page {page} of {totalPages}</span>
+            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={apiLoading || page >= totalPages} className="ud-pager__btn">Next →</button>
+          </div>
+        )}
       </main>
-      <footer className="ud-footer"><p>Every status change here is written to the <a href="/audit-ledger">Audit Ledger</a>.</p></footer>
+      <footer className="ud-footer"><p>Every status change here is written to the <Link to="/audit-ledger">Audit Ledger</Link>.</p></footer>
     </div>
+    </ConsoleFrame>
   );
 }

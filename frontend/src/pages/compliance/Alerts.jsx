@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger, loadJSON, saveJSON } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -17,8 +18,9 @@ export default function Alerts() {
   const [showInfo, setShowInfo] = useState(false);
   const [sev, setSev] = useState('all');
   const [dismissed, setDismissed] = useState(loadJSON('adwitix_alerts_dismissed', []));
+  const [actionError, setActionError] = useState('');
 
-  const { data: apiData, loading: apiLoading } = useApiQuery(() => admin.alerts(), []);
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.alerts(), []);
   // GET /admin/alerts returns one list per condition; flatten them into
   // the feed this screen renders.
   const d = apiData || {};
@@ -26,7 +28,7 @@ export default function Alerts() {
   const source = [
     ...(d.amlFlags || []).map((f) => ({
       id: `aml-${f.id}`, severity: 'Critical', category: 'AML', at: at(f.created_at),
-      title: `AML flag — ${f.mobile_number || f.party_id}`, detail: f.detail || f.flag_type || 'Open AML flag awaiting review.', href: '/aml-monitoring',
+      title: `AML flag — ${f.mobile_number || f.party_id}`, detail: `${(f.flag_type || 'aml_flag').replace(/_/g, ' ')} — open AML flag awaiting review.`, href: '/aml-monitoring',
     })),
     ...(d.stalledSettlements || []).map((x) => ({
       id: `stl-${x.id}`, severity: 'Critical', category: 'Settlement', at: at(x.created_at),
@@ -46,15 +48,25 @@ export default function Alerts() {
     })),
     ...(d.driftAlerts || []).map((x) => ({
       id: `drift-${x.id}`, severity: 'Critical', category: 'Server time', at: at(x.checked_at),
-      title: 'Server clock drift', detail: `Drift of ${x.drift_seconds ?? '?'}s is outside tolerance.`, href: '/alerts', driftId: x.id,
+      title: 'Server clock drift', detail: Number(x.ntp_reachable) === 0 || x.drift_seconds == null ? `NTP host ${x.ntp_host || ''} was unreachable at the last check.` : `Drift of ${x.drift_seconds}s is outside the ${x.tolerance_seconds}s tolerance.`, href: '/alerts', driftId: x.id,
     })),
   ];
   let all = source.filter((a) => !dismissed.includes(a.id));
   if (sev !== 'all') all = all.filter((a) => a.severity === sev);
 
   const dismiss = async (a) => {
+    setActionError('');
     if (a.driftId) {
-      try { await admin.acknowledgeServerTimeDrift(a.driftId); } catch (e) { /* keep the local dismiss */ }
+      // Drift alerts are acknowledged server-side; the API drops them from
+      // the list, so no local dismiss is needed.
+      try {
+        await admin.acknowledgeServerTimeDrift(a.driftId);
+        pushLedger('Acknowledged Alert', a.title, a.detail);
+        reload();
+      } catch (e) {
+        setActionError(e.message || 'Could not acknowledge the drift alert.');
+      }
+      return;
     }
     const next = [...dismissed, a.id];
     saveJSON('adwitix_alerts_dismissed', next);
@@ -63,8 +75,8 @@ export default function Alerts() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Alerts', to: '/alerts', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Alerts', to: '/alerts', active: true }]} />
       <main className="custodian-main">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -101,14 +113,18 @@ export default function Alerts() {
                 </div>
                 <div className="alert-actions">
                   <a href={a.href} className="alert-review-btn">Review →</a>
-                  <button onClick={() => dismiss(a)} className="alert-dismiss-btn">Dismiss</button>
+                  <button onClick={() => dismiss(a)} className="alert-dismiss-btn" title={a.driftId ? 'Acknowledge on the server' : 'Hide in this browser only — the underlying condition stays open'}>{a.driftId ? 'Acknowledge' : 'Dismiss'}</button>
                 </div>
               </div>
             );
           })}
         </div>
-        {!apiLoading && all.length === 0 && <div className="custodian-empty">No alerts right now.</div>}
+        {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
+        {apiLoading && <div className="custodian-empty">Loading alerts…</div>}
+        {!apiLoading && apiError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load alerts: {apiError.message || 'request failed'}.</div>}
+        {!apiLoading && !apiError && all.length === 0 && <div className="custodian-empty">No alerts right now.</div>}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

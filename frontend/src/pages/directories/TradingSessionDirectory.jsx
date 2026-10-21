@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -24,14 +26,14 @@ export default function TradingSessionDirectory() {
   const [page, setPage] = useState(1);
 
   // GET /admin/trading-sessions — filtered and paginated server side.
-  const { data, loading } = useApiQuery(
+  const { data, loading, error } = useApiQuery(
     () => admin.tradingSessions({ tenant_id: tenantFilter, format: formatFilter, status: statusFilter, page, per_page: PER_PAGE }),
     [tenantFilter, formatFilter, statusFilter, page],
   );
   const tenants = (data && data.tenants) || [];
   const total = (data && data.total) || 0;
   const totalPages = (data && data.totalPages) || 1;
-  const rows = ((data && data.saleEvents) || []).map((se) => ({
+  const rows = (error ? [] : (data && data.saleEvents) || []).map((se) => ({
     id: se.id,
     ern: se.ern,
     tenantName: se.tenant_name,
@@ -43,12 +45,12 @@ export default function TradingSessionDirectory() {
   const setFilter = (fn) => (v) => { fn(v); setPage(1); };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Users', to: '/user-directory' }, { label: 'Lots', to: '/lot-directory' }, { label: 'Sessions', to: '/trading-session-directory', active: true }]} />}>
     <div className="sd-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Users', to: '/user-directory' }, { label: 'Lots', to: '/lot-directory' }, { label: 'Sessions', to: '/trading-session-directory', active: true }]} />
       <main className="sd-main">
         <div className="legal-eyebrow">Custodian</div>
         <h1 className="sd-title">Trading Session Directory</h1>
-        <p className="sd-sub">Every Trading Session (sale event) across every Tenant — {total} total.</p>
+        <p className="sd-sub">Every Trading Session (sale event) across every Tenant{loading || error ? '.' : ` — ${total} total.`}</p>
 
         <div className="sd-filters">
           <select value={tenantFilter} onChange={(e) => setFilter(setTenantFilter)(e.target.value)} className="sd-select">
@@ -65,7 +67,9 @@ export default function TradingSessionDirectory() {
           <button onClick={() => { setTenantFilter(''); setFormatFilter(''); setStatusFilter(''); setPage(1); }} className="sd-clear">Clear</button>
         </div>
 
-        <div className="sd-count">{total}{total === 1 ? ' matching session' : ' matching sessions'}{totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}</div>
+        {!error && (
+          <div className="sd-count">{loading ? 'Loading…' : `${total}${total === 1 ? ' matching session' : ' matching sessions'}${totalPages > 1 ? ` · page ${page} of ${totalPages}` : ''}`}</div>
+        )}
 
         <div className="sd-table">
           <div className="sd-row sd-row--head"><span>ERN</span><span>Tenant</span><span>Category</span><span>Format</span><span>Status</span><span>Value</span></div>
@@ -84,15 +88,23 @@ export default function TradingSessionDirectory() {
           })}
         </div>
         {loading && <div className="sd-empty">Loading…</div>}
-        {!loading && total === 0 && <div className="sd-empty">No matching Trading Sessions.</div>}
-        {totalPages > 1 && (
+        {error && (
+          <div className="sd-empty">
+            {error.status === 401 || error.status === 403
+              ? 'You need to be signed in as Custodian (Super Admin) to view the Trading Session Directory.'
+              : (error.message || 'Could not load Trading Sessions. Please try again.')}
+          </div>
+        )}
+        {!loading && !error && total === 0 && <div className="sd-empty">No matching Trading Sessions.</div>}
+        {!error && totalPages > 1 && (
           <div className="sd-filters" style={{ justifyContent: 'center' }}>
             <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="sd-pill">← Prev</button>
             <button disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="sd-pill">Next →</button>
           </div>
         )}
       </main>
-      <footer className="sd-footer"><p>Session approvals are recorded in the <a href="/audit-ledger">Audit Ledger</a>.</p></footer>
+      <footer className="sd-footer"><p>Session approvals are recorded in the <Link to="/audit-ledger">Audit Ledger</Link>.</p></footer>
     </div>
+    </ConsoleFrame>
   );
 }

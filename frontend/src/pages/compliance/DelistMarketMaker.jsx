@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -19,7 +20,7 @@ export default function DelistMarketMaker() {
 
   // GET /admin/users?q= searches mobile, name, email and GSTIN server side.
   const q = query.trim();
-  const { data, loading, reload } = useApiQuery(() => admin.users(q ? { q } : {}), [q]);
+  const { data, loading, error: loadError, reload } = useApiQuery(() => admin.users(q ? { q } : {}), [q]);
   const users = (data && data.users) || [];
   const toRow = (u) => ({
     id: u.id,
@@ -53,8 +54,8 @@ export default function DelistMarketMaker() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Delist Market Maker', to: '/delist-market-maker', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Delist Market Maker', to: '/delist-market-maker', active: true }]} />
       <main className="custodian-main">
         <div className="legal-eyebrow">Custodian</div>
         <div className="custodian-title-row">
@@ -109,7 +110,8 @@ export default function DelistMarketMaker() {
         </div>
 
         {loading && <div className="custodian-empty">Loading…</div>}
-        {!loading && all.length === 0 && <div className="custodian-empty">No matching users.</div>}
+        {loadError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load users — {loadError.message || 'the service is not reachable'}.</div>}
+        {!loading && !loadError && all.length === 0 && <div className="custodian-empty">No matching users.</div>}
 
         {delisted.length > 0 && (
           <>
@@ -126,5 +128,6 @@ export default function DelistMarketMaker() {
         )}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }
