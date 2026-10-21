@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import { Link, useSearchParams } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
-import { disputes as disputesApi, saleEvents, admin } from '../../api/endpoints.js';
+import { disputes as disputesApi, saleEvents } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
 import { useAuth, isCustodian } from '../../utils/auth.js';
 import './DisputeCenter.css';
@@ -31,14 +31,17 @@ const ROLE_TABS = [
 function catLabel(id) { return (CATEGORIES.find((c) => c.id === id) || {}).label || id; }
 const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
 
-// Maps GET /disputes/:id → { dispute, evidence } (or a bare dispute row from
-// GET /admin/alerts, evidence not yet loaded) into the shape this screen renders.
+// Maps GET /disputes/:id → { dispute, evidence } (or a bare row from
+// GET /disputes, evidence not yet loaded) into the shape this screen renders.
 function toLocal({ dispute: d, evidence }) {
   return {
     id: d.id, live: true,
-    saleEventRef: `Sale event ${d.sale_event_id}`,
-    category: d.category, rulingAuthorityType: d.ruling_authority_type || 'tenant_admin',
+    saleEventRef: d.ern ? `ERN ${d.ern}` : `Sale event ${d.sale_event_id}`,
+    listingTitle: d.listing_title || '', tenantName: d.tenant_name || '',
+    // List rows don't carry ruling_authority_type; it follows from the category.
+    category: d.category, rulingAuthorityType: d.ruling_authority_type || (CATEGORIES.find((c) => c.id === d.category) || {}).authority || 'tenant_admin',
     description: d.description, status: d.status,
+    createdAt: stamp(d.created_at), evidenceDeadlineAt: stamp(d.evidence_deadline_at), ruledAt: stamp(d.ruled_at),
     evidence: (evidence || []).map((e) => ({ content: e.content, createdAt: stamp(e.created_at) })),
     rulingOutcome: d.ruling_outcome, rulingRationale: d.ruling_rationale || '',
     appealed: !!d.appealed_at, appealRationale: d.appeal_rationale || '',
@@ -56,10 +59,12 @@ export default function DisputeCenter() {
   const liveSaleEventId = params.get('saleEvent');
   const { user } = useAuth();
   const custodian = isCustodian(user);
-  // There is no "list my disputes" endpoint: parties see the dispute they
-  // opened via ?id=; Super Admins get the open queue from GET /admin/alerts.
+  // GET /disputes lists the caller's disputes (all of them for a Super Admin);
+  // the selected dispute is loaded in full (with evidence) from GET /disputes/:id.
   const [disputes, setDisputes] = useState([]);
   const [listLoading, setListLoading] = useState(false);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [busy, setBusy] = useState(false);
   const [evidenceDraft, setEvidenceDraft] = useState('');
@@ -72,27 +77,39 @@ export default function DisputeCenter() {
   const [fileDescription, setFileDescription] = useState('');
   const fileSaleEventId = liveSaleEventId;
 
-  const loadLive = async (id) => {
-    const local = toLocal(unwrap(await disputesApi.show(id)));
-    setDisputes((cur) => (cur.some((d) => d.id === id) ? cur.map((d) => (d.id === id ? local : d)) : [local, ...cur]));
-    return local;
-  };
-  useEffect(() => {
-    if (!custodian) return;
+  const loadList = async () => {
     setListLoading(true);
-    admin.alerts()
-      .then((res) => {
-        const rows = (unwrap(res).openDisputes || []).map((d) => toLocal({ dispute: d, evidence: [] }));
-        setDisputes((cur) => [...cur, ...rows.filter((r) => !cur.some((d) => d.id === r.id))]);
-      })
-      .catch((err) => setApiError(err.message || 'Could not load open disputes.'))
-      .finally(() => setListLoading(false));
-  }, [custodian]);
+    try {
+      const rows = (unwrap(await disputesApi.mine()).disputes || []).map((d) => toLocal({ dispute: d, evidence: [] }));
+      rows.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      setDisputes(rows);
+    } catch (err) {
+      setApiError(err.message || 'Could not load your disputes.');
+    } finally {
+      setListLoading(false);
+    }
+  };
+  const loadLive = async (id) => {
+    setDetailLoading(true);
+    try {
+      const local = toLocal(unwrap(await disputesApi.show(id)));
+      setDetail(local);
+      return local;
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+  const detailError = (err) => setApiError(err && err.status === 404
+    ? 'Dispute not found — it may not exist, or you may not have access to it.'
+    : (err.message || 'Could not load the dispute.'));
+  useEffect(() => {
+    loadList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     if (!liveId) return;
-    loadLive(liveId)
-      .then(() => { setSelectedId(liveId); setView('detail'); })
-      .catch((err) => setApiError(err.message || 'Could not load the dispute.'));
+    setApiError(''); setSelectedId(liveId); setView('detail');
+    loadLive(liveId).catch(detailError);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId]);
 
@@ -102,7 +119,7 @@ export default function DisputeCenter() {
     setApiError('');
     try {
       await call();
-      await loadLive(selectedId);
+      await Promise.all([loadLive(selectedId), loadList()]);
       return true;
     } catch (err) {
       setApiError(err.message || 'Action failed.');
@@ -118,7 +135,7 @@ export default function DisputeCenter() {
     if (role === 'super_admin') return d.rulingAuthorityType === 'super_admin' || d.status === 'appealed' || d.status === 'closed';
     return true;
   });
-  const selected = disputes.find((d) => d.id === selectedId);
+  const selected = (detail && detail.id === selectedId) ? detail : disputes.find((d) => d.id === selectedId);
   const meta = selected ? STATUS_META[selected.status] || STATUS_META.filed : null;
   const canSubmitEvidence = selected && role === 'party' && (selected.status === 'filed' || selected.status === 'evidence_window');
   const canRule = selected && (selected.status === 'filed' || selected.status === 'evidence_window') &&
@@ -130,7 +147,7 @@ export default function DisputeCenter() {
   const openDispute = (id) => {
     setApiError(''); setSelectedId(id); setView('detail'); setEvidenceDraft(''); setRulingOutcome(''); setRulingAtFaultParty(''); setRulingRationale(''); setRulingError(''); setAppealRationale('');
     // Refresh from GET /disputes/:id so the evidence trail is current.
-    loadLive(id).catch((err) => setApiError(err.message || 'Could not load the dispute.'));
+    loadLive(id).catch(detailError);
   };
 
   const submitEvidence = async () => {
@@ -155,6 +172,7 @@ export default function DisputeCenter() {
     try {
       const res = unwrap(await saleEvents.fileDispute(liveSaleEventId, { category: fileCategory, description: fileDescription }));
       setParams({ id: res.dispute.id });
+      loadList();
     } catch (err) {
       setApiError(err.message || 'Could not file the dispute.');
     } finally {
@@ -187,17 +205,18 @@ export default function DisputeCenter() {
                 return (
                   <button key={d.id} onClick={() => openDispute(d.id)} className="dc-row">
                     <div>
-                      <p className="dc-row__meta">{d.id} · {d.saleEventRef}</p>
+                      <p className="dc-row__meta">{[d.saleEventRef, d.tenantName, d.createdAt].filter(Boolean).join(' · ')}</p>
                       <p className="dc-row__title">{catLabel(d.category)}</p>
+                      {d.listingTitle && <p className="dc-row__meta">{d.listingTitle}</p>}
                     </div>
                     <span className="dc-status" style={{ color: m.color, background: m.bg }}>{m.label}</span>
                   </button>
                 );
               })}
             </div>
-            {listLoading && <div className="dc-empty">Loading disputes…</div>}
+            {listLoading && relevant.length === 0 && <div className="dc-empty">Loading disputes…</div>}
             {!listLoading && relevant.length === 0 && (
-              <div className="dc-empty">{custodian ? 'Nothing here for this role right now.' : 'No dispute open on this screen. Open a dispute from its link on your dashboard or Settlement page.'}</div>
+              <div className="dc-empty">{disputes.length > 0 ? 'Nothing here for this role right now.' : custodian ? 'No disputes on record.' : 'You have no disputes yet.'}</div>
             )}
           </>
         )}
@@ -219,13 +238,20 @@ export default function DisputeCenter() {
           </>
         )}
 
+        {view === 'detail' && !selected && (
+          <>
+            <button onClick={() => setView('list')} className="dc-back">← Back to Disputes</button>
+            {detailLoading && <div className="dc-empty">Loading dispute…</div>}
+          </>
+        )}
+
         {view === 'detail' && selected && (
           <>
             <button onClick={() => setView('list')} className="dc-back">← Back to Disputes</button>
             <span className="dc-status dc-status--block" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span>
             <h2 className="dc-detail-title">{catLabel(selected.category)}</h2>
             <p className="dc-detail-desc">{selected.description}</p>
-            <p className="dc-detail-authority">Ruling authority: {selected.rulingAuthorityType === 'tenant_admin' ? 'Tenant Admin' : 'Super Admin'} · {selected.saleEventRef}</p>
+            <p className="dc-detail-authority">Ruling authority: {selected.rulingAuthorityType === 'tenant_admin' ? 'Tenant Admin' : 'Super Admin'} · {[selected.saleEventRef, selected.listingTitle, selected.tenantName].filter(Boolean).join(' · ')}{selected.createdAt ? ` · Filed ${selected.createdAt}` : ''}</p>
 
             <h3 className="dc-h3">Evidence</h3>
             <div className="dc-evidence-list">
