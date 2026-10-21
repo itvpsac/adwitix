@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -7,8 +8,8 @@ import './ChargebackHandling.css';
 
 const day = (v) => (v || '').slice(0, 10);
 const money = (v) => (v == null ? '—' : `₹${Number(v).toLocaleString('en-IN')}`);
-// Buyer-side explainer; there is no buyer-facing chargeback list endpoint.
-const TRADER_SAMPLE = { id: 'cb2', caseId: 'CB-2214', lotTitle: 'Scrap Copper Coil — 12MT', amount: '₹1,86,500', filedAt: '2026-08-06', linkedForfeiture: true, status: 'represented' };
+// Buyer-side view is an explainer only: there is no buyer-facing chargeback
+// endpoint, so no individual case is shown here.
 const STATUS_META = {
   filed: { label: 'Filed', bg: '#EEF0F4', color: 'var(--color-text-muted)' },
   represented: { label: 'Represented', bg: '#E9EEFB', color: '#33518F' },
@@ -22,7 +23,7 @@ export default function ChargebackHandling() {
   const [actionError, setActionError] = useState('');
 
   // GET /admin/chargebacks → { openRepresentment, pendingIntegrityReview, resolved }
-  const { data, loading, reload } = useApiQuery(() => admin.chargebacks(), []);
+  const { data, loading, error: loadError, reload } = useApiQuery(() => admin.chargebacks(), []);
   const byId = new Map();
   const pendingIntegrity = new Set(((data && data.pendingIntegrityReview) || []).map((c) => c.id));
   [...((data && data.openRepresentment) || []), ...((data && data.pendingIntegrityReview) || []), ...((data && data.resolved) || [])]
@@ -62,12 +63,9 @@ export default function ChargebackHandling() {
     () => admin.decideChargeback(c.id, { outcome, notes: `Gateway representment ${outcome}` }),
     [`Recorded Representment ${outcome === 'won' ? 'Won' : 'Lost'}`, c.caseId, c.amount]);
 
-  const traderCase = TRADER_SAMPLE;
-  const traderMeta = STATUS_META[traderCase.status];
-
   return (
+    <ConsoleFrame header={<DashboardHeader consoleLabel="PR-30" />}>
     <div className="cb-page">
-      <DashboardHeader consoleLabel="PR-30" navItems={[{ label: 'SaaS Admin', to: '#', active: role === 'admin' }, { label: 'Buyer / Seller', to: '#', active: role === 'trader' }]} />
       <div className="cb-role-toggle">
         <button onClick={() => setRole('admin')} className={`cb-role-btn${role === 'admin' ? ' cb-role-btn--active' : ''}`}>SaaS Admin</button>
         <button onClick={() => setRole('trader')} className={`cb-role-btn${role === 'trader' ? ' cb-role-btn--active' : ''}`}>Buyer / Seller</button>
@@ -117,28 +115,27 @@ export default function ChargebackHandling() {
             </div>
             {actionError && <p className="cb-intro" style={{ color: 'var(--color-danger)' }}>{actionError}</p>}
             {loading && <p className="cb-intro">Loading cases…</p>}
-            {!loading && CASES.length === 0 && <p className="cb-intro">No chargeback cases on record.</p>}
+            {!loading && loadError && <p className="cb-intro" style={{ color: 'var(--color-danger)' }}>Could not load chargeback cases: {loadError.message || 'request failed'}.</p>}
+            {!loading && !loadError && CASES.length === 0 && <p className="cb-intro">No chargeback cases on record.</p>}
           </>
         )}
 
         {role === 'trader' && (
           <>
-            <div className="legal-eyebrow">{traderCase.id.toUpperCase()}</div>
-            <h1 className="cb-title cb-title--sm">{traderCase.lotTitle}</h1>
-            <p className="cb-sub">{traderCase.amount} · card-funded EMD</p>
+            <div className="legal-eyebrow">PR-30</div>
+            <h1 className="cb-title cb-title--sm">What a buyer or seller sees</h1>
+            <p className="cb-sub">Card-funded EMD · explainer (no individual case shown)</p>
             <div className="cb-trader-card">
               <div className="cb-trader-head">
                 <div className="cb-trader-title">Chargeback Filed</div>
-                <span className="cb-status" style={{ background: traderMeta.bg, color: traderMeta.color }}>{traderMeta.label}</span>
               </div>
-              <p className="cb-trader-body">A chargeback was filed against this transaction with the cardholder's issuing bank on {traderCase.filedAt}. AdwitiX has automatically assembled the evidence package — your per-pledge consent record, bid/transaction history, and the forfeiture approval chain — and reached representment.</p>
-              {traderCase.linkedForfeiture && (
-                <div className="cb-flag cb-flag--nested">This chargeback was filed against an already-approved forfeiture. Filing it does not extinguish your underlying payment obligation — AdwitiX retains the right to pursue recovery, and this has been logged as an account-integrity event on your record.</div>
-              )}
+              <p className="cb-trader-body">When a chargeback is filed against a transaction with the cardholder's issuing bank, AdwitiX automatically assembles the evidence package — the per-pledge consent record, bid/transaction history, and the forfeiture approval chain — and reaches representment.</p>
+              <div className="cb-flag cb-flag--nested">If the chargeback was filed against an already-approved forfeiture, filing it does not extinguish the underlying payment obligation — AdwitiX retains the right to pursue recovery, and it is logged as an account-integrity event on the buyer's record.</div>
             </div>
           </>
         )}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

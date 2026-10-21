@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
@@ -17,7 +18,7 @@ export default function PayoutReviews() {
   const [actionError, setActionError] = useState('');
 
   // GET /admin/payout-reviews → { pending, reviewed } payout_release_review rows
-  const { data, loading, reload } = useApiQuery(() => admin.payoutReviews(), []);
+  const { data, loading, error: loadError, reload } = useApiQuery(() => admin.payoutReviews(), []);
   const pending = ((data && data.pending) || []).map((r) => ({
     id: r.id,
     name: r.mobile_number,
@@ -39,7 +40,7 @@ export default function PayoutReviews() {
     setBusyId(p.id);
     setActionError('');
     try {
-      await admin.decidePayoutReview(p.id, { decision: approve ? 'approve' : 'decline', rationale });
+      await admin.decidePayoutReview(p.id, { decision: approve ? 'approve' : 'reject', rationale });
       pushLedger(approve ? 'Approved Payout Release' : 'Blocked Payout Release', p.name, approve ? p.amount : rationale);
       setBlockId(null);
       reload();
@@ -56,8 +57,8 @@ export default function PayoutReviews() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/tenant-admin/dashboard' }, { label: 'Payout Reviews', to: '/payout-reviews', active: true }]} />}>
     <div className="py-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Payout Reviews', to: '/payout-reviews', active: true }]} />
       <main className="py-main">
         <div className="legal-eyebrow">Custodian</div>
         <div className="py-title-row">
@@ -106,7 +107,8 @@ export default function PayoutReviews() {
         </div>
         {actionError && <div className="py-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         {loading && <div className="py-empty">Loading…</div>}
-        {!loading && pending.length === 0 && <div className="py-empty">No payouts pending review.</div>}
+        {!loading && loadError && <div className="py-empty" style={{ color: 'var(--color-danger)' }}>Could not load payout reviews: {loadError.message || 'request failed'}.</div>}
+        {!loading && !loadError && pending.length === 0 && <div className="py-empty">No payouts pending review.</div>}
 
         {decided.length > 0 && (
           <>
@@ -124,5 +126,6 @@ export default function PayoutReviews() {
         )}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }

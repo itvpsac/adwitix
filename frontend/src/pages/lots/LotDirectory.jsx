@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import { Link } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
@@ -79,11 +80,8 @@ export default function LotDirectory() {
   const remaining = total - lots.length;
 
   return (
+    <ConsoleFrame header={<DashboardHeader homeTo="/" navItems={[ { label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Users', to: '/user-directory' }, { label: 'Lots', to: '/lot-directory', active: true }, { label: 'Sessions', to: '/trading-session-directory' }, ]} />}>
     <div className="ld-page">
-      <DashboardHeader homeTo="/" navItems={[
-        { label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Users', to: '/user-directory' },
-        { label: 'Lots', to: '/lot-directory', active: true }, { label: 'Sessions', to: '/trading-session-directory' },
-      ]} />
       <main className="ld-main">
         <div className="legal-eyebrow">Custodian</div>
         <h1 className="ld-title">Lot Directory</h1>
@@ -138,5 +136,6 @@ export default function LotDirectory() {
       </main>
       <footer className="ld-footer"><p>Approvals, rejections, and edits are recorded in the <Link to="/audit-ledger">Audit Ledger</Link>.</p></footer>
     </div>
+    </ConsoleFrame>
   );
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import { Link, useSearchParams } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
-import { disputes as disputesApi, saleEvents } from '../../api/endpoints.js';
+import { disputes as disputesApi, saleEvents, admin } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
+import { useAuth, isCustodian } from '../../utils/auth.js';
 import './DisputeCenter.css';
 
 const CATEGORIES = [
@@ -20,26 +22,6 @@ const STATUS_META = {
   appealed: { label: 'Appealed', color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
   closed: { label: 'Closed (Final)', color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
 };
-const INITIAL_DISPUTES = [
-  { id: 'DSP-10422', saleEventRef: 'EXPRESS Trading Session — ₹1,15,000', category: 'non_lifting_collection', rulingAuthorityType: 'tenant_admin',
-    description: 'Market Maker is not responding to arrange collection after payment was confirmed.', status: 'evidence_window',
-    evidence: [{ content: 'Payment confirmation screenshot', createdAt: '2026-07-30 09:12' }, { content: 'Chat log (3 follow-ups, no response)', createdAt: '2026-07-30 09:16' }],
-    rulingOutcome: null, rulingRationale: '', appealed: false, appealRationale: '' },
-  { id: 'DSP-10318', saleEventRef: 'EASY Auction — ₹3,10,000', category: 'condition_delivery', rulingAuthorityType: 'tenant_admin',
-    description: 'Item had undisclosed damage not visible in listing photos.', status: 'ruled',
-    evidence: [{ content: 'Delivered unit photo with visible damage', createdAt: '2026-07-12 10:02' }],
-    rulingOutcome: 'rating_consequence', rulingRationale: 'Listing omitted a known defect. Market Maker rating adjusted; partial refund ordered reflecting repair cost estimate.',
-    appealed: false, appealRationale: '' },
-  { id: 'DSP-10275', saleEventRef: 'BUY-NOW Lot — ₹85,000', category: 'buyer_non_response', rulingAuthorityType: 'super_admin',
-    description: 'Trader has not confirmed the NOC or submitted a rating despite two reminders.', status: 'evidence_window',
-    evidence: [{ content: 'Reminder sent 2026-07-20', createdAt: '2026-07-20 09:00' }, { content: 'Reminder sent 2026-07-25', createdAt: '2026-07-25 09:00' }],
-    rulingOutcome: null, rulingRationale: '', appealed: false, appealRationale: '' },
-  { id: 'DSP-10460', saleEventRef: 'TENDER Trading Session — ₹6,20,000', category: 'auction_rejection', rulingAuthorityType: 'tenant_admin',
-    description: 'My winning bid was rejected with no stated reason beyond "policy discretion."', status: 'appealed',
-    evidence: [{ content: 'Rejection notice, no reason given', createdAt: '2026-07-31 12:00' }],
-    rulingOutcome: 'dismissed', rulingRationale: 'Compliance concern beyond my authority — referring for Super Admin review.',
-    appealed: true, appealRationale: '' },
-];
 const ROLE_TABS = [
   { id: 'party', label: 'Filer / Respondent' },
   { id: 'tenant_admin', label: 'Tenant Admin (Ruling)' },
@@ -47,10 +29,10 @@ const ROLE_TABS = [
 ];
 
 function catLabel(id) { return (CATEGORIES.find((c) => c.id === id) || {}).label || id; }
-function nowStamp() { return new Date().toISOString().slice(0, 16).replace('T', ' '); }
 const stamp = (v) => (v || '').slice(0, 16).replace('T', ' ');
 
-// Maps GET /disputes/:id → { dispute, evidence } into the shape this screen renders.
+// Maps GET /disputes/:id → { dispute, evidence } (or a bare dispute row from
+// GET /admin/alerts, evidence not yet loaded) into the shape this screen renders.
 function toLocal({ dispute: d, evidence }) {
   return {
     id: d.id, live: true,
@@ -69,9 +51,15 @@ export default function DisputeCenter() {
   const [selectedId, setSelectedId] = useState(null);
   const [params, setParams] = useSearchParams();
   const liveId = params.get('id');
-  // ?saleEvent=<id> files against a real sale event; without it the form is a demo.
+  // ?saleEvent=<id> files against that sale event; disputes can only be filed
+  // against a real transaction (linked from its Settlement page).
   const liveSaleEventId = params.get('saleEvent');
-  const [disputes, setDisputes] = useState(INITIAL_DISPUTES);
+  const { user } = useAuth();
+  const custodian = isCustodian(user);
+  // There is no "list my disputes" endpoint: parties see the dispute they
+  // opened via ?id=; Super Admins get the open queue from GET /admin/alerts.
+  const [disputes, setDisputes] = useState([]);
+  const [listLoading, setListLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [busy, setBusy] = useState(false);
   const [evidenceDraft, setEvidenceDraft] = useState('');
@@ -82,13 +70,24 @@ export default function DisputeCenter() {
   const [appealRationale, setAppealRationale] = useState('');
   const [fileCategory, setFileCategory] = useState('payment');
   const [fileDescription, setFileDescription] = useState('');
-  const fileSaleEventId = liveSaleEventId || 'SE-2026-0731-042';
+  const fileSaleEventId = liveSaleEventId;
 
   const loadLive = async (id) => {
     const local = toLocal(unwrap(await disputesApi.show(id)));
-    setDisputes((cur) => [local, ...cur.filter((d) => d.id !== id)]);
+    setDisputes((cur) => (cur.some((d) => d.id === id) ? cur.map((d) => (d.id === id ? local : d)) : [local, ...cur]));
     return local;
   };
+  useEffect(() => {
+    if (!custodian) return;
+    setListLoading(true);
+    admin.alerts()
+      .then((res) => {
+        const rows = (unwrap(res).openDisputes || []).map((d) => toLocal({ dispute: d, evidence: [] }));
+        setDisputes((cur) => [...cur, ...rows.filter((r) => !cur.some((d) => d.id === r.id))]);
+      })
+      .catch((err) => setApiError(err.message || 'Could not load open disputes.'))
+      .finally(() => setListLoading(false));
+  }, [custodian]);
   useEffect(() => {
     if (!liveId) return;
     loadLive(liveId)
@@ -97,7 +96,7 @@ export default function DisputeCenter() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId]);
 
-  // Live disputes POST then reload from the backend; demo ones update locally.
+  // POST, then reload the dispute from the backend.
   const liveAction = async (call) => {
     setBusy(true);
     setApiError('');
@@ -128,59 +127,44 @@ export default function DisputeCenter() {
   const canRuleAppeal = selected && selected.status === 'appealed' && role === 'super_admin';
   const rulingNeedsParty = rulingOutcome === 'order_forfeiture' || rulingOutcome === 'rating_consequence';
 
-  const openDispute = (id) => { setApiError(''); setSelectedId(id); setView('detail'); setEvidenceDraft(''); setRulingOutcome(''); setRulingAtFaultParty(''); setRulingRationale(''); setRulingError(''); setAppealRationale(''); };
+  const openDispute = (id) => {
+    setApiError(''); setSelectedId(id); setView('detail'); setEvidenceDraft(''); setRulingOutcome(''); setRulingAtFaultParty(''); setRulingRationale(''); setRulingError(''); setAppealRationale('');
+    // Refresh from GET /disputes/:id so the evidence trail is current.
+    loadLive(id).catch((err) => setApiError(err.message || 'Could not load the dispute.'));
+  };
 
   const submitEvidence = async () => {
     if (!evidenceDraft.trim()) return;
-    if (selected.live) {
-      if (await liveAction(() => disputesApi.submitEvidence(selectedId, { content: evidenceDraft }))) setEvidenceDraft('');
-      return;
-    }
-    setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'evidence_window', evidence: [...d.evidence, { content: evidenceDraft, createdAt: nowStamp() }] } : d)));
-    setEvidenceDraft('');
+    if (await liveAction(() => disputesApi.submitEvidence(selectedId, { content: evidenceDraft }))) setEvidenceDraft('');
   };
   const issueRuling = () => {
     if (!rulingOutcome) { setRulingError('Select an outcome before submitting.'); return; }
     if (!rulingRationale.trim()) { setRulingError('Rationale is required — identifies the evidence relied upon.'); return; }
-    if (selected.live) {
-      liveAction(() => disputesApi.rule(selectedId, { outcome: rulingOutcome, rationale: rulingRationale, at_fault_party_id: rulingAtFaultParty || undefined }));
-      return;
-    }
-    setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'ruled', rulingOutcome, rulingRationale } : d)));
+    liveAction(() => disputesApi.rule(selectedId, { outcome: rulingOutcome, rationale: rulingRationale, at_fault_party_id: rulingAtFaultParty || undefined }));
   };
-  const appeal = () => (selected.live ? liveAction(() => disputesApi.appeal(selectedId, {})) : setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'appealed' } : d))));
+  const appeal = () => liveAction(() => disputesApi.appeal(selectedId, {}));
   const ruleOnAppeal = () => {
     if (!appealRationale.trim()) return;
-    if (selected.live) {
-      liveAction(() => disputesApi.ruleOnAppeal(selectedId, { rationale: appealRationale }));
-      return;
-    }
-    setDisputes(disputes.map((d) => (d.id === selectedId ? { ...d, status: 'closed', appealRationale } : d)));
+    liveAction(() => disputesApi.ruleOnAppeal(selectedId, { rationale: appealRationale }));
   };
   const fileSubmit = async () => {
-    if (liveSaleEventId) {
-      setBusy(true);
-      setApiError('');
-      try {
-        const res = unwrap(await saleEvents.fileDispute(liveSaleEventId, { category: fileCategory, description: fileDescription }));
-        setParams({ id: res.dispute.id });
-      } catch (err) {
-        setApiError(err.message || 'Could not file the dispute.');
-      } finally {
-        setBusy(false);
-      }
-      return;
+    if (!liveSaleEventId) { setApiError('Open this form from the transaction\'s Settlement page to file a dispute against it.'); return; }
+    if (!fileDescription.trim()) { setApiError('Describe what went wrong before filing.'); return; }
+    setBusy(true);
+    setApiError('');
+    try {
+      const res = unwrap(await saleEvents.fileDispute(liveSaleEventId, { category: fileCategory, description: fileDescription }));
+      setParams({ id: res.dispute.id });
+    } catch (err) {
+      setApiError(err.message || 'Could not file the dispute.');
+    } finally {
+      setBusy(false);
     }
-    const id = 'DSP-' + Math.floor(10000 + Math.random() * 89999);
-    const cat = CATEGORIES.find((c) => c.id === fileCategory);
-    const newD = { id, saleEventRef: fileSaleEventId, category: fileCategory, rulingAuthorityType: cat.authority, description: fileDescription || '(no description provided)', status: 'filed', evidence: [], rulingOutcome: null, rulingRationale: '', appealed: false, appealRationale: '' };
-    setDisputes([newD, ...disputes]);
-    setView('list');
   };
 
   return (
+    <ConsoleFrame header={<LightDashboardHeader ctas={[{ label: '← Trust & Support', to: '/trust-and-support' }]} />}>
     <div className="dc-page">
-      <LightDashboardHeader ctas={[{ label: '← Trust & Support', to: '/trust-and-support' }]} />
       <main className="dc-main">
         <div className="legal-eyebrow">Trust &amp; Support</div>
         <h1 className="dc-title">Dispute Center</h1>
@@ -211,7 +195,10 @@ export default function DisputeCenter() {
                 );
               })}
             </div>
-            {relevant.length === 0 && <div className="dc-empty">Nothing here for this role right now.</div>}
+            {listLoading && <div className="dc-empty">Loading disputes…</div>}
+            {!listLoading && relevant.length === 0 && (
+              <div className="dc-empty">{custodian ? 'Nothing here for this role right now.' : 'No dispute open on this screen. Open a dispute from its link on your dashboard or Settlement page.'}</div>
+            )}
           </>
         )}
 
@@ -220,14 +207,14 @@ export default function DisputeCenter() {
             <button onClick={() => setView('list')} className="dc-back">← Back</button>
             <div className="dc-card">
               <h2 className="dc-h2">File a Dispute</h2>
-              <p className="dc-card-sub">Against sale event {fileSaleEventId}. Choose the category that best matches your situation. Tender Auctions are excluded from this process entirely.</p>
+              <p className="dc-card-sub">{fileSaleEventId ? `Against sale event ${fileSaleEventId}.` : 'Disputes are filed against a specific transaction — open this form from that transaction\'s Settlement page ("File a Dispute →").'} Choose the category that best matches your situation. Tender Auctions are excluded from this process entirely.</p>
               <label className="dc-label">Category</label>
               <select value={fileCategory} onChange={(e) => setFileCategory(e.target.value)} className="dc-select">
                 {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
               <label className="dc-label">Description</label>
               <textarea value={fileDescription} onChange={(e) => setFileDescription(e.target.value)} rows={5} className="dc-textarea" />
-              <button onClick={fileSubmit} disabled={busy} className="dc-submit">{busy ? 'Filing…' : 'File Dispute'}</button>
+              <button onClick={fileSubmit} disabled={busy || !fileSaleEventId} className="dc-submit">{busy ? 'Filing…' : 'File Dispute'}</button>
             </div>
           </>
         )}
@@ -253,7 +240,7 @@ export default function DisputeCenter() {
             {canSubmitEvidence && (
               <>
                 <textarea placeholder="Submit your evidence/statement" value={evidenceDraft} onChange={(e) => setEvidenceDraft(e.target.value)} rows={3} className="dc-textarea" />
-                <button onClick={submitEvidence} className="dc-outline-btn">Submit Evidence</button>
+                <button onClick={submitEvidence} disabled={busy} className="dc-outline-btn">Submit Evidence</button>
               </>
             )}
 
@@ -270,7 +257,7 @@ export default function DisputeCenter() {
                 {rulingNeedsParty && <input placeholder="At-fault party ID" value={rulingAtFaultParty} onChange={(e) => setRulingAtFaultParty(e.target.value)} className="dc-input" />}
                 <textarea placeholder="Rationale — required, identifies the evidence relied upon" value={rulingRationale} onChange={(e) => { setRulingRationale(e.target.value); setRulingError(''); }} rows={2} className="dc-textarea dc-textarea--sm" />
                 {rulingError && <p className="dc-error">{rulingError}</p>}
-                <button onClick={issueRuling} className="dc-dark-btn">Issue Ruling</button>
+                <button onClick={issueRuling} disabled={busy} className="dc-dark-btn">Issue Ruling</button>
               </div>
             )}
 
@@ -278,7 +265,7 @@ export default function DisputeCenter() {
               <div className="dc-ruled-box">
                 <p><strong>Ruling:</strong> {OUTCOME_LABELS[selected.rulingOutcome] || selected.rulingOutcome}</p>
                 <p><strong>Rationale:</strong> {selected.rulingRationale}</p>
-                {canAppeal && <button onClick={appeal} className="dc-appeal-btn">Appeal to Super Admin</button>}
+                {canAppeal && <button onClick={appeal} disabled={busy} className="dc-appeal-btn">Appeal to Super Admin</button>}
               </div>
             )}
 
@@ -286,7 +273,7 @@ export default function DisputeCenter() {
               <div className="dc-ruling-box">
                 <p className="dc-ruling-hint">Super Admin appeal ruling</p>
                 <textarea placeholder="Appeal rationale" value={appealRationale} onChange={(e) => setAppealRationale(e.target.value)} rows={2} className="dc-textarea dc-textarea--sm" />
-                <button onClick={ruleOnAppeal} className="dc-dark-btn">Rule on Appeal</button>
+                <button onClick={ruleOnAppeal} disabled={busy} className="dc-dark-btn">Rule on Appeal</button>
               </div>
             )}
 
@@ -298,5 +285,6 @@ export default function DisputeCenter() {
       </main>
       <footer className="dc-footer"><p>See our <Link to="/dispute-resolution-process">Dispute Resolution Process</Link> for the full plain-language guide.</p></footer>
     </div>
+    </ConsoleFrame>
   );
 }

@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import { Link } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import '../compliance/CustodianShared.css';
 import './WhitelistTenant.css';
 
@@ -12,17 +14,19 @@ export default function WhitelistTenant() {
   const [tenantClass, setTenantClass] = useState('general');
   const [tier, setTier] = useState('coco_starter');
   const [submitted, setSubmitted] = useState(false);
+  const [created, setCreated] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const valid = !!(name && subdomain) && !busy;
+  const valid = !!(name.trim() && subdomain.trim()) && !busy;
 
   const submit = async () => {
     if (!valid) return;
     setBusy(true);
     setError('');
     try {
-      await admin.createTenant({ name, subdomain, custom_domain: customDomain || undefined, tenant_class: tenantClass, subscription_tier: tier });
+      const res = unwrap(await admin.createTenant({ name: name.trim(), subdomain: subdomain.trim(), custom_domain: customDomain.trim() || undefined, tenant_class: tenantClass, subscription_tier: tier }));
+      setCreated(res.tenant || null);
       setSubmitted(true);
     } catch (err) {
       setError(err.message || 'Could not whitelist the tenant.');
@@ -32,8 +36,8 @@ export default function WhitelistTenant() {
   };
 
   return (
+    <ConsoleFrame header={<DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Whitelist Tenant', to: '/whitelist-tenant', active: true }]} />}>
     <div className="custodian-page">
-      <DashboardHeader navItems={[{ label: 'Dashboard', to: '/custodian/dashboard' }, { label: 'Whitelist Tenant', to: '/whitelist-tenant', active: true }]} />
       <main className="custodian-main custodian-main--narrow" style={{ paddingBottom: 100 }}>
         <div className="legal-eyebrow">Custodian</div>
         {!submitted ? (
@@ -78,12 +82,16 @@ export default function WhitelistTenant() {
         ) : (
           <div className="wt-success">
             <div className="wt-success__title">TradeSphereX Whitelisted</div>
-            <p className="wt-success__body"><strong>{name}</strong> is live at <span className="wt-success__domain">{subdomain}.ebidhub.com</span>.</p>
+            <p className="wt-success__body">
+              <strong>{(created && created.name) || name.trim()}</strong> has been whitelisted with subdomain <span className="wt-success__domain">{(created && created.subdomain) || subdomain.trim()}</span>
+              {((created && created.custom_domain) || customDomain.trim()) ? <> and custom domain <span className="wt-success__domain">{(created && created.custom_domain) || customDomain.trim()}</span></> : null}.
+            </p>
             <p className="wt-success__next">Next: appoint a Tenant Admin for this TradeSphereX.</p>
             <Link to="/custodian/dashboard" className="wt-success__cta">Back to Dashboard →</Link>
           </div>
         )}
       </main>
     </div>
+    </ConsoleFrame>
   );
 }
