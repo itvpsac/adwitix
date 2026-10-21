@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
-import { nowStamp, pushLedger } from '../../utils/auditLedger.js';
+import { pushLedger } from '../../utils/auditLedger.js';
 import { admin } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -9,43 +9,56 @@ import '../compliance/CustodianShared.css';
 import './KycQueue.css';
 
 
+const TABS = [
+  { key: 'submitted', label: 'Pending review' },
+  { key: 'verified', label: 'Verified' },
+  { key: 'suspended', label: 'Suspended' },
+];
+
 export default function KycQueue() {
   const [showInfo, setShowInfo] = useState(false);
+  const [tab, setTab] = useState('submitted');
+  const [openId, setOpenId] = useState(null);
   const [suspendId, setSuspendId] = useState(null);
   const [suspendReasons, setSuspendReasons] = useState({});
-  // Decisions recorded from this screen during this visit (the backend
-  // has no "decided dossiers" list endpoint).
-  const [decided, setDecided] = useState([]);
   const [details, setDetails] = useState({});
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState('');
 
-  // GET /admin/kyc → { parties: [party rows with kyc_status = 'submitted'] }
-  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.kycQueue(), []);
-  const apiRows = (apiData && apiData.parties) || [];
-  const pending = apiRows.map((k) => ({
+  // GET /admin/kyc?status= → { parties: [rows incl. document_count, address_count, kyc_status_reason] }
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.kycQueue({ status: tab }), [tab]);
+  const apiRows = (!apiError && apiData && apiData.parties) || [];
+  const fmt = (ts) => (ts || '').slice(0, 16).replace('T', ' ');
+  const rows = apiRows.map((k) => ({
     id: k.id,
     name: k.full_name || k.mobile_number || '—',
     entityType: (k.entity_type || 'individual').toLowerCase() === 'organization' ? 'Organization' : 'Individual',
     mobile: k.mobile_number || '—',
-    at: (k.kyc_submitted_at || k.updated_at || '').slice(0, 16).replace('T', ' '),
+    at: fmt(tab === 'submitted' ? (k.kyc_submitted_at || k.updated_at) : (k.updated_at || k.kyc_submitted_at)),
+    documentCount: Number(k.document_count || 0),
+    addressCount: Number(k.address_count || 0),
+    reason: k.kyc_status_reason || '',
   }));
 
   // GET /admin/kyc/:id → { party, documents, addresses, suspensionReasons }.
-  // The list endpoint carries no document/address counts or the closed list
-  // of suspension reasons, so pull each dossier's detail.
-  const idsKey = pending.map((k) => k.id).join(',');
-  useEffect(() => {
-    let alive = true;
-    pending.forEach((k) => {
-      if (details[k.id]) return;
-      admin.kycDetail(k.id)
-        .then((res) => { if (alive) { const d = unwrap(res); setDetails((cur) => ({ ...cur, [k.id]: d })); } })
-        .catch((err) => { if (alive) setDetails((cur) => ({ ...cur, [k.id]: { error: err.message || 'Could not load dossier detail.' } })); });
-    });
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  // Fetched only when a dossier is opened or a suspension is started.
+  const loadDetail = (id) => {
+    if (details[id] && !details[id].error) return;
+    setDetails((cur) => ({ ...cur, [id]: null }));
+    admin.kycDetail(id)
+      .then((res) => setDetails((cur) => ({ ...cur, [id]: unwrap(res) })))
+      .catch((err) => setDetails((cur) => ({ ...cur, [id]: { error: err.message || 'Could not load dossier detail.' } })));
+  };
+  const toggleOpen = (id) => {
+    if (openId === id) { setOpenId(null); return; }
+    setOpenId(id);
+    loadDetail(id);
+  };
+  const startSuspend = (id) => { setSuspendId(id); loadDetail(id); };
+  const switchTab = (key) => {
+    if (key === tab) return;
+    setTab(key); setOpenId(null); setSuspendId(null); setActionError('');
+  };
 
   const decide = async (k, payload, status, reasonLabel) => {
     setBusyId(k.id);
@@ -53,8 +66,8 @@ export default function KycQueue() {
     try {
       await admin.kycDecide(k.id, payload);
       pushLedger(status === 'VERIFIED' ? 'Verified KYC Dossier' : 'Suspended KYC Dossier', k.name, reasonLabel || k.entityType);
-      setDecided((cur) => [{ id: k.id, status, name: k.name, at: nowStamp(), reason: reasonLabel }, ...cur]);
       setSuspendId(null);
+      setOpenId(null);
       reload();
     } catch (err) {
       setActionError(err.message || 'Could not record the KYC decision.');
@@ -68,6 +81,11 @@ export default function KycQueue() {
     if (!reason) return;
     const options = (details[k.id] && details[k.id].suspensionReasons) || {};
     decide(k, { decision: 'suspend', reason }, 'SUSPENDED', options[reason] || reason);
+  };
+  // Show a stored reason key with its label when the closed list is loaded.
+  const reasonLabel = (key) => {
+    const d = Object.values(details).find((x) => x && x.suspensionReasons && x.suspensionReasons[key]);
+    return d ? d.suspensionReasons[key] : key;
   };
 
   return (
@@ -87,9 +105,16 @@ export default function KycQueue() {
           </div>
         )}
 
+        <div className="kq-tabs">
+          {TABS.map((t) => (
+            <button key={t.key} onClick={() => switchTab(t.key)} className={`kq-tab${tab === t.key ? ' kq-tab--active' : ''}`}>{t.label}</button>
+          ))}
+        </div>
+
         <div className="kq-list">
-          {pending.map((k) => {
-            const suspending = suspendId === k.id;
+          {!apiLoading && rows.map((k) => {
+            const suspending = tab === 'submitted' && suspendId === k.id;
+            const open = openId === k.id;
             const reason = suspendReasons[k.id] || '';
             const detail = details[k.id];
             const reasonOptions = (detail && detail.suspensionReasons) || {};
@@ -98,19 +123,35 @@ export default function KycQueue() {
               <div key={k.id} className="kq-row">
                 <div className="kq-row__head">
                   <div className="kq-name">{k.name} <span className="kq-name__meta">({k.entityType})</span></div>
-                  <div className="kq-mobile">{k.mobile} · submitted {k.at}</div>
+                  <div className="kq-mobile">{k.mobile} · {tab === 'submitted' ? 'submitted' : tab} {k.at}</div>
                 </div>
                 <div className="kq-stats">
-                  {!detail && <span>Loading dossier…</span>}
-                  {detail && detail.error && <span style={{ color: 'var(--color-danger)' }}>{detail.error}</span>}
-                  {detail && !detail.error && <><span>{(detail.documents || []).length} documents</span><span>{(detail.addresses || []).length} addresses on file</span></>}
+                  <span>{k.documentCount} {k.documentCount === 1 ? 'document' : 'documents'}</span>
+                  <span>{k.addressCount} {k.addressCount === 1 ? 'address' : 'addresses'} on file</span>
+                  <button onClick={() => toggleOpen(k.id)} className="kq-link">{open ? 'Hide dossier' : 'Open dossier'}</button>
                 </div>
-                {suspending ? (
+                {tab === 'suspended' && <div className="kq-reason">Reason: {k.reason ? reasonLabel(k.reason) : '—'}</div>}
+                {open && (
+                  <div className="kq-detail">
+                    {detail === undefined || detail === null ? <span>Loading dossier…</span>
+                      : detail.error ? <span style={{ color: 'var(--color-danger)' }}>{detail.error}</span>
+                        : (detail.documents || []).length === 0 ? <span>No documents uploaded.</span>
+                          : (
+                            <ul className="kq-docs">
+                              {detail.documents.map((d) => (
+                                <li key={d.id}><strong>{d.document_type}</strong>{d.original_filename ? ` — ${d.original_filename}` : ''}</li>
+                              ))}
+                            </ul>
+                          )}
+                  </div>
+                )}
+                {tab === 'submitted' && (suspending ? (
                   <>
                     <select value={reason} onChange={(e) => setSuspendReasons({ ...suspendReasons, [k.id]: e.target.value })} className="custodian-textarea" disabled={!detail || !!detail.error}>
-                      <option value="">{detail ? 'Reason for suspension (required)…' : 'Loading reasons…'}</option>
+                      <option value="">{detail && detail.error ? 'Could not load reasons' : detail ? 'Reason for suspension (required)…' : 'Loading reasons…'}</option>
                       {Object.entries(reasonOptions).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     </select>
+                    {detail && detail.error && <div style={{ color: 'var(--color-danger)', fontSize: 12, marginBottom: 8 }}>{detail.error} <button onClick={() => loadDetail(k.id)} className="kq-link">Retry</button></div>}
                     <div className="custodian-btn-row">
                       <button onClick={() => confirmSuspend(k)} disabled={!reason || busy} className="custodian-btn-danger" style={{ opacity: reason && !busy ? 1 : 0.5 }}>{busy ? 'Saving…' : 'Confirm Suspend'}</button>
                       <button onClick={() => setSuspendId(null)} className="custodian-btn-outline">Cancel</button>
@@ -119,32 +160,22 @@ export default function KycQueue() {
                 ) : (
                   <div className="custodian-btn-row">
                     <button onClick={() => verify(k)} disabled={busy} className="custodian-btn-success">{busy ? 'Saving…' : 'Verify'}</button>
-                    <button onClick={() => setSuspendId(k.id)} className="custodian-btn-danger-outline">Suspend…</button>
+                    <button onClick={() => startSuspend(k.id)} disabled={busy} className="custodian-btn-danger-outline">Suspend…</button>
                   </div>
-                )}
+                ))}
               </div>
             );
           })}
         </div>
         {actionError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>{actionError}</div>}
         {apiLoading && <div className="custodian-empty">Loading dossiers…</div>}
-        {!apiLoading && apiError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load the KYC queue: {apiError.message || 'request failed'}.</div>}
-        {!apiLoading && !apiError && pending.length === 0 && <div className="custodian-empty">No KYC dossiers pending review.</div>}
-
-        {decided.length > 0 && (
-          <>
-            <h2 className="custodian-decided-title">Decided this session</h2>
-            <div className="custodian-decided-list">
-              {decided.map((d) => (
-                <div key={d.id} className="custodian-decided-row">
-                  <span className="custodian-decided-status" style={{ color: d.status === 'VERIFIED' ? 'var(--color-success)' : 'var(--color-danger)' }}>{d.status}</span>
-                  <span className="custodian-decided-body"> — {d.name} · DECIDED {d.at}</span>
-                  {d.reason && <div className="custodian-decided-reason">{d.reason}</div>}
-                </div>
-              ))}
-            </div>
-          </>
+        {!apiLoading && apiError && <div className="custodian-empty" style={{ color: 'var(--color-danger)' }}>Could not load the KYC queue: {apiError.message || 'request failed'}. <button onClick={reload} className="kq-link">Retry</button></div>}
+        {!apiLoading && !apiError && rows.length === 0 && (
+          <div className="custodian-empty">
+            {tab === 'submitted' ? 'No KYC dossiers pending review.' : tab === 'verified' ? 'No verified dossiers.' : 'No suspended dossiers.'}
+          </div>
         )}
+        {!apiLoading && !apiError && rows.length >= 200 && <div className="custodian-empty">Showing the first 200 dossiers.</div>}
       </main>
     </div>
     </ConsoleFrame>

@@ -25,3 +25,7 @@
 .ud-footer { border-top: 1px solid var(--color-border); padding: 24px 20px; text-align: center; }
 .ud-footer p { font-size: 12.5px; color: var(--color-text-faint); margin: 0; }
 @media (max-width: 900px) { .ud-row { grid-template-columns: 110px 1fr 80px 70px 90px; } .ud-row > span:nth-child(4), .ud-row > span:nth-child(5) { display: none; } }
+.ud-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; }
+.ud-pager__btn { padding: 8px 18px; border: 1px solid var(--color-border); border-radius: 100px; background: #fff; color: var(--color-text); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.ud-pager__btn:disabled { opacity: 0.45; cursor: default; }
+.ud-pager__label { font-size: 12px; color: var(--color-text-faint); }
