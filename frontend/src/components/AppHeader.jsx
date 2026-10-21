@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { NAV_GROUPS } from '../nav/siteNav.js';
-import { useAuth, initials } from '../utils/auth.js';
+import { useAuth, isCustodian, initials } from '../utils/auth.js';
 import { canAccess } from '../utils/accessMatrix.js';
 import './AppHeader.css';
 
@@ -31,7 +31,10 @@ export default function AppHeader({
   const { user, isLoggedIn, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const loginPath = pathname.startsWith('/custodian') ? '/custodian/login' : '/onboarding';
+  const custodian = isCustodian(user);
+  const loginPath = custodian || pathname.startsWith('/custodian') ? '/custodian/login' : '/onboarding';
+  // A Custodian's home is their dashboard, never the public landing page.
+  const logoTo = custodian ? '/custodian/dashboard' : homeTo;
 
   // Clear the session and send the user to the login page.
   const handleLogout = () => {
@@ -66,8 +69,7 @@ export default function AppHeader({
 
   const kyc = KYC_MAP[(user && user.kycStatus) || 'verified'] || KYC_MAP.verified;
   // The account's own dashboard: one menu entry, named for Super Admins.
-  const isCustodian = !!user && (user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian');
-  const dashboard = !user ? null : isCustodian
+  const dashboard = !user ? null : custodian
     ? { to: '/custodian/dashboard', label: 'Super Admin Dashboard' }
     : {
       to: user.matrixRole === 'tsx_master' || user.entityType === 'tenant_admin' || user.roles?.includes('tenant_admin')
@@ -111,7 +113,7 @@ export default function AppHeader({
   return (
     <header ref={rootRef} className={`ah ah--${variant}`}>
       <div className="ah__inner" style={{ maxWidth: resolvedMaxWidth }}>
-        <Link to={homeTo} className="ah__logo" onClick={() => setMobileOpen(false)}>
+        <Link to={logoTo} className="ah__logo" onClick={() => setMobileOpen(false)}>
           <img src="/adwitix-icon.svg" alt="" className="ah__logo-icon" />
           <span className="ah__wordmark">Adwiti<span className="ah__wordmark-accent">X</span></span>
         </Link>
@@ -206,9 +208,9 @@ export default function AppHeader({
               </button>
               {accountOpen && (
                 <div className="ah__menu ah__menu--right" role="menu">
-                  <Link to="/profile" role="menuitem" className="ah__menu-link">Profile</Link>
+                  {!custodian && <Link to="/profile" role="menuitem" className="ah__menu-link">Profile</Link>}
                   <Link to={dashboard.to} role="menuitem" className="ah__menu-link">{dashboard.label}</Link>
-                  <Link to="/preferences" role="menuitem" className="ah__menu-link">Preferences</Link>
+                  {!custodian && <Link to="/preferences" role="menuitem" className="ah__menu-link">Preferences</Link>}
                   <button type="button" role="menuitem" className="ah__menu-link ah__menu-link--danger" onClick={() => { setAccountOpen(false); handleLogout(); }}>Log Out</button>
                 </div>
               )}
@@ -326,9 +328,9 @@ export default function AppHeader({
                   </div>
                 </div>
                 <div className="ah__drawer-account-links">
-                  <Link to="/profile" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Profile</Link>
+                  {!custodian && <Link to="/profile" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Profile</Link>}
                   <Link to={dashboard.to} className="ah__drawer-link" onClick={() => setMobileOpen(false)}>{dashboard.label}</Link>
-                  <Link to="/preferences" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Preferences</Link>
+                  {!custodian && <Link to="/preferences" className="ah__drawer-link" onClick={() => setMobileOpen(false)}>Preferences</Link>}
                 </div>
                 <button type="button" className="ah__drawer-logout" onClick={() => { setMobileOpen(false); handleLogout(); }}>Log Out</button>
               </div>
