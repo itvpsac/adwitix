@@ -1,6 +1,7 @@
 import { ProtectedRoute } from './ProtectedRoute.jsx';
 // Central route table. Add one entry per converted screen as batches land.
 import HomeRoute from './HomeRoute.jsx';
+import ConsoleFrame from './components/custodian/ConsoleFrame.jsx';
 import CustodianLogin from './pages/custodian/CustodianLogin.jsx';
 import CustodianForgotPassword from './pages/custodian/CustodianForgotPassword.jsx';
 import CustodianForgotMpin from './pages/custodian/CustodianForgotMpin.jsx';
@@ -76,29 +77,29 @@ import ChronicleVerify from './pages/chronicle/ChronicleVerify.jsx';
 import Invoices from './pages/compliance/Invoices.jsx';
 
 export const routes = [
-  { path: '/marketplace', element: <Marketplace /> },
-  { path: '/lot-detail', element: <LotDetail /> },
+  { path: '/marketplace', element: <ConsoleFrame><Marketplace /></ConsoleFrame> },
+  { path: '/lot-detail', element: <ConsoleFrame><LotDetail /></ConsoleFrame> },
   { path: '/lot-directory', element: <ProtectedRoute requiredRole="super_admin"><LotDirectory /></ProtectedRoute> },
   { path: '/apply-to-sell', element: <ApplyToSell /> },
   { path: '/create-lot', element: <CreateLot /> },
   { path: '/lot-approval', element: <LotApproval /> },
-  { path: '/lot-chronicle', element: <LotChronicle /> },
+  { path: '/lot-chronicle', element: <ConsoleFrame><LotChronicle /></ConsoleFrame> },
   { path: '/lot-reach-and-interest', element: <LotReachInterest /> },
-  { path: '/bidding-room', element: <BiddingRoom /> },
+  { path: '/bidding-room', element: <ConsoleFrame><BiddingRoom /></ConsoleFrame> },
   { path: '/buyer/dashboard', element: <BuyerDashboard /> },
   { path: '/seller/dashboard', element: <SellerDashboard /> },
   { path: '/tenant-admin/dashboard', element: <TenantAdminDashboard /> },
   { path: '/profile', element: <Profile /> },
   { path: '/preferences', element: <Preferences /> },
   { path: '/dispute-center', element: <DisputeCenter /> },
-  { path: '/settlement', element: <Settlement /> },
+  { path: '/settlement', element: <ConsoleFrame><Settlement /></ConsoleFrame> },
   { path: '/chargeback-handling', element: <ProtectedRoute requiredRole="super_admin"><ChargebackHandling /></ProtectedRoute> },
   { path: '/payout-reviews', element: <PayoutReviews /> },
   { path: '/rating-reviews', element: <RatingReviews /> },
   { path: '/emd-consent', element: <EmdConsent /> },
   { path: '/aml-monitoring', element: <ProtectedRoute requiredRole="super_admin"><AmlMonitoring /></ProtectedRoute> },
   { path: '/alerts', element: <ProtectedRoute requiredRole="super_admin"><Alerts /></ProtectedRoute> },
-  { path: '/audit-chain-verify', element: <AuditChainVerify /> },
+  { path: '/audit-chain-verify', element: <ConsoleFrame><AuditChainVerify /></ConsoleFrame> },
   { path: '/audit-ledger', element: <ProtectedRoute requiredRole="super_admin"><AuditLedger /></ProtectedRoute> },
   { path: '/consent-audit', element: <ProtectedRoute requiredRole="super_admin"><ConsentAudit /></ProtectedRoute> },
   { path: '/delist-market-maker', element: <ProtectedRoute requiredRole="super_admin"><DelistMarketMaker /></ProtectedRoute> },
@@ -117,7 +118,7 @@ export const routes = [
   { path: '/forgot-mpin', element: <ForgotMpin /> },
   { path: '/kyc-queue', element: <ProtectedRoute requiredRole="super_admin"><KycQueue /></ProtectedRoute> },
   { path: '/custodian-credential-setup', element: <CustodianCredentialSetup /> },
-  { path: '/tenant-directory', element: <TenantDirectory /> },
+  { path: '/tenant-directory', element: <ConsoleFrame><TenantDirectory /></ConsoleFrame> },
   { path: '/trading-session-directory', element: <ProtectedRoute requiredRole="super_admin"><TradingSessionDirectory /></ProtectedRoute> },
   { path: '/user-detail', element: <ProtectedRoute requiredRole="super_admin"><UserDetail /></ProtectedRoute> },
   { path: '/user-directory', element: <ProtectedRoute requiredRole="super_admin"><UserDirectory /></ProtectedRoute> },
@@ -126,7 +127,7 @@ export const routes = [
   { path: '/tender-eligibility', element: <TenderEligibility /> },
   { path: '/tender-stakeholder-view', element: <TenderStakeholderView /> },
   { path: '/ax-chronicle', element: <AxChronicle /> },
-  { path: '/chronicle-verify', element: <ChronicleVerify /> },
+  { path: '/chronicle-verify', element: <ConsoleFrame><ChronicleVerify /></ConsoleFrame> },
   { path: '/invoices', element: <ProtectedRoute requiredRole="super_admin"><Invoices /></ProtectedRoute> },
   { path: '/', element: <HomeRoute /> },
   { path: '/custodian/login', element: <CustodianLogin /> },
