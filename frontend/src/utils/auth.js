@@ -76,6 +76,12 @@ export function logoutUser() {
   emit();
 }
 
+// Custodian (Super Admin) accounts: their landing page is the Custodian
+// Dashboard, not the public site.
+export function isCustodian(user) {
+  return !!user && (user.roles?.includes('custodian') || user.entityType === 'custodian' || user.matrixRole === 'custodian');
+}
+
 export function useAuth() {
   const [user, setUser] = useState(readAuth);
 

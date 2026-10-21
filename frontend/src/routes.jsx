@@ -1,6 +1,6 @@
 import { ProtectedRoute } from './ProtectedRoute.jsx';
 // Central route table. Add one entry per converted screen as batches land.
-import LandingPage from './pages/landing/LandingPage.jsx';
+import HomeRoute from './HomeRoute.jsx';
 import CustodianLogin from './pages/custodian/CustodianLogin.jsx';
 import CustodianForgotPassword from './pages/custodian/CustodianForgotPassword.jsx';
 import CustodianForgotMpin from './pages/custodian/CustodianForgotMpin.jsx';
@@ -126,7 +126,7 @@ export const routes = [
   { path: '/ax-chronicle', element: <AxChronicle /> },
   { path: '/chronicle-verify', element: <ChronicleVerify /> },
   { path: '/invoices', element: <Invoices /> },
-  { path: '/', element: <LandingPage /> },
+  { path: '/', element: <HomeRoute /> },
   { path: '/custodian/login', element: <CustodianLogin /> },
   { path: '/custodian/forgot-password', element: <CustodianForgotPassword /> },
   { path: '/custodian/forgot-mpin', element: <CustodianForgotMpin /> },
