@@ -5,6 +5,8 @@ import CustodianLogin from './pages/custodian/CustodianLogin.jsx';
 import CustodianForgotPassword from './pages/custodian/CustodianForgotPassword.jsx';
 import CustodianForgotMpin from './pages/custodian/CustodianForgotMpin.jsx';
 import CustodianDashboard from './pages/custodian/CustodianDashboard.jsx';
+import CustodianDecisions from './pages/custodian/CustodianDecisions.jsx';
+import CustodianTenants from './pages/custodian/CustodianTenants.jsx';
 import CookiePolicy from './pages/legal/CookiePolicy.jsx';
 import GrievanceRedressalPolicy from './pages/legal/GrievanceRedressalPolicy.jsx';
 import RefundAndCancellationPolicy from './pages/legal/RefundAndCancellationPolicy.jsx';
@@ -132,6 +134,8 @@ export const routes = [
   { path: '/custodian/forgot-mpin', element: <CustodianForgotMpin /> },
   { path: '/custodian/credential-setup', element: <CustodianCredentialSetup /> },
   { path: '/custodian/dashboard', element: <ProtectedRoute requiredRole="super_admin"><CustodianDashboard /></ProtectedRoute> },
+  { path: '/custodian/decisions', element: <ProtectedRoute requiredRole="super_admin"><CustodianDecisions /></ProtectedRoute> },
+  { path: '/custodian/tenants', element: <ProtectedRoute requiredRole="super_admin"><CustodianTenants /></ProtectedRoute> },
   { path: '/cookie-policy', element: <CookiePolicy /> },
   { path: '/grievance-redressal-policy', element: <GrievanceRedressalPolicy /> },
   { path: '/refund-and-cancellation-policy', element: <RefundAndCancellationPolicy /> },

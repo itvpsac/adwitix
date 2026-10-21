@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -7,7 +7,9 @@ import './UserDirectory.css';
 
 
 export default function UserDirectory() {
-  const [query, setQuery] = useState('');
+  // ?q= pre-fills the search (the Custodian Console's global search).
+  const [params] = useSearchParams();
+  const [query, setQuery] = useState(params.get('q') || '');
   const [type, setType] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [kycFilter, setKycFilter] = useState('all');

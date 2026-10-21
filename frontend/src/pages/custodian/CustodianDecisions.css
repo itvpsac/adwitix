@@ -1,0 +1,24 @@
+/* Decision Queue (CustodianDecisions.jsx); shared pieces: CustodianShell.css */
+.dq-layout { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.dq-filters { flex: 1 0 200px; max-width: 240px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.dq-filter { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border: none; border-radius: 8px; background: transparent; font: 500 13.5px var(--font-sans); color: var(--color-text); cursor: pointer; text-align: left; }
+.dq-filter:hover { background: var(--color-border-soft); }
+.dq-filter--on, .dq-filter--on:hover { background: var(--color-bg-dark); color: #fff; }
+.dq-list { flex: 999 1 320px; min-width: 0; overflow: hidden; }
+.dq-input { width: 100%; box-sizing: border-box; height: 38px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--color-border); font: 500 13px var(--font-sans); }
+.dq-item { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 14px 16px; border: none; border-top: 1px solid var(--color-border-soft); background: #fff; text-align: left; cursor: pointer; color: var(--color-text); font-family: var(--font-sans); }
+.dq-item:hover { background: #FAFAF7; }
+.dq-item--on, .dq-item--on:hover { background: var(--color-accent-bg-strong); box-shadow: inset 3px 0 0 var(--color-accent); }
+.dq-item__top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.dq-item__title { font: 600 14px/1.3 var(--font-sans); }
+.dq-detail { flex: 1 1 380px; min-width: 0; padding: 20px 22px; }
+.dq-title { margin: 10px 0 0; font: 700 22px/1.2 var(--font-display); }
+.dq-h3 { margin: 0 0 8px; font: 700 12px var(--font-sans); text-transform: uppercase; letter-spacing: .06em; color: var(--color-text-muted); }
+.dq-kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 8px 12px; margin: 0; font: 500 13px/1.4 var(--font-sans); }
+.dq-kv dt { color: var(--color-text-muted); }
+.dq-kv dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.dq-doc { display: block; width: 100%; min-height: 40px; margin-bottom: 6px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 8px; background: #fff; text-align: left; font: 600 12.5px var(--font-sans); color: var(--color-text); cursor: pointer; text-transform: capitalize; }
+.dq-doc:hover { border-color: var(--color-accent); }
+.dq-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.dq-actions .cc-btn { height: 44px; padding: 0 18px; }
+.dq-info { margin: 0; padding: 12px 14px; border-radius: 10px; background: var(--color-bg); font: 500 13px/1.5 var(--font-sans); color: var(--color-text-muted); }

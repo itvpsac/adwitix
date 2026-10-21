@@ -227,6 +227,8 @@ export const sellerApplications = {
 export const admin = {
   dashboard: () => api.get(`${APP}/admin`),
   alerts: () => api.get(`${APP}/admin/alerts`),
+  decisionQueue: () => api.get(`${APP}/admin/decision-queue`),
+  systemHealth: () => api.get(`${APP}/admin/system-health`),
   acknowledgeServerTimeDrift: (id) => api.post(`${APP}/admin/alerts/server-time-drift/${id}/acknowledge`),
 
   users: (query) => api.get(`${APP}/admin/users`, { query }),

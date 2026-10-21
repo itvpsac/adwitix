@@ -1,0 +1,15 @@
+/* TradeSphereX management (CustodianTenants.jsx); shared pieces: CustodianShell.css */
+.tx-layout { display: flex; flex-wrap: wrap; gap: 22px; align-items: flex-start; }
+.tx-list { flex: 1 0 240px; max-width: 290px; padding: 14px 10px; }
+.tx-list__head { display: flex; justify-content: space-between; align-items: center; padding: 0 6px 10px; }
+.tx-find { width: 100%; box-sizing: border-box; height: 38px; padding: 0 12px; margin-bottom: 8px; border-radius: 8px; border: 1px solid var(--color-border); font: 500 13px var(--font-sans); }
+.tx-item { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 12px 14px; border: none; border-radius: 10px; background: none; text-align: left; cursor: pointer; color: var(--color-text); font: 600 13.5px var(--font-sans); }
+.tx-item:hover { background: var(--color-border-soft); }
+.tx-item--on, .tx-item--on:hover { background: var(--color-accent-bg-strong); box-shadow: inset 3px 0 0 var(--color-accent); }
+.tx-main { flex: 999 1 520px; min-width: 0; }
+.tx-mark { width: 52px; height: 52px; flex: 0 0 52px; border-radius: 12px; color: #fff; display: flex; align-items: center; justify-content: center; font: 800 18px var(--font-display); }
+.tx-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.tx-stats > div { display: flex; flex-direction: column; gap: 6px; padding: 16px 18px; border-left: 1px solid var(--color-border-soft); }
+.tx-stats > div:first-child { border-left: none; }
+.tx-stats b { font: 700 24px/1 var(--font-display); }
+.tx-form { display: flex; flex-direction: column; gap: 14px; }
