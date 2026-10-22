@@ -35,7 +35,7 @@ function RatingCard({ label, data }) {
 }
 
 export default function StarRatings() {
-  const { data } = useApiQuery(() => me.starRatings(), []);
+  const { data, loading, error } = useApiQuery(() => me.starRatings(), []);
   const party = (data && data.party) || {};
   const buyer = standing(party, 'buyer');
   const seller = standing(party, 'seller');
@@ -45,10 +45,14 @@ export default function StarRatings() {
       <main className="sr-main">
         <h1 className="sr-title">Star Ratings</h1>
         <p className="sr-desc">Your reputation as a Trader and as a Market Maker are tracked separately, even if you do both.</p>
-        <div className="sr-cards">
-          <RatingCard label="Trader Rating" data={buyer} />
-          <RatingCard label="Market Maker Rating" data={seller} />
-        </div>
+        {loading && <p className="sr-desc">Loading your ratings…</p>}
+        {!loading && error && <p className="sr-desc" style={{ color: 'var(--color-danger)' }}>{error.message || 'Could not load your star ratings.'}</p>}
+        {!loading && !error && data && data.party && (
+          <div className="sr-cards">
+            <RatingCard label="Trader Rating" data={buyer} />
+            <RatingCard label="Market Maker Rating" data={seller} />
+          </div>
+        )}
         <p className="sr-history"><Link to="/rating-history">View full rating history →</Link></p>
       </main>
       <footer className="sr-footer"><p>Downgrades are human-reviewed under BR-36 — see the <Link to="/dispute-resolution-process">Dispute Resolution Process</Link>.</p></footer>

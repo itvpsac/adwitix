@@ -7,20 +7,21 @@ import './PayoutBank.css';
 
 export default function PayoutBank() {
   const [mode, setMode] = useState('view');
-  const [newHolder, setNewHolder] = useState('');
   const [newAccount, setNewAccount] = useState('');
   const [newIfsc, setNewIfsc] = useState('');
-  const [newBankName, setNewBankName] = useState('');
   const [editError, setEditError] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState('');
   const [party, setParty] = useState({});
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [ticket, setTicket] = useState('');
   const [devOtp, setDevOtp] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const load = () => me.account().then((res) => setParty(unwrap(res).party || {}));
-  useEffect(() => { load().catch(() => {}); }, []);
+  const load = () => me.account().then((res) => { setParty(unwrap(res).party || {}); setLoaded(true); setLoadError(''); });
+  const loadInitial = () => load().catch((err) => setLoadError(err.message || 'Could not load your payout account.'));
+  useEffect(() => { loadInitial(); }, []);
 
   const last4 = (v) => (v ? String(v).slice(-4) : '');
   const pendingChange = !!party.payout_bank_pending_account_number;
@@ -29,8 +30,7 @@ export default function PayoutBank() {
     ? new Date(party.payout_bank_pending_activates_at.replace(' ', 'T')).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
     : 'in 24 hours';
 
-  // Only the account number and IFSC are sent; holder and bank name are
-  // for the user's own check.
+  // PayoutBankController accepts only account_number and ifsc.
   const proceedToOtp = async () => {
     if (newAccount.length < 6 || !newIfsc) { setEditError('Enter the account number and IFSC before continuing.'); return; }
     setEditError('');
@@ -76,7 +76,12 @@ export default function PayoutBank() {
         <h1 className="pb-title">Payout Bank</h1>
         <p className="pb-sub">The account used for refunds and settlement payouts. Changing it requires OTP re-verification and a 24-hour cooling-off period before it becomes active.</p>
 
-        {mode === 'view' && (
+        {mode === 'view' && !loaded && (
+          loadError
+            ? <><p className="pb-error">{loadError}</p><button onClick={loadInitial} className="pb-btn-outline">Retry</button></>
+            : <p className="pb-sub">Loading your payout account…</p>
+        )}
+        {mode === 'view' && loaded && (
           <>
             <div className="pb-active-card">
               <p className="pb-active-label">Active Account</p>
@@ -97,12 +102,8 @@ export default function PayoutBank() {
           <>
             <div className="pb-form-card">
               <div className="pb-grid2">
-                <div><label className="pb-label">Account Holder Name</label><input value={newHolder} onChange={(e) => setNewHolder(e.target.value)} className="pb-input" /></div>
                 <div><label className="pb-label">Account Number</label><input value={newAccount} onChange={(e) => setNewAccount(e.target.value.replace(/\D/g, ''))} className="pb-input pb-input--mono" /></div>
-              </div>
-              <div className="pb-grid2">
                 <div><label className="pb-label">IFSC Code</label><input value={newIfsc} onChange={(e) => setNewIfsc(e.target.value.toUpperCase())} className="pb-input pb-input--mono" style={{ textTransform: 'uppercase' }} /></div>
-                <div><label className="pb-label">Bank Name</label><input value={newBankName} onChange={(e) => setNewBankName(e.target.value)} className="pb-input" /></div>
               </div>
             </div>
             {editError && <p className="pb-error">{editError}</p>}

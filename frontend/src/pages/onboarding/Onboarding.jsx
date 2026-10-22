@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth as authApi } from '../../api/endpoints.js';
-import { establishSession, loginUser } from '../../utils/auth.js';
+import { establishSession } from '../../utils/auth.js';
 import './Onboarding.css';
 
 // BR-02 mPIN registration: request OTP → verify OTP (returns a
 // pending_ticket) → set mPIN via /auth/mpin/complete, which issues the
-// access JWT. If the backend is unreachable the flow still completes
-// locally so the design stays walkable offline.
+// access JWT. A 3-strike mPIN lockout (login → status 'otp_required')
+// verifies via /auth/login/verify-reset-otp with its own pending_ticket
+// (mobile OTP, plus email OTP when a recovery email is on file).
 export default function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState('login');
@@ -23,9 +24,14 @@ export default function Onboarding() {
   const [mpinConfirm, setMpinConfirm] = useState('');
   const [mpinError, setMpinError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [devOtp, setDevOtp] = useState('');
   const [pendingTicket, setPendingTicket] = useState('');
-  const [offline, setOffline] = useState(false);
+  // Lockout reset: ticket from /auth/login, and whether an email OTP is also required.
+  const [resetTicket, setResetTicket] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [resendNote, setResendNote] = useState('');
+  const isReset = !!resetTicket;
+  const dashboardFor = (user) => (user && user.matrixRole === 'tsx_master' ? '/tenant-admin/dashboard' : user && user.matrixRole === 'mkt_maker' ? '/seller/dashboard' : '/buyer/dashboard');
 
   const barActive = 'var(--color-accent)';
   const barIdle = '#E9EBF2';
@@ -45,26 +51,20 @@ export default function Onboarding() {
       
       if (loginData && loginData.access_token) {
         const user = establishSession(loginData);
-        
-        const dashboard = user.matrixRole === 'tsx_master' 
-          ? '/tenant-admin/dashboard'
-          : (user.matrixRole === 'mkt_maker'
-            ? '/seller/dashboard'
-            : '/buyer/dashboard');
-        navigate(dashboard);
-      } else if (loginData && loginData.status === 'otp_required') {
+        navigate(dashboardFor(user));
+      } else if (loginData && loginData.status === 'otp_required' && loginData.pending_ticket) {
         setMobile(loginMobile);
+        setResetTicket(loginData.pending_ticket);
+        setResetEmail(loginData.email || '');
+        setEmailOtp('');
+        setOtp(['', '', '', '', '', '']);
+        setOtpError('Too many incorrect mPIN attempts. Verify with the code sent to your mobile' + (loginData.email ? ' and email' : '') + ', then set a new mPIN.');
         setStep('otp');
       } else {
         setLoginError('Incorrect mobile number or mPIN.');
       }
     } catch (err) {
-      if (err.status) { setLoginError(err.message || 'Incorrect mobile number or mPIN.'); }
-      else { 
-        loginUser({ name: `+91 ${loginMobile}`, mobile: `+91 ${loginMobile}`, kycStatus: 'verified' });
-        // Default to buyer for demo/offline
-        navigate('/buyer/dashboard'); 
-      }
+      setLoginError(err.status ? (err.message || 'Incorrect mobile number or mPIN.') : 'Could not reach the server. Check your connection and try again.');
     } finally { setLoginBusy(false); }
   };
 
@@ -73,13 +73,30 @@ export default function Onboarding() {
     setBusy(true); setMobileError('');
     try {
       await authApi.registerRequestOtp(`+91${mobile}`);
+      setResetTicket(''); setResetEmail('');
+      setResendNote('');
       setStep('otp');
     } catch (err) {
-      if (err.status) { setMobileError(err.message); } else { setOffline(true); setStep('otp'); }
+      setMobileError(err.status ? err.message : 'Could not reach the server. Check your connection and try again.');
+    } finally { setBusy(false); }
+  };
+  const resendOtp = async (e) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true); setOtpError(''); setResendNote('');
+    try {
+      await authApi.registerRequestOtp(`+91${mobile}`);
+      setResendNote('A new code has been sent.');
+    } catch (err) {
+      setOtpError(err.status ? err.message : 'Could not reach the server. Try again.');
     } finally { setBusy(false); }
   };
 
-  const backToMobile = (e) => { e.preventDefault(); setStep('mobile'); setOtp(['', '', '', '', '', '']); setOtpError(''); };
+  const backToMobile = (e) => {
+    e.preventDefault();
+    setOtp(['', '', '', '', '', '']); setOtpError(''); setEmailOtp('');
+    if (isReset) { setResetTicket(''); setResetEmail(''); setStep('login'); } else { setStep('mobile'); }
+  };
   const onOtpChange = (i, v) => {
     const digit = v.replace(/\D/g, '').slice(0, 1);
     const next = [...otp]; next[i] = digit; setOtp(next); setOtpError('');
@@ -90,18 +107,21 @@ export default function Onboarding() {
   const verifyOtp = async () => {
     const code = otp.join('');
     if (code.length !== 6) { setOtpError('Enter the complete 6-digit code.'); return; }
-    if (offline) { setStep('mpin'); return; }
+    if (isReset && resetEmail && emailOtp.length !== 6) { setOtpError('Enter the 6-digit code sent to your email.'); return; }
     setBusy(true); setOtpError('');
     try {
-      const res = await authApi.registerVerifyOtp(`+91${mobile}`, code);
+      const res = isReset
+        ? await authApi.loginVerifyResetOtp(resetTicket, code, resetEmail ? emailOtp : undefined)
+        : await authApi.registerVerifyOtp(`+91${mobile}`, code);
       
       // Support nested data structure
       const data = res.data || res;
       
-      setPendingTicket((data && data.pending_ticket) || '');
+      if (!data || !data.pending_ticket) { setOtpError('Verification did not return a session. Please start again.'); return; }
+      setPendingTicket(data.pending_ticket);
       setStep('mpin');
     } catch (err) {
-      if (err.status) { setOtpError(err.message); } else { setOffline(true); setStep('mpin'); }
+      setOtpError(err.status ? err.message : 'Could not reach the server. Try again.');
     } finally { setBusy(false); }
   };
 
@@ -110,11 +130,7 @@ export default function Onboarding() {
     if (mpin !== mpinConfirm) { setMpinError('mPINs do not match.'); return; }
     setMpinError('');
 
-    if (offline || !pendingTicket) {
-      loginUser({ name: `+91 ${mobile}`, mobile: `+91 ${mobile}`, kycStatus: 'pending' });
-      navigate('/kyc');
-      return;
-    }
+    if (!pendingTicket) { setMpinError('Your verification has expired. Please start again.'); return; }
 
     setBusy(true);
     try {
@@ -123,8 +139,9 @@ export default function Onboarding() {
       // Support nested data structure
       const loginData = res.data || res;
       
-      establishSession(loginData);
-      navigate('/kyc');
+      if (!loginData || !loginData.access_token) { setMpinError('Could not sign you in. Please try again.'); return; }
+      const user = establishSession(loginData);
+      navigate(isReset ? dashboardFor(user) : '/kyc');
     } catch (err) {
       setMpinError(err.status ? err.message : 'Could not reach the server. Try again.');
     } finally { setBusy(false); }
@@ -176,14 +193,19 @@ export default function Onboarding() {
           <>
             <h1 className="ob-h1">Verify your number</h1>
             <p className="ob-p">Enter the 6-digit code sent to <strong style={{ color: 'var(--color-text)' }}>+91 {mobile}</strong>. <a href="#" onClick={backToMobile} className="ob-change-link">Change number</a></p>
-            {offline && <p className="ob-dev-otp">Backend not reachable — continuing in local preview mode.</p>}
             <div className="ob-otp-row">
               {otp.map((val, i) => (
                 <input key={i} id={`ob-otp-${i}`} type="text" inputMode="numeric" maxLength={1} value={val} onChange={(e) => onOtpChange(i, e.target.value)} onKeyDown={(e) => onOtpKeyDown(i, e)} className="ob-otp-digit" />
               ))}
             </div>
+            {isReset && resetEmail && (
+              <>
+                <label className="ob-label">Email code (sent to {resetEmail})</label>
+                <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={emailOtp} onChange={(e) => { setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }} className="ob-email-otp" />
+              </>
+            )}
             {otpError && <p className="ob-error" style={{ marginTop: 8 }}>{otpError}</p>}
-            <p className="ob-resend">Didn't get a code? Resend in 00:28</p>
+            {!isReset && <p className="ob-resend">Didn't get a code? <a href="#" onClick={resendOtp}>Resend code</a>{resendNote && ` — ${resendNote}`}</p>}
             <button onClick={verifyOtp} disabled={busy} className="ob-btn-dark">{busy ? 'Verifying…' : 'Verify & Continue'}</button>
           </>
         )}
@@ -197,7 +219,7 @@ export default function Onboarding() {
             <label className="ob-label">Confirm mPIN</label>
             <input type="password" inputMode="numeric" maxLength={4} value={mpinConfirm} onChange={(e) => { setMpinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4)); setMpinError(''); }} className="ob-mpin-input" style={{ marginBottom: 8 }} />
             {mpinError && <p className="ob-error">{mpinError}</p>}
-            <button onClick={setMpinFinal} disabled={busy} className="ob-btn-gold">{busy ? 'Saving…' : 'Continue to KYC'}</button>
+            <button onClick={setMpinFinal} disabled={busy} className="ob-btn-gold">{busy ? 'Saving…' : isReset ? 'Set mPIN & Log In' : 'Continue to KYC'}</button>
           </>
         )}
       </div>

@@ -85,3 +85,8 @@
    minus the full-page height and the eyebrow that named the console. */
 .cs .cs-main > [class$="-page"] { min-height: 0; background: transparent; }
 .cs .cs-main > [class$="-page"] > main { padding-top: 0; }
+
+/* Shared pages a Custodian opens from the console (Lot Detail, Bidding
+   Room, Settlement, …) are wrapped in the shell by the router; their own
+   site header is redundant there. */
+.cs .cs-main header.ah { display: none; }

@@ -12,9 +12,10 @@ export default function LotReachInterest() {
   const [message, setMessage] = useState('');
   const [flash, setFlash] = useState('');
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState('');
 
   // GET /my-listings/reach → { totals, listings: [{ listing, matchedBuyers, fullMatchCount }] }
-  const { data, loading } = useApiQuery(() => lotReach.index(), []);
+  const { data, loading, error } = useApiQuery(() => lotReach.index(), []);
   const LISTINGS = ((data && data.listings) || []).map((r) => ({
     id: r.listing.id,
     title: r.listing.title || r.listing.category,
@@ -27,13 +28,13 @@ export default function LotReachInterest() {
 
   const send = async () => {
     if (!message.trim()) return;
-    setSending(true);
+    setSending(true); setSendError('');
     try {
       await lotReach.sendMessage(composerId, { message_body: message });
       setFlash('Message sent.');
       setComposerId(null);
     } catch (err) {
-      setFlash(err.message || 'Could not send the message.');
+      setSendError(err.description || err.message || 'Could not send the message.');
     } finally {
       setSending(false);
     }
@@ -41,20 +42,21 @@ export default function LotReachInterest() {
 
   return (
     <div className="lri-page">
-      <AppHeader variant="light" contextNav={[{ label: "Lot Directory", to: "/lot-directory" }, { label: "Reach & Interest", to: "/lot-reach-and-interest", active: true }]} />
+      <AppHeader variant="light" contextNav={[{ label: "Seller Dashboard", to: "/seller/dashboard" }, { label: "Reach & Interest", to: "/lot-reach-and-interest", active: true }]} />
       <main className="lri-main">
         <h1 className="lri-title">Lot Reach &amp; Interest</h1>
         <p className="lri-sub">For each live Listing, see which Buyers match on category, location and value preferences — plus who's actually viewed or favorited it — so you know who to reach out to.</p>
         {flash && <p className="lri-flash">{flash}</p>}
 
         <div className="lri-stats">
-          <div className="lri-stat"><b>{totals.lots}</b><span>Live Listings</span></div>
-          <div className="lri-stat"><b style={{ color: 'var(--color-accent)' }}>{totals.matched}</b><span>Full Matches (Category + Location + Value)</span></div>
-          <div className="lri-stat"><b>{totals.viewed}</b><span>Total Views</span></div>
+          <div className="lri-stat"><b>{loading || error ? '—' : totals.lots}</b><span>Live Listings</span></div>
+          <div className="lri-stat"><b style={{ color: 'var(--color-accent)' }}>{loading || error ? '—' : totals.matched}</b><span>Full Matches (Category + Location + Value)</span></div>
+          <div className="lri-stat"><b>{loading || error ? '—' : totals.viewed}</b><span>Total Views</span></div>
         </div>
 
         {loading && <p className="lri-no-match">Loading…</p>}
-        {!loading && LISTINGS.length === 0 && <p className="lri-no-match">No live Listings yet.</p>}
+        {error && <p className="lri-no-match" style={{ color: 'var(--color-danger)' }}>{error.description || error.message || 'Could not load reach data.'}</p>}
+        {!loading && !error && LISTINGS.length === 0 && <p className="lri-no-match">No live Listings yet.</p>}
         {LISTINGS.map((l) => (
           <div key={l.id} className="lri-card">
             <div className="lri-card__head">
@@ -62,7 +64,7 @@ export default function LotReachInterest() {
                 <p className="lri-card__title"><Link to={`/lot-detail?id=${l.id}`}>{l.title}</Link></p>
                 <p className="lri-card__meta">{l.viewCount} views · {l.fullMatches} full match{l.fullMatches === 1 ? '' : 'es'}</p>
               </div>
-              {l.matchedBuyers.length > 0 && <button className="lri-msg-btn" onClick={() => { setComposerId(l.id); setMessage(''); }}>Message matched buyers</button>}
+              {l.matchedBuyers.length > 0 && <button className="lri-msg-btn" onClick={() => { setComposerId(l.id); setMessage(''); setSendError(''); setFlash(''); }}>Message matched buyers</button>}
             </div>
             {l.matchedBuyers.length > 0 ? (
               <table className="lri-table">
@@ -89,6 +91,7 @@ export default function LotReachInterest() {
             <h3>{composerListing.title}</h3>
             <p className="lri-modal__sub">Sending to {composerListing.matchedBuyers.length} matched Buyers. Delivered to their Messages inbox.</p>
             <textarea className="lri-modal__textarea" placeholder="e.g. This listing matches your preferences and closes soon." value={message} onChange={(e) => setMessage(e.target.value)} />
+            {sendError && <p className="lri-modal__sub" style={{ color: 'var(--color-danger)' }}>{sendError}</p>}
             <div className="lri-modal__actions">
               <button className="lri-modal__cancel" onClick={() => setComposerId(null)}>Cancel</button>
               <button className="lri-modal__send" onClick={send} disabled={sending || !message.trim()}>{sending ? 'Sending…' : 'Send'}</button>

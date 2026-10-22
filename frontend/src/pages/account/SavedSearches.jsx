@@ -7,15 +7,16 @@ import './SavedSearches.css';
 
 // Saved filters / history filters → a /marketplace URL that re-runs them.
 const toHref = (filters) => `/marketplace?${new URLSearchParams(filters || {}).toString()}`;
+const parseFilters = (f) => { if (typeof f !== 'string') return f || {}; try { return JSON.parse(f || '{}') || {}; } catch (e) { return {}; } };
 const describe = (filters) => Object.entries(filters || {}).map(([k, v]) => `${k}=${v}`).join('&') || 'All listings';
 
 export default function SavedSearches() {
   const [error, setError] = useState('');
   // GET /my-searches → { searches }, GET /search-history → { history }
-  const { data, reload } = useApiQuery(() => discovery.savedSearches(), []);
-  const { data: historyData } = useApiQuery(() => discovery.searchHistory(), []);
+  const { data, loading, error: loadError, reload } = useApiQuery(() => discovery.savedSearches(), []);
+  const { data: historyData, loading: historyLoading, error: historyError } = useApiQuery(() => discovery.searchHistory(), []);
   const searches = ((data && data.searches) || []).map((sv) => {
-    const filters = typeof sv.filters === 'string' ? JSON.parse(sv.filters || '{}') : (sv.filters || {});
+    const filters = parseFilters(sv.filters);
     return { id: sv.id, label: sv.label, query: describe(filters), href: toHref(filters) };
   });
   const HISTORY = ((historyData && historyData.history) || []).map((h) => ({ query: describe(h.filtersDecoded), href: toHref(h.filtersDecoded) }));
@@ -50,7 +51,9 @@ export default function SavedSearches() {
               </div>
             </div>
           ))}
-          {searches.length === 0 && <p className="ss-empty">No saved searches yet.</p>}
+          {loading && <p className="ss-empty">Loading…</p>}
+          {loadError && <p className="ss-empty" style={{ color: 'var(--color-danger)' }}>Could not load your saved searches{loadError.message ? `: ${loadError.message}` : '.'}</p>}
+          {!loading && !loadError && searches.length === 0 && <p className="ss-empty">No saved searches yet.</p>}
           {error && <p className="ss-empty" style={{ color: 'var(--color-danger)' }}>{error}</p>}
         </div>
 
@@ -63,6 +66,9 @@ export default function SavedSearches() {
               <Link to={h.href} className="ss-rerun">Re-run →</Link>
             </div>
           ))}
+          {historyLoading && <p className="ss-empty">Loading…</p>}
+          {historyError && <p className="ss-empty" style={{ color: 'var(--color-danger)' }}>Could not load your search history{historyError.message ? `: ${historyError.message}` : '.'}</p>}
+          {!historyLoading && !historyError && HISTORY.length === 0 && <p className="ss-empty">No searches yet.</p>}
         </div>
       </main>
     </div>

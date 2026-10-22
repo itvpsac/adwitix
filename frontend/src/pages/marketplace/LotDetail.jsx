@@ -5,6 +5,7 @@ import AppHeader from '../../components/AppHeader.jsx';
 import { listings } from '../../api/endpoints.js';
 import { unwrap, mediaUrl } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
+import { readAuth, isCustodian } from '../../utils/auth.js';
 
 // Data: GET /api/v1/app/listings/:id (ListingController::show) →
 // { listing, saleEvent, tenant, media, sellerStarRating, ... }.
@@ -105,6 +106,9 @@ export default function LotDetail() {
   // Status can stay 'active' until the backend scheduler closes it, so also check the end time.
   const endsAt = se && se.scheduled_end_at ? new Date(String(se.scheduled_end_at).replace(' ', 'T')).getTime() : null;
   const isLive = !!se && se.status === 'active' && !se.actual_closed_at && (!endsAt || endsAt > Date.now());
+  // BR-15: the Super Admin may never bid/offer/pledge; sellers can't bid on their own lot.
+  const blockedReason = isCustodian(readAuth()) ? 'Super Admin accounts cannot bid, offer or pledge (BR-15).'
+    : data.isOwner ? 'This is your lot — you cannot bid on it.' : '';
 
   // Reserve Value is confidential (seller's floor) — never shown here.
   const price = se
@@ -211,7 +215,7 @@ export default function LotDetail() {
             <div className="ldp-mm">
               <div className="ldp-mm__avatar">MM</div>
               <div>
-                <div className="ldp-mm__name">Verified Seller</div>
+                <div className="ldp-mm__name">Identity not disclosed</div>
                 <div className="ldp-mm__meta">
                   {data.sellerStarRating != null ? `MM★ ${Number(data.sellerStarRating).toFixed(1)}` : 'No rating yet'}
                   {tenant && ` · Selling on ${tenant.name}`}
@@ -229,7 +233,9 @@ export default function LotDetail() {
                 <div className="ldp-timeleft">{timeLine(se)}</div>
                 <p className="ldp-bid-note">{meta.note}</p>
 
-                {isLive ? (
+                {isLive && blockedReason ? (
+                  <p className="ldp-bid-note">{blockedReason}</p>
+                ) : isLive ? (
                   se.sale_format === 'buy_now' ? (
                     <Link to={`/bidding-room?id=${lot.id}&format=${se.sale_format}`} className="ldp-cta">{meta.ctaLabel}</Link>
                   ) : (

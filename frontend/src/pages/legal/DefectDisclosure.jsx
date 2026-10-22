@@ -14,7 +14,7 @@ export default function DefectDisclosure() {
   const saleEventId = params.get('saleEvent');
 
   const submit = async () => {
-    if (!saleEventId) { setSubmitted(true); return; }
+    if (!saleEventId) { setError('No Express sale event is attached to this page — open the disclosure from your Express listing.'); return; }
     setBusy(true);
     setError('');
     try {
@@ -52,8 +52,9 @@ export default function DefectDisclosure() {
                 <textarea placeholder="e.g. AC not working, none if not applicable" rows={3} value={form.nonfunctional} onChange={(e) => setForm({ ...form, nonfunctional: e.target.value })} />
               </div>
             </div>
+            {!saleEventId && !error && <p className="ddis-desc" style={{ color: 'var(--color-danger)' }}>No Express sale event is attached to this page — open the disclosure from your Express listing.</p>}
             {error && <p className="ddis-desc" style={{ color: 'var(--color-danger)' }}>{error}</p>}
-            <button className="ddis-submit" onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Complete Disclosure'}</button>
+            <button className="ddis-submit" onClick={submit} disabled={busy || !saleEventId}>{busy ? 'Saving…' : 'Complete Disclosure'}</button>
           </>
         ) : (
           <div className="ddis-success">

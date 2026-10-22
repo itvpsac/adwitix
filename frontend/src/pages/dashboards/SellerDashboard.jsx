@@ -4,7 +4,7 @@ import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import './SellerDashboard.css';
 import { me } from '../../api/endpoints.js';
-import { unwrap } from '../../api/client.js';
+import { unwrap, saveBlob } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
 
 const NAV_ITEMS = [
@@ -17,9 +17,8 @@ const CTAS = [{ label: 'Profile', to: '/profile' }];
 const PRIMARY_CTA = { label: 'List an Asset', to: '/create-lot' };
 
 // Data: GET /my-seller-dashboard (DashboardService::sellerSummary) for
-// sales/settlement counts, and GET /my-listings for the seller's lots;
-// the per-status lot counts are taken from the lot list so they work
-// even before the backend returns pendingApprovalCount/inventoryCount.
+// lot/sales/settlement counts, GET /my-listings for the seller's lots and
+// GET /my-sales (MyActivityController::mySales) for the sales table.
 const FORMAT_LABELS = { easy: 'EASY', express: 'EXPRESS', buy_now: 'BUY-NOW', tender: 'TENDER' };
 const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : '');
 
@@ -27,8 +26,16 @@ export default function SellerDashboard() {
   const [summary, setSummary] = useState(null);
   const [listings, setListings] = useState([]);
   const [error, setError] = useState('');
+  const [sales, setSales] = useState([]);
+  const [salesError, setSalesError] = useState('');
+  const [exportError, setExportError] = useState('');
 
   useEffect(() => {
+    // Loaded separately so a failure here doesn't hide the rest of the dashboard.
+    me.sales()
+      .then((res) => setSales(unwrap(res).sales || []))
+      .catch((err) => setSalesError(err.message || 'Could not load your sales.'));
+
     Promise.all([me.sellerDashboard(), me.listings()])
       .then(([dash, mine]) => {
         setSummary(unwrap(dash).summary || {});
@@ -49,14 +56,23 @@ export default function SellerDashboard() {
     );
   }
 
-  const countStatus = (status) => listings.filter((l) => l.status === status).length;
+  const exportSales = async () => {
+    setExportError('');
+    try {
+      saveBlob(await me.salesExport(), 'my-sales.csv');
+    } catch (err) {
+      setExportError(err.message || 'Export failed.');
+    }
+  };
+
   const data = {
     payoutAccount: summary.payoutBankSet ? 'Payout bank account on file' : null,
     payoutPending: summary.payoutBankPending,
+    sales,
     stats: {
-      activeListings: listings.length ? countStatus('active') : summary.activeListingsCount,
-      pendingApproval: listings.length ? countStatus('pending_approval') : summary.pendingApprovalCount,
-      inventory: listings.length ? countStatus('inventory') : summary.inventoryCount,
+      activeListings: summary.activeListingsCount || 0,
+      pendingApproval: summary.pendingApprovalCount || 0,
+      inventory: summary.inventoryCount || 0,
       thisMonthSalesCount: summary.salesThisMonthCount || 0,
       thisMonthTotalSales: summary.salesThisMonthTotal || 0,
       ytdSalesCount: summary.salesYtdCount || 0,
@@ -110,23 +126,27 @@ export default function SellerDashboard() {
         <section className="sd-section">
           <div className="sd-section-head">
             <h2 className="sd-h2">My Sales</h2>
-            <Link to="#" className="sd-export-link">Export CSV →</Link>
+            <button type="button" onClick={exportSales} className="sd-export-link" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>Export CSV →</button>
           </div>
           <div className="sd-table">
             <div className="sd-sales-row sd-sales-row--head">
               <div>Date</div><div>Format</div><div>Price</div><div>Fee</div><div>TDS</div><div>Trader</div><div>Status</div><div>Chronicle</div>
             </div>
-            {Array.isArray(data.sales) && data.sales.length > 0 ? (
-              data.sales.map((s, i) => (
-                <div key={i} className="sd-sales-row">
-                  <div className="sd-cell-faint">{s.date}</div>
-                  <div className="sd-cell-sm">{s.format}</div>
-                  <div className="sd-cell-gold">₹{s.price?.toLocaleString('en-IN')}</div>
-                  <div className="sd-cell-sm">₹{s.fee?.toLocaleString('en-IN')}</div>
-                  <div className="sd-cell-sm">₹{s.tds?.toLocaleString('en-IN')}</div>
-                  <div className="sd-cell-buyer">{s.buyer}</div>
-                  <div><Link to="#" className="sd-status-link">{s.status}</Link></div>
-                  <div><Link to="#" className="sd-action-link">View →</Link></div>
+            {exportError && <p className="sd-sub" style={{ color: 'var(--color-danger)' }}>{exportError}</p>}
+            {salesError ? (
+              <p className="sd-sub" style={{ color: 'var(--color-danger)' }}>{salesError}</p>
+            ) : data.sales.length > 0 ? (
+              data.sales.map((s) => (
+                <div key={s.id} className="sd-sales-row">
+                  <div className="sd-cell-faint">{String(s.created_at || '').slice(0, 10)}</div>
+                  <div className="sd-cell-sm">{FORMAT_LABELS[s.sale_format] || s.sale_format}</div>
+                  <div className="sd-cell-gold">{formatCurrency(s.final_price)}</div>
+                  <div className="sd-cell-sm">{formatCurrency(s.fee_deducted)}</div>
+                  <div className="sd-cell-sm">{formatCurrency(s.tds_amount)}</div>
+                  <div className="sd-cell-buyer">{s.buyer_mobile}</div>
+                  <div><Link to={`/settlement?id=${s.id}`} className="sd-status-link">{humanize(s.status)}</Link></div>
+                  {/* The Chronicle is linked from the settlement page (GET /settlements/:id returns it). */}
+                  <div><Link to={`/settlement?id=${s.id}`} className="sd-action-link">View →</Link></div>
                 </div>
               ))
             ) : (
@@ -156,25 +176,18 @@ export default function SellerDashboard() {
           <div className="sd-payout-card">
             <div>
               <p className="sd-payout-account">{data.payoutAccount || 'Not set'}</p>
-              {data.payoutPending && <p className="sd-payout-note">A change is pending — activates {data.payoutActivatesAt}.</p>}
+              {data.payoutPending && <p className="sd-payout-note">A change to your payout bank account is pending.</p>}
             </div>
-            <Link to="#" className="sd-pill-link">Manage Payout Bank</Link>
+            <Link to="/payout-bank" className="sd-pill-link">Manage Payout Bank</Link>
           </div>
         </section>
 
         <section className="sd-section sd-section--tight">
           <h2 className="sd-h2">My Applications — Other TradeSphereX</h2>
           <div className="sd-table">
-            {Array.isArray(data.applications) && data.applications.length > 0 ? (
-              data.applications.map((a, i) => (
-                <div key={i} className="sd-app-row">
-                  <span>{a.tenantName}</span>
-                  <span className="sd-badge">{a.status}</span>
-                </div>
-              ))
-            ) : (
-              <EmptyState message="No pending applications." />
-            )}
+            {/* No backend endpoint lists a party's seller applications across
+                tenants yet; status is only available per tenant on Apply to Sell. */}
+            <EmptyState message="Your applications aren't listed here yet — open a TradeSphereX from the directory to see your application status." />
           </div>
         </section>
 
