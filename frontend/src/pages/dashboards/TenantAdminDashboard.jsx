@@ -18,7 +18,7 @@ const CTAS = [{ label: 'Profile', to: '/profile' }];
 // Data: the tenant comes from GET /auth/me (party.admin_tenants); the page
 // then loads /tenants/:id/{dashboard,verification,sellers,billing}, all
 // gated to that tenant's Tenant Admin.
-const TIER_LABELS = { coco_starter: 'CoCo Starter', tsx_launch: 'TSX Launch', tsx_growth: 'TSX Growth', tsx_enterprise: 'TSX Enterprise' };
+const TIER_LABELS = { coco_starter: 'Salvage Managers', tsx_launch: 'TSX Launch', tsx_growth: 'TSX Growth', tsx_enterprise: 'TSX Enterprise' };
 const FORMAT_LABELS = { easy: 'EASY', express: 'EXPRESS', buy_now: 'BUY-NOW', tender: 'TENDER' };
 const STANDING = {
   good: { standing: 'Good standing', standingColor: 'var(--color-success)', standingBg: 'var(--color-success-bg)' },
@@ -105,7 +105,7 @@ export default function TenantAdminDashboard() {
       <main className="ta-main">
         <div className="ta-title-row">
           <h1 className="ta-h1">TSX Master — {d.tenant.name}</h1>
-          <span className="ta-tier-badge">CoCo Tier: {TIER_LABELS[d.tenant.subscription_tier] || humanize(d.tenant.subscription_tier)}</span>
+          <span className="ta-tier-badge">Plan: {TIER_LABELS[d.tenant.subscription_tier] || humanize(d.tenant.subscription_tier)}</span>
           {tenantChoices.length > 1 && (
             <select value={tenantId} onChange={(e) => setTenantId(e.target.value)} style={{ marginLeft: 12 }}>
               {tenantChoices.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}

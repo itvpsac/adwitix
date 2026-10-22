@@ -11,7 +11,7 @@ import './CustodianDashboard.css';
 // GET /admin (counts, tenants, stalled aging, disposals, newest users),
 // GET /admin/decision-queue (what is waiting) and GET /admin/system-health.
 const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—');
-const TIER_LABEL = { coco_starter: 'CoCo Starter', tsx_launch: 'Launch', tsx_growth: 'Growth', tsx_enterprise: 'Enterprise' };
+const TIER_LABEL = { coco_starter: 'Salvage Managers', tsx_launch: 'Launch', tsx_growth: 'Growth', tsx_enterprise: 'Enterprise' };
 const plural = (n, word) => `${n} ${word}${Number(n) === 1 ? '' : 's'}`;
 const day = (d) => (d ? String(d).slice(0, 10) : '—');
 const when = (iso) => (iso ? new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
