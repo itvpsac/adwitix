@@ -9,8 +9,10 @@ import './CustodianTenants.css';
 // TradeSphereX management: GET /admin/tenants (list), GET /admin/tenants/:id
 // (tenant + stats + TSX Masters), POST /admin/tenants/:id/edit (name, plan,
 // brand color, terms URL — the fields that endpoint accepts). Fees are shown
-// read-only: no endpoint changes them yet.
-const TIERS = [['coco_starter', 'CoCo Starter'], ['tsx_launch', 'TSX Launch'], ['tsx_growth', 'TSX Growth'], ['tsx_enterprise', 'TSX Enterprise']];
+// read-only: no endpoint changes them yet. The CoCo tier is "Salvage
+// Managers": only one TradeSphereX holds it, and it leads the list.
+const SALVAGE = 'coco_starter';
+const TIERS = [['coco_starter', 'Salvage Managers'], ['tsx_launch', 'TSX Launch'], ['tsx_growth', 'TSX Growth'], ['tsx_enterprise', 'TSX Enterprise']];
 const tierLabel = (t) => (TIERS.find(([k]) => k === t) || [null, t || '—'])[1];
 const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—');
 
@@ -26,8 +28,10 @@ export default function CustodianTenants() {
       .catch((e) => setError(e.description || e.message || 'Could not load TradeSphereX.'));
   }, []);
 
-  const list = (tenants || []).filter((t) => !find.trim() || `${t.name} ${t.subdomain}`.toLowerCase().includes(find.trim().toLowerCase()));
-  const selectedId = params.get('id') || (tenants && tenants[0] && tenants[0].id);
+  const salvageFirst = (a, b) => (b.subscription_tier === SALVAGE) - (a.subscription_tier === SALVAGE) || String(a.name).localeCompare(String(b.name));
+  const list = [...(tenants || [])].sort(salvageFirst).filter((t) => !find.trim() || `${t.name} ${t.subdomain}`.toLowerCase().includes(find.trim().toLowerCase()));
+  const selectedId = params.get('id') || (list[0] && list[0].id);
+  const salvageHolder = (tenants || []).find((t) => t.subscription_tier === SALVAGE && t.id !== selectedId);
 
   return (
     <CustodianShell>
@@ -49,7 +53,7 @@ export default function CustodianTenants() {
             {tenants && list.length === 0 && <p className="cc-lbl" style={{ padding: '8px 6px' }}>None found.</p>}
           </aside>
           <div className="tx-main">
-            {selectedId ? <TenantDetail key={selectedId} id={selectedId} onSaved={(t) => setTenants((ts) => (ts || []).map((x) => (x.id === t.id ? t : x)))} />
+            {selectedId ? <TenantDetail key={selectedId} id={selectedId} salvageHolder={salvageHolder} onSaved={(t) => setTenants((ts) => (ts || []).map((x) => (x.id === t.id ? t : x)))} />
               : <p className="cc-lbl">{tenants ? 'No TradeSphereX whitelisted yet.' : 'Loading…'}</p>}
           </div>
         </div>
@@ -58,7 +62,7 @@ export default function CustodianTenants() {
   );
 }
 
-function TenantDetail({ id, onSaved }) {
+function TenantDetail({ id, salvageHolder, onSaved }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
@@ -132,7 +136,7 @@ function TenantDetail({ id, onSaved }) {
           <h3 id="pf" className="cc-h2" style={{ fontSize: 17 }}>Plan &amp; details</h3>
           <label className="dq-field">Name<input type="text" value={form.name} onChange={set('name')} /></label>
           <label className="dq-field">Plan
-            <select value={form.subscription_tier} onChange={set('subscription_tier')}>{TIERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+            <select value={form.subscription_tier} onChange={set('subscription_tier')}>{TIERS.map(([k, l]) => <option key={k} value={k} disabled={k === SALVAGE && !!salvageHolder}>{k === SALVAGE && salvageHolder ? `${l} (held by ${salvageHolder.name})` : l}</option>)}</select>
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
             <label className="dq-field">Brand color<input type="text" value={form.branding_primary_color} onChange={set('branding_primary_color')} placeholder="#0F6E4E" /></label>

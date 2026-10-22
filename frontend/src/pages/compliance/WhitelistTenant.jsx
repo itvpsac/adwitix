@@ -12,7 +12,7 @@ export default function WhitelistTenant() {
   const [subdomain, setSubdomain] = useState('');
   const [customDomain, setCustomDomain] = useState('');
   const [tenantClass, setTenantClass] = useState('general');
-  const [tier, setTier] = useState('coco_starter');
+  const [tier, setTier] = useState('tsx_launch');
   const [submitted, setSubmitted] = useState(false);
   const [created, setCreated] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -69,10 +69,10 @@ export default function WhitelistTenant() {
                 <label className="wt-label">Subscription Tier</label>
                 <p className="wt-tier-note">The Success Fee itself is fixed platform-wide and not set here.</p>
                 <select value={tier} onChange={(e) => setTier(e.target.value)} className="wt-input">
-                  <option value="coco_starter">CoCo Starter (Buyer-Pays only)</option>
                   <option value="tsx_launch">TSX Launch</option>
                   <option value="tsx_growth">TSX Growth</option>
                   <option value="tsx_enterprise">TSX Enterprise</option>
+                  <option value="coco_starter">Salvage Managers (Buyer-Pays only; there is only one)</option>
                 </select>
               </div>
             </div>
