@@ -15,12 +15,13 @@ export function toChronicleView({ chronicle: c, reportData: r }) {
   const t = r.transaction || {};
   return {
     reference: c.reference_number,
-    certifiedAt: `${(c.created_at || '').slice(0, 16).replace('T', ' ')} UTC`,
+    // trading_session_chronicle has generated_at (no created_at column).
+    certifiedAt: `${(c.generated_at || c.created_at || '').slice(0, 16).replace('T', ' ')} UTC`,
     version: String(c.version),
     sessionRef: r.saleEvent.ern,
     format: FORMAT_LABEL[r.saleEvent.saleFormat] || r.saleEvent.saleFormat,
     finalPrice: money(r.result.finalPrice),
-    improvementPct: r.improvement && r.improvement.improvementPercent != null ? `${r.improvement.improvementPercent.toFixed(2)}%` : '—',
+    improvementPct: r.improvement && r.improvement.improvementPercent != null ? `${Number(r.improvement.improvementPercent).toFixed(2)}%` : '—',
     participants: p.distinctParticipants ?? 0,
     category: [r.listing.category, r.listing.subcategory].filter(Boolean).join(' › '),
     condition: r.listing.physicalCondition || '—',
@@ -42,26 +43,6 @@ export function toChronicleView({ chronicle: c, reportData: r }) {
   };
 }
 
-const DEMO = {
-  reference: 'CHR-20260731-42C7734F', certifiedAt: '2026-07-31 19:20 UTC', version: '1',
-  sessionRef: 'TEST-CHRONICLE-001', format: 'Buy-Now', finalPrice: '₹96,000.00', improvementPct: '20.00%',
-  participants: 2, category: 'Machinery', condition: 'Used', quantity: '1 unit', yardLocation: 'Chronicle Test Yard',
-  reserveValue: '₹80,000.00', feePayer: 'Trader', successFee: '₹1,920.00', tds: '10% — ₹9,600.00',
-  bidsCount: 0, offersCount: 2, verifyUrl: 'https://verify.adwitix.com/chronicle/0fa163df672606dfb871acc1a0d0f3ba0344cc75ced6fd53',
-  timeline: [
-    { when: '2026-07-31 19:20:15', event: 'offer.accepted' },
-    { when: '2026-07-31 19:20:15', event: 'emd.released' },
-    { when: '2026-07-31 19:20:15', event: 'settlement.seller_noc_confirmed' },
-    { when: '2026-07-31 19:20:15', event: 'settlement.buyer_noc_confirmed' },
-    { when: '2026-07-31 19:20:15', event: 'settlement.tds_deducted' },
-    { when: '2026-07-31 19:20:15', event: 'invoice.generated' },
-  ],
-  offers: [
-    { amount: '₹90,000.00', status: 'rejected', statusColor: 'var(--color-text-faint)', submittedAt: '2026-07-31 19:20:15' },
-    { amount: '₹96,000.00', status: 'accepted', statusColor: 'var(--color-success)', submittedAt: '2026-07-31 19:20:15' },
-  ],
-};
-
 function Row({ label, value, strong }) {
   return <tr><td>{label}</td><td className={strong ? 'axc-td-strong' : ''}>{value}</td></tr>;
 }
@@ -70,21 +51,27 @@ export default function AxChronicle() {
   const [params] = useSearchParams();
   const id = params.get('id');
   const [error, setError] = useState('');
-  const { data, error: loadError } = useApiQuery(() => chronicleApi.view(id), [id], { skip: !id });
-  const C = data && data.chronicle ? toChronicleView(data) : DEMO;
+  const { data, loading, error: loadError } = useApiQuery(() => chronicleApi.view(id), [id], { skip: !id });
 
   const download = async () => {
     setError('');
     try {
-      saveBlob(await chronicleApi.download(id), `${C.reference}.pdf`);
+      const blob = await chronicleApi.download(id);
+      // A non-PDF body means the server answered with an HTML page
+      // (e.g. a login redirect) rather than the certified document.
+      if (blob.type && !blob.type.includes('pdf')) throw new Error('The certified PDF could not be downloaded.');
+      saveBlob(blob, `${C.reference}.pdf`);
     } catch (err) {
       setError(err.message || 'Download failed.');
     }
   };
 
-  if (id && loadError) {
-    return <div className="axc-page"><div className="axc-doc"><p className="axc-p">{loadError.message || 'Chronicle not found.'}</p></div></div>;
-  }
+  const notice = (msg) => <div className="axc-page"><div className="axc-doc"><div className="legal-eyebrow">AdwitiX AX Chronicle</div><h1 className="axc-title">Trading Session Chronicle</h1><p className="axc-p">{msg}</p></div></div>;
+  if (!id) return notice('No Chronicle selected. Open a Chronicle from its settlement to view the certified record.');
+  if (loading) return notice('Loading Chronicle…');
+  if (loadError) return notice(loadError.message || 'Chronicle not found.');
+  if (!data || !data.chronicle) return notice('Chronicle not found.');
+  const C = toChronicleView(data);
 
   return (
     <div className="axc-page">
@@ -94,7 +81,7 @@ export default function AxChronicle() {
             <div className="legal-eyebrow">AdwitiX AX Chronicle</div>
             <h1 className="axc-title">Trading Session Chronicle</h1>
             <div className="axc-ref">Reference: {C.reference} · Certified {C.certifiedAt} · Version {C.version}</div>
-            {id && data && <button type="button" onClick={download} className="axc-ref" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}>Download certified PDF ↓</button>}
+            <button type="button" onClick={download} className="axc-ref" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline' }}>Download certified PDF ↓</button>
             {error && <div className="axc-ref" style={{ color: 'var(--color-danger)' }}>{error}</div>}
           </div>
           <div className="axc-qr">Scan to verify this certified record and access supporting evidence</div>
@@ -127,6 +114,7 @@ export default function AxChronicle() {
         <div className="axc-timeline">
           <div className="axc-timeline__head"><div>When (UTC)</div><div>Event</div></div>
           {C.timeline.map((t, i) => <div key={i} className="axc-timeline__row"><div className="axc-mono">{t.when}</div><div>{t.event}</div></div>)}
+          {C.timeline.length === 0 && <div className="axc-timeline__row"><div className="axc-mono">—</div><div>No timeline events recorded.</div></div>}
         </div>
 
         <h2 className="axc-h2">Participation &amp; Bidding</h2>
@@ -145,6 +133,7 @@ export default function AxChronicle() {
               <div className="axc-mono">{o.submittedAt}</div>
             </div>
           ))}
+          {C.offers.length === 0 && <div className="axc-offers__row"><div className="axc-mono">—</div><div>No offers recorded.</div><div /></div>}
         </div>
 
         <h2 className="axc-h2">Result &amp; Improvement</h2>

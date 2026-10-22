@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import './ChronicleVerify.css';
 import AppHeader from '../../components/AppHeader.jsx';
 import { chronicle as chronicleApi } from '../../api/endpoints.js';
@@ -7,60 +7,47 @@ import { saveBlob } from '../../api/client.js';
 import { useApiQuery } from '../../api/hooks.js';
 import { toChronicleView } from './AxChronicle.jsx';
 
-const DEMO_FACTS = [
-  { label: 'Reference Number', value: 'AXC-2026-088341' },
-  { label: 'Certified', value: '2026-08-01 09:42 UTC' },
-  { label: 'Version', value: '1.0' },
-  { label: 'Trading Session', value: 'TSN-2026-3115' },
-  { label: 'Trading Format', value: 'Easy Auction' },
-];
-const DEMO_MEDIA = [
-  { filename: 'compressor_front.jpg', primaryTag: ' (primary)' },
-  { filename: 'compressor_nameplate.jpg', primaryTag: '' },
-  { filename: 'inspection_report.pdf', primaryTag: '' },
-];
-const DEMO_TIMELINE = [
-  { at: '2026-07-28 11:02:14', type: 'Lot approved by TSX Master' },
-  { at: '2026-07-29 09:15:41', type: 'Trading Session opened' },
-  { at: '2026-07-31 18:00:00', type: 'Bidding closed — H1 recorded' },
-  { at: '2026-08-01 09:40:22', type: 'Settlement completed' },
-];
-const DEMO_CHAIN_HASH = '9f3a7c2e18d0b4f1';
-
 export default function ChronicleVerify() {
   // ?token= from the QR code / verification link; public, no login.
   const [params] = useSearchParams();
   const token = params.get('token');
   const [error, setError] = useState('');
-  const { data, error: loadError } = useApiQuery(() => chronicleApi.verify(token), [token], { skip: !token });
+  const { data, loading, error: loadError } = useApiQuery(() => chronicleApi.verify(token), [token], { skip: !token });
   const live = !!(data && data.chronicle);
   const view = live ? toChronicleView(data) : null;
-  const HASH_MATCHES = live ? !!data.hashMatches : true;
+  const HASH_MATCHES = live && !!data.hashMatches;
   const FACTS = live ? [
     { label: 'Reference Number', value: view.reference },
     { label: 'Certified', value: view.certifiedAt },
     { label: 'Version', value: view.version },
     { label: 'Trading Session', value: view.sessionRef },
     { label: 'Trading Format', value: view.format },
-  ] : DEMO_FACTS;
-  const MEDIA = live ? (data.media || []).map((m) => ({ filename: m.original_filename, primaryTag: Number(m.is_primary) ? ' (primary)' : '' })) : DEMO_MEDIA;
-  const TIMELINE = live ? view.timeline.map((t) => ({ at: t.when, type: t.event })) : DEMO_TIMELINE;
-  const CHAIN_HASH = live ? (data.chronicle.content_hash || '').slice(0, 16) : DEMO_CHAIN_HASH;
+  ] : [];
+  const MEDIA = live ? (data.media || []).map((m) => ({ filename: m.original_filename, primaryTag: Number(m.is_primary) ? ' (primary)' : '' })) : [];
+  const TIMELINE = live ? view.timeline.map((t) => ({ at: t.when, type: t.event })) : [];
+  const CHAIN_HASH = live ? (data.chronicle.content_hash || '').slice(0, 16) : '';
 
   const downloadPdf = async () => {
     setError('');
     try {
-      saveBlob(await chronicleApi.verifyPdf(token), `${view.reference}.pdf`);
+      const blob = await chronicleApi.verifyPdf(token);
+      if (blob.type && !blob.type.includes('pdf')) throw new Error('The certified PDF could not be downloaded.');
+      saveBlob(blob, `${view.reference}.pdf`);
     } catch (err) {
       setError(err.message || 'Download failed.');
     }
   };
 
-  if (token && loadError) {
+  const notice = !token
+    ? 'No verification token supplied. Open this page from the QR code or verification link printed on the certified PDF.'
+    : loading ? 'Verifying Chronicle…'
+      : loadError ? (loadError.message || 'No Chronicle matches this verification token.')
+        : !live ? 'No Chronicle matches this verification token.' : null;
+  if (notice) {
     return (
       <div className="cv-page">
         <AppHeader variant="light" contextLabel="Chronicle Verification" />
-        <main className="cv-main"><h1 className="cv-title">Chronicle Verification</h1><p className="cv-body-text">{loadError.message || 'No Chronicle matches this verification token.'}</p></main>
+        <main className="cv-main"><h1 className="cv-title">Chronicle Verification</h1><p className="cv-body-text">{notice}</p></main>
       </div>
     );
   }
@@ -81,19 +68,19 @@ export default function ChronicleVerify() {
           {FACTS.map((f) => <div key={f.label} className="cv-fact-row"><span className="cv-fact-label">{f.label}</span><span className="cv-fact-value">{f.value}</span></div>)}
         </div>
 
-        {live
-          ? <button type="button" onClick={downloadPdf} className="cv-download-btn" style={{ border: 'none', cursor: 'pointer' }}>Download Certified PDF →</button>
-          : <Link to="/ax-chronicle" className="cv-download-btn">Download Certified PDF →</Link>}
+        <button type="button" onClick={downloadPdf} className="cv-download-btn" style={{ border: 'none', cursor: 'pointer' }}>Download Certified PDF →</button>
         {error && <p className="cv-chain-note" style={{ color: 'var(--color-danger)' }}>{error}</p>}
 
         <h3 className="cv-h3">Supporting Evidence</h3>
         <div className="cv-list-card">
-          {MEDIA.map((m) => <div key={m.filename} className="cv-list-row"><span>{m.filename}</span>{m.primaryTag}</div>)}
+          {MEDIA.map((m, i) => <div key={i} className="cv-list-row"><span>{m.filename}</span>{m.primaryTag}</div>)}
+          {MEDIA.length === 0 && <div className="cv-list-row cv-list-row--muted">No supporting media on file.</div>}
         </div>
 
         <h3 className="cv-h3">Audit-Trail Excerpt</h3>
         <div className="cv-list-card" style={{ marginBottom: 16 }}>
           {TIMELINE.map((ev, i) => <div key={i} className="cv-list-row cv-list-row--muted"><span className="cv-mono">{ev.at}</span> — {ev.type}</div>)}
+          {TIMELINE.length === 0 && <div className="cv-list-row cv-list-row--muted">No timeline events recorded.</div>}
         </div>
         <p className="cv-chain-note">Chain reference: {CHAIN_HASH}… — cross-checkable against the platform's own digital repository.</p>
 
