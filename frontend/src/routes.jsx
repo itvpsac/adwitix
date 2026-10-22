@@ -52,7 +52,6 @@ const Alerts = lazyPage(() => import('./pages/compliance/Alerts.jsx'));
 const AuditChainVerify = lazyPage(() => import('./pages/compliance/AuditChainVerify.jsx'));
 const AuditLedger = lazyPage(() => import('./pages/compliance/AuditLedger.jsx'));
 const ConsentAudit = lazyPage(() => import('./pages/compliance/ConsentAudit.jsx'));
-const DelistMarketMaker = lazyPage(() => import('./pages/compliance/DelistMarketMaker.jsx'));
 const MediaWaivers = lazyPage(() => import('./pages/compliance/MediaWaivers.jsx'));
 const RulesAndSpecifications = lazyPage(() => import('./pages/compliance/RulesAndSpecifications.jsx'));
 const StatutoryExport = lazyPage(() => import('./pages/compliance/StatutoryExport.jsx'));
@@ -104,7 +103,8 @@ export const routes = [
   { path: '/audit-chain-verify', element: <ConsoleFrame><AuditChainVerify /></ConsoleFrame> },
   { path: '/audit-ledger', element: <ProtectedRoute requiredRole="super_admin"><AuditLedger /></ProtectedRoute> },
   { path: '/consent-audit', element: <ProtectedRoute requiredRole="super_admin"><ConsentAudit /></ProtectedRoute> },
-  { path: '/delist-market-maker', element: <ProtectedRoute requiredRole="super_admin"><DelistMarketMaker /></ProtectedRoute> },
+  // Delisting is done from the person's User file (D-136).
+  { path: '/delist-market-maker', element: <Navigate to="/user-directory" replace /> },
   { path: '/media-waivers', element: <ProtectedRoute requiredRole="super_admin"><MediaWaivers /></ProtectedRoute> },
   { path: '/rules-and-specifications', element: <ProtectedRoute requiredRole="super_admin"><RulesAndSpecifications /></ProtectedRoute> },
   { path: '/statutory-export', element: <ProtectedRoute requiredRole="super_admin"><StatutoryExport /></ProtectedRoute> },

@@ -73,9 +73,16 @@ export default function CustodianUser() {
               {isMaster && ' · TSX Master'}
             </p>
           </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {isSeller && !p.seller_delisted_at && (
+            <StopAction label="Delist Market Maker" verb="Delist" what={`${p.full_name || p.mobile_number} as a Market Maker`}
+              note="BR-38: for confirmed fraud only — never for ordinary poor ratings. Their selling rights are removed on every TradeSphereX and all their active lots are suspended at once. No TSX Master can undo it. The reason is recorded in the Audit Ledger."
+              onStop={(r) => admin.delistSeller({ mobile_number: p.mobile_number, confirmed_fraud_reason: r })} onDone={load} />
+          )}
           {p.frozen_at
             ? <StopAction label="Unfreeze" verb="Unfreeze" what={`${p.full_name || p.mobile_number}'s account`} note="They will be able to bid, offer, pledge and sell again. The reason is recorded in the Audit Ledger." onStop={(r) => admin.unfreezeUser(id, r)} onDone={load} />
             : <StopAction label="Freeze account" verb="Freeze" what={`${p.full_name || p.mobile_number}'s account`} note="They keep their record and can still sign in and finish open settlements, but can't bid, offer, pledge, list or sell until unfrozen. Their live lots keep running — stop those separately if needed. The reason is recorded in the Audit Ledger." onStop={(r) => admin.freezeUser(id, r)} onDone={load} />}
+          </div>
         </div>
 
         {p.kyc_status === 'submitted' && <p className="cl-banner cl-banner--info">KYC submitted and waiting for review — <a href="#id" className="cc-link">review it below</a>.</p>}

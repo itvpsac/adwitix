@@ -33,7 +33,6 @@ const NAV = [
   ] },
   { group: 'Governance', items: [
     { label: 'Rating Reviews', to: '/rating-reviews', badge: 'rating' },
-    { label: 'Delist Market Maker', to: '/delist-market-maker' },
     { label: 'Rules & Specifications', to: '/rules-and-specifications' },
     { label: 'Audit Log', to: '/audit-ledger' },
   ] },
