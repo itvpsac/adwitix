@@ -246,6 +246,7 @@ export const admin = {
 
   lots: (query) => api.get(`${APP}/admin/lots`, { query }),
   tradingSessions: (query) => api.get(`${APP}/admin/trading-sessions`, { query }),
+  lotDossier: (id) => api.get(`${APP}/admin/listings/${id}/dossier`),
   stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
   stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 

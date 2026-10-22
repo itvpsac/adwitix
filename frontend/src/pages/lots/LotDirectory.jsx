@@ -123,7 +123,7 @@ export default function LotDirectory() {
             {lots.map((l, i) => (
               <div key={`${l.id}-${l.sale_event_id || i}`} className="ld-row" style={{ background: i % 2 === 1 ? '#FCFCFB' : '#fff' }}>
                 <span>{l.tenant_name}</span>
-                <span className="ld-muted"><Link to={`/lot-detail?id=${l.id}`}>{l.category}{l.subcategory && ` — ${l.subcategory}`}</Link></span>
+                <span className="ld-muted"><Link to={`/custodian/lot?id=${l.id}`}>{l.title || l.category}{!l.title && l.subcategory && ` — ${l.subcategory}`}</Link></span>
                 <span>{STATUS_LABELS[l.status] || l.status}</span>
                 <span className="ld-faint">{FORMAT_LABELS[l.sale_format] || '—'}</span>
                 <span className="ld-faint">{l.sale_status ? (SALE_STATUS_LABELS[l.sale_status] || l.sale_status) : '—'}</span>

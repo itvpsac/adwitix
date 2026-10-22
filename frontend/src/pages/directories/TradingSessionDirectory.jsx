@@ -43,6 +43,7 @@ export default function TradingSessionDirectory() {
     ern: se.ern,
     tenantName: se.tenant_name,
     category: se.category,
+    listingId: se.listing_id,
     format: se.sale_format,
     status: se.status,
     value: money(se.current_price ?? se.expected_value ?? se.reserve_value),
@@ -82,7 +83,7 @@ export default function TradingSessionDirectory() {
             const meta = STATUS_DEFS[se.status] || { label: se.status, color: 'var(--color-text-muted)', bg: '#EEF0F4' };
             return (
               <div key={se.id} className="sd-row" style={{ background: i % 2 === 1 ? '#FCFCFB' : '#fff' }}>
-                <span className="sd-cell-ern">{se.ern}</span>
+                <span className="sd-cell-ern"><Link to={`/custodian/lot?id=${se.listingId}#se-${se.id}`}>{se.ern}</Link></span>
                 <span className="sd-cell-name">{se.tenantName}</span>
                 <span className="sd-cell-muted">{se.category}</span>
                 <span className="sd-cell-faint">{FORMAT_LABELS[se.format] || se.format}</span>
