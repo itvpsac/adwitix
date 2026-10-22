@@ -31,9 +31,9 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const shortDate = (d) => (d ? new Date(String(d).replace(' ', 'T')).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const Empty = ({ children }) => <div className="ta-list-row" style={{ color: 'var(--color-text-faint)' }}>{children}</div>;
 
-const CONSOLE_LINKS = [
-  ['Media Waiver Request', '#'], ['Full Market Maker List', '#'], ['API Access', '#'], ['Pending Market Maker Applications', '#'],
-];
+// Backed by /tenants/:id/{media-waiver,sellers,api-access,pending-sellers},
+// but no React page exists for these yet — shown as unavailable, not as links.
+const CONSOLE_ITEMS = ['Media Waiver Request', 'Full Market Maker List', 'API Access', 'Pending Market Maker Applications'];
 
 export default function TenantAdminDashboard() {
   const [tenantChoices, setTenantChoices] = useState([]);
@@ -90,7 +90,7 @@ export default function TenantAdminDashboard() {
     return (
       <div className="ta-page">
         <LightDashboardHeader navItems={NAV_ITEMS} ctas={CTAS} />
-        <main className="ta-main"><h1 className="ta-h1">TSX Master Dashboard</h1><p className="ta-sub">{error || 'Loading dashboard…'}</p></main>
+        <main className="ta-main"><h1 className="ta-h1">TSX Master Dashboard</h1><p className="ta-sub" style={error ? { color: 'var(--color-danger)' } : undefined}>{error || 'Loading dashboard…'}</p></main>
       </div>
     );
   }
@@ -117,8 +117,8 @@ export default function TenantAdminDashboard() {
         <div className="ta-stats">
           <Link to="/lot-approval" className="ta-stat-card"><b>{d.pendingListings.length}</b><span>Lots to Review</span></Link>
           <Link to="/lot-approval" className="ta-stat-card"><b>{d.pendingSaleEvents.length}</b><span>Trading Sessions to Approve</span></Link>
-          <Link to="#sellers" className="ta-stat-card"><b className="text-gold">{d.pendingSellers.length}</b><span>Market Maker Applications</span></Link>
-          <Link to="#" className="ta-stat-card"><b>{d.openDisputes.length}</b><span>Open Disputes</span></Link>
+          <div className="ta-stat-card"><b className="text-gold">{d.pendingSellers.length}</b><span>Market Maker Applications</span></div>
+          <Link to="#disputes" className="ta-stat-card"><b>{d.openDisputes.length}</b><span>Open Disputes</span></Link>
           <Link to="#disputes" className="ta-stat-card"><b>{d.stalledSettlements.length}</b><span>Stalled Settlements</span></Link>
         </div>
 
@@ -151,7 +151,7 @@ export default function TenantAdminDashboard() {
               <h2 className="ta-h2">Open Disputes</h2>
               <div className="ta-table">
                 {d.openDisputes.map((x) => (
-                  <Link to="/dispute-center" key={x.id} className="ta-list-row">{humanize(x.category)} · {humanize(x.status)}</Link>
+                  <Link to={`/dispute-center?id=${x.id}`} key={x.id} className="ta-list-row">{humanize(x.category)} · {humanize(x.status)}</Link>
                 ))}
                 {d.openDisputes.length === 0 && <Empty>No open disputes.</Empty>}
               </div>
@@ -160,7 +160,7 @@ export default function TenantAdminDashboard() {
               <h2 className="ta-h2">Stalled Settlements</h2>
               <div className="ta-table">
                 {d.stalledSettlements.map((x) => (
-                  <Link to="#" key={x.id} className="ta-list-row ta-list-row--gold">{formatCurrency(x.final_price)}{x.stall_flagged_at ? ` · stalled since ${shortDate(x.stall_flagged_at)}` : ''}</Link>
+                  <Link to={`/settlement?id=${x.id}`} key={x.id} className="ta-list-row ta-list-row--gold">{formatCurrency(x.final_price)}{x.stall_flagged_at ? ` · stalled since ${shortDate(x.stall_flagged_at)}` : ''}</Link>
                 ))}
                 {d.stalledSettlements.length === 0 && <Empty>No stalled settlements.</Empty>}
               </div>
@@ -172,9 +172,9 @@ export default function TenantAdminDashboard() {
           <h2 className="ta-h2">High-Value Disposal Records (&gt;₹10L)</h2>
           <div className="ta-table">
             {d.highValueDisposals.map((x) => (
-              <Link to="#" key={x.id} className="ta-disposal-row">
+              <Link to={`/settlement?id=${x.settlement_id}`} key={x.id} className="ta-disposal-row">
                 <span className="ta-disposal-value">{formatCurrency(x.final_sale_value)}</span>
-                <span className="ta-disposal-meta">RV {formatCurrency(x.reserve_value)} · Variance {Number(x.variance) >= 0 ? '+' : '−'}{formatCurrency(Math.abs(Number(x.variance)))} · {FORMAT_LABELS[x.sale_format] || x.sale_format}</span>
+                <span className="ta-disposal-meta">RV {x.reserve_value != null ? formatCurrency(x.reserve_value) : '—'} · Variance {Number(x.variance) >= 0 ? '+' : '−'}{formatCurrency(Math.abs(Number(x.variance)))} · {FORMAT_LABELS[x.sale_format] || x.sale_format}</span>
               </Link>
             ))}
             {d.highValueDisposals.length === 0 && <Empty>No high-value disposals yet.</Empty>}
@@ -184,7 +184,7 @@ export default function TenantAdminDashboard() {
         <section id="sellers" className="ta-section">
           <div className="ta-section-head">
             <h2 className="ta-h2" style={{ margin: 0 }}>Market Maker Management</h2>
-            <Link to="#" className="ta-pill-link">Review Pending Applications</Link>
+            <span className="ta-hint" style={{ margin: 0 }}>{plural(d.pendingSellers.length, 'pending application')}</span>
           </div>
           <p className="ta-hint">Backed by the Standing Review system — sorted by complaint count.</p>
           <div className="ta-table">
@@ -194,13 +194,13 @@ export default function TenantAdminDashboard() {
             {d.sellers.map((s) => {
               const st = sellerStanding(s);
               return (
-                <Link to="#" key={s.party_id} className="ta-seller-row">
+                <div key={s.party_id} className="ta-seller-row">
                   <div>{maskMobile(s.mobile_number)}</div>
                   <div>{s.seller_star_rating != null ? `${Number(s.seller_star_rating).toFixed(1)}★` : '—'}</div>
                   <div>{s.salesOnTenant ?? 0}</div>
                   <div>{s.standing_review_complaint_count ?? 0}</div>
                   <div><span className="ta-badge" style={{ color: st.standingColor, background: st.standingBg }}>{st.standing}</span></div>
-                </Link>
+                </div>
               );
             })}
             {d.sellers.length === 0 && <Empty>No approved Market Makers on this tenant yet.</Empty>}
@@ -250,8 +250,8 @@ export default function TenantAdminDashboard() {
         <section className="ta-account">
           <h3 className="ta-account-title">Console</h3>
           <div className="ta-quick">
-            {CONSOLE_LINKS.map(([label, to]) => (
-              <Link key={label} to={to} className="ta-quick-link">{label}</Link>
+            {CONSOLE_ITEMS.map((label) => (
+              <span key={label} className="ta-quick-link" aria-disabled="true" title="Not available in this app yet" style={{ opacity: 0.5, cursor: 'not-allowed' }}>{label}</span>
             ))}
           </div>
         </section>
@@ -260,10 +260,9 @@ export default function TenantAdminDashboard() {
           <h3 className="ta-account-title">Quick Links</h3>
           <div className="ta-quick">
             <Link to="/lot-approval" className="ta-quick-link">Lot Approval</Link>
-            <Link to="/trading-session-directory" className="ta-quick-link">Trading Session Directory</Link>
             <Link to="/dispute-center" className="ta-quick-link">Dispute Center</Link>
             <Link to="/rating-reviews" className="ta-quick-link">Rating & Reviews</Link>
-            <Link to="/invoices" className="ta-quick-link">Invoices</Link>
+            <Link to="#billing" className="ta-quick-link">Billing</Link>
           </div>
         </section>
       </main>

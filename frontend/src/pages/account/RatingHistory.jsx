@@ -8,17 +8,18 @@ const TYPE_META = {
   downgrade: { label: 'Downgrade', color: 'var(--color-danger)' },
   forced_neutral: { label: 'Forced Neutral', color: 'var(--color-text-faint)' },
 };
-const STATUS_META = { applied: 'Applied', pending_dual_approval: 'Pending Dual Approval', pending_tenant_admin_approval: 'Pending Tenant Admin' };
+// rating_event.status enum
+const STATUS_META = { applied: 'Applied', pending_tenant_approval: 'Pending Tenant Admin', pending_super_admin_approval: 'Pending Custodian', rejected: 'Rejected' };
 
 export default function RatingHistory() {
-  const { data: apiData, loading: apiLoading } = useApiQuery(() => me.ratingHistory(), []);
+  const { data: apiData, loading: apiLoading, error: apiError } = useApiQuery(() => me.ratingHistory(), []);
   const apiEvents = (apiData && apiData.events) || [];
   const source = apiEvents.map((e) => ({
     date: (e.created_at || '').slice(0, 10),
-    role: e.role === 'seller_star_rating' ? 'seller_star_rating' : 'star_rating',
-    type: e.event_type === 'downgrade' ? 'downgrade' : e.event_type === 'forced_neutral' ? 'forced_neutral' : 'upgrade',
-    previousValue: Number(e.previous_value ?? 3),
-    newValue: Number(e.new_value ?? 3),
+    role: e.rating_role === 'seller_star_rating' ? 'seller_star_rating' : 'star_rating',
+    type: TYPE_META[e.event_type] ? e.event_type : null,
+    previousValue: Number(e.previous_value),
+    newValue: Number(e.new_value),
     reason: e.reason || '—',
     status: e.status || 'applied',
     appealed: !!e.appealed_at,
@@ -28,8 +29,8 @@ export default function RatingHistory() {
   const events = source.map((e) => ({
     ...e,
     roleLabel: e.role === 'star_rating' ? 'Trader' : 'Market Maker',
-    typeLabel: TYPE_META[e.type].label,
-    typeColor: TYPE_META[e.type].color,
+    typeLabel: e.type ? TYPE_META[e.type].label : '—',
+    typeColor: e.type ? TYPE_META[e.type].color : undefined,
     statusLabel: STATUS_META[e.status] || e.status,
     appealSuffix: e.appealOutcome ? `: ${e.appealOutcome}` : '',
   }));
@@ -54,7 +55,9 @@ export default function RatingHistory() {
             </div>
           ))}
         </div>
-        {!apiLoading && events.length === 0 && <p className="rh-empty">No rating events yet — every transaction starts at a neutral 3.0★.</p>}
+        {apiLoading && <p className="rh-empty">Loading…</p>}
+        {apiError && <p className="rh-empty" style={{ color: 'var(--color-danger)' }}>Could not load your rating history{apiError.message ? `: ${apiError.message}` : '.'}</p>}
+        {!apiLoading && !apiError && events.length === 0 && <p className="rh-empty">No rating events yet — every transaction starts at a neutral 3.0★.</p>}
       </main>
     </div>
   );

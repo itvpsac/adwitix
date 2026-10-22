@@ -8,13 +8,12 @@ import './Profile.css';
 const KYC_MAP = {
   verified: { label: 'Verified', color: 'var(--color-success)', bg: 'var(--color-success-bg)', hint: 'Your identity is fully verified. No action needed.' },
   pending: { label: 'Pending', color: 'var(--color-warning)', bg: 'var(--color-warning-bg)', hint: "Your dossier is with your TSX Master for review — usually 1–2 business days." },
+  submitted: { label: 'Submitted', color: 'var(--color-warning)', bg: 'var(--color-warning-bg)', hint: 'Your KYC dossier has been submitted and is awaiting review.' },
   suspended: { label: 'Suspended', color: 'var(--color-danger)', bg: 'var(--color-danger-bg)', hint: 'A compliance flag needs your attention before you can bid or list again.' },
 };
 
 const PROFILE_LINKS = [
-  { title: 'Personal Details', subtitle: 'Name, mobile, email', href: '/profile' }, // Assuming current page is personal details placeholder
   { title: 'Preferences', subtitle: 'Categories, notifications', href: '/preferences' },
-  { title: 'Invoices', subtitle: 'GST invoices & receipts', href: '/invoices' },
   { title: 'Change mPIN', subtitle: 'Update login PIN via OTP', href: '/change-mpin' },
   { title: 'Delete Account', subtitle: '30-day grace period', href: '/delete-account' },
   { title: 'Saved Searches', subtitle: 'Filters saved from Marketplace', href: '/saved-searches' },
@@ -28,6 +27,7 @@ const PROFILE_LINKS = [
 export default function Profile() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     me.profile()
@@ -37,21 +37,28 @@ export default function Profile() {
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to fetch profile', err);
+        setError(err.message || 'Could not load your profile.');
         setLoading(false);
       });
   }, []);
 
-  if (loading) return <div className="pf-page">Loading...</div>;
-  if (!profile) return <div className="pf-page">Failed to load profile.</div>;
+  if (loading || !profile) {
+    return (
+      <div className="pf-page">
+        <LightDashboardHeader />
+        <main className="pf-main"><p className="pf-meta" style={error ? { color: 'var(--color-danger)' } : undefined}>{loading ? 'Loading…' : (error || 'Could not load your profile.')}</p></main>
+      </div>
+    );
+  }
 
   const party = profile.party || profile;
-  const userInitials = (party.full_name || 'U').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-  const kyc = KYC_MAP[party.kyc_status] || KYC_MAP.verified;
+  const userInitials = (party.full_name || party.mobile_number || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+  const kyc = KYC_MAP[party.kyc_status] || { label: party.kyc_status || 'Unknown', color: 'var(--color-text-faint)', bg: 'transparent', hint: 'Open KYC to see your verification status.' };
 
-  // Filter links based on role (derived from entity_type or roles in API response)
-  const isTrader = party.roles?.includes('trader') || party.entity_type === 'individual';
-  const isMarketMaker = party.roles?.includes('market_maker') || party.entity_type === 'corporate';
+  // party_role values are 'buyer' (granted at registration) and 'seller'
+  // (granted on an approved Market Maker application).
+  const isTrader = !!party.roles?.includes('buyer');
+  const isMarketMaker = !!party.roles?.includes('seller');
 
   const visibleLinks = PROFILE_LINKS.filter(link => {
     if (link.title === 'Buyer Dashboard') return isTrader;
@@ -68,14 +75,14 @@ export default function Profile() {
         <div className="pf-identity">
           <div className="pf-avatar">{userInitials}</div>
           <div>
-            <h1 className="pf-name">{party.full_name}</h1>
+            <h1 className="pf-name">{party.full_name || party.mobile_number}</h1>
             <p className="pf-meta">
-              {party.mobile_number} · {party.email} · {party.entity_type} · Member since {new Date(party.created_at || Date.now()).getFullYear()}
+              {[party.mobile_number, party.email, party.entity_type, party.created_at ? `Member since ${new Date(String(party.created_at).replace(' ', 'T')).getFullYear()}` : null].filter(Boolean).join(' · ')}
             </p>
           </div>
         </div>
 
-        <Link to="#" className="pf-kyc-card">
+        <Link to="/kyc" className="pf-kyc-card">
           <div className="pf-kyc-row">
             <div>
               <p className="pf-kyc-eyebrow">Identity Verification</p>

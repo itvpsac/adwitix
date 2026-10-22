@@ -62,6 +62,7 @@ export default function Preferences() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   // First visit on this device: seed from the profile saved server side.
   useEffect(() => {
@@ -74,7 +75,7 @@ export default function Preferences() {
       setUniversalValueLo(bandIndex(existing.budget_min, 0));
       setUniversalValueHi(existing.budget_max != null ? bandIndex(existing.budget_max, VALUE_MAX_INDEX) : VALUE_MAX_INDEX);
       setRows((selectedCategories || []).map((apiValue) => CATEGORIES.find((c) => c.apiValue === apiValue)).filter(Boolean).map((c) => ({ ...newRow(), catId: c.id })));
-    }).catch(() => { /* offline — start empty */ });
+    }).catch((err) => setLoadError(`Could not load your saved preferences from the server${err.message ? ` (${err.message})` : ''}.`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -102,8 +103,10 @@ export default function Preferences() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     const body = toApiPayload(payload);
     setSaveError('');
-    // The backend rejects an all-empty profile; nothing to sync then.
-    if (body.categories.length || body.states_text || body.budget_min !== '' || body.budget_max !== '') {
+    // The backend rejects an all-empty profile, so it can't be cleared there.
+    if (!(body.categories.length || body.states_text || body.budget_min !== '' || body.budget_max !== '')) {
+      setSaveError('Saved on this device only — the server cannot store an empty profile, so it keeps your previous preferences.');
+    } else if (body.categories.length || body.states_text || body.budget_min !== '' || body.budget_max !== '') {
       setSaving(true);
       try {
         await account.savePreferences(body);
@@ -151,7 +154,8 @@ export default function Preferences() {
           You'll still see every Listing by default; this just curates what's highlighted for you on the feed and Live Ticker.
         </p>
 
-        {saved && <div className="prf-saved-banner"><p>{saveError || 'Preferences saved.'}</p></div>}
+        {loadError && <div className="prf-saved-banner"><p style={{ color: 'var(--color-danger)' }}>{loadError}</p></div>}
+        {saved && <div className="prf-saved-banner"><p style={saveError ? { color: 'var(--color-danger)' } : undefined}>{saveError || 'Preferences saved.'}</p></div>}
 
         <section className="prf-universal-card">
           <div className="prf-universal-head">

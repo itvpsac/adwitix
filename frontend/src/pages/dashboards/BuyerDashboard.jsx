@@ -12,35 +12,48 @@ const num = (v) => (v == null ? null : Number(v));
 const humanize = (v) => (v ? String(v).replace(/_/g, ' ') : '');
 
 // Builds the view model this screen renders from /auth/me,
-// /my-buyer-dashboard, /my-purchases and /ticker-feed.
+// /my-buyer-dashboard, /my-purchases, /my-favorites and /ticker-feed.
+// The secondary sections degrade on failure, but say so (`warnings`).
 async function loadDashboard() {
-  const [profile, dash, purchases, feed] = await Promise.all([
+  const warnings = [];
+  const soft = (p, what, empty) => p.then(unwrap).catch((err) => { warnings.push(`${what}: ${err.message || 'could not load'}`); return empty; });
+  const [profile, dash, purchases, favorites, feed] = await Promise.all([
     me.profile().then(unwrap),
     me.buyerDashboard().then(unwrap),
-    me.purchases({ per_page: 10 }).then(unwrap).catch(() => ({})),
-    discovery.tickerFeed().then(unwrap).catch(() => ({})),
+    soft(me.purchases({ per_page: 10 }), 'Purchases', {}),
+    soft(discovery.favorites(), 'Favorites', {}),
+    soft(discovery.tickerFeed(), 'Live ticker & recommendations', {}),
   ]);
   const summary = dash.summary || {};
+  // /my-buyer-dashboard rows carry sale_event_id only; the ticker feed's
+  // own-bid rows map a sale event to its listing for the Bidding Room link.
+  const listingBySaleEvent = {};
+  (feed.ownBids || []).forEach((t) => { if (t.sale_event_id) listingBySaleEvent[t.sale_event_id] = t.listing_id; });
   return {
+    warnings,
     party: profile.party || {},
     stats: {
       activeBids: summary.activeBidsCount, activeOffers: summary.openOffersCount,
       pendingRatings: summary.purchasesToRateCount, favorites: summary.favoriteCount,
     },
-    bids: (summary.activeBids || []).map((b) => ({ category: b.category, format: FORMAT_LABEL[b.sale_format], amount: num(b.amount), standing: b.standing })),
-    offers: (summary.openOffers || []).map((o) => ({ id: o.id, category: o.category, amount: num(o.amount), status: 'Submitted', canWithdraw: true })),
+    bids: (summary.activeBids || []).map((b) => ({ listingId: listingBySaleEvent[b.sale_event_id], category: b.category, format: FORMAT_LABEL[b.sale_format] || b.sale_format, amount: num(b.amount), standing: b.standing })),
+    // The backend only returns offers whose status is 'submitted'.
+    offers: (summary.openOffers || []).map((o) => ({ id: o.id, listingId: listingBySaleEvent[o.sale_event_id], category: o.category, amount: num(o.amount), status: 'Submitted', canWithdraw: true })),
     purchases: (purchases.purchases || []).map((p) => ({
       date: (p.created_at || '').slice(0, 10), format: FORMAT_LABEL[p.sale_format] || p.sale_format, price: num(p.final_price),
       seller: p.seller_mobile, status: humanize(p.status),
       actionLabel: p.dispute ? 'View Dispute' : (!p.buyer_rated_seller_at ? 'Rate & Settle' : 'View'),
       actionHref: p.dispute ? `/dispute-center?id=${p.dispute.id}` : `/settlement?id=${p.id}`,
     })),
-    favorites: [],
+    favorites: (favorites.favorites || []).map((f) => ({
+      listingId: f.listing_id, format: FORMAT_LABEL[f.sale_format] || f.sale_format,
+      category: [f.category, f.subcategory].filter(Boolean).join(' › '), price: num(f.display_price),
+    })),
     recommendations: (feed.interestMatches || []).map((r) => ({
-      listingId: r.listing_id, format: FORMAT_LABEL[r.sale_format], category: r.category, isMatch: true,
+      listingId: r.listing_id, format: FORMAT_LABEL[r.sale_format] || r.sale_format, category: r.category, isMatch: true,
       price: num(r.current_price ?? r.expected_value ?? r.reserve_value), bidCount: null,
     })),
-    ticker: (feed.ownBids || []).map((t) => ({ listingId: t.listing_id, category: t.category, format: FORMAT_LABEL[t.sale_format], amount: num(t.amount) })),
+    ticker: (feed.ownBids || []).map((t) => ({ listingId: t.listing_id, category: t.category, format: FORMAT_LABEL[t.sale_format] || t.sale_format, amount: num(t.amount) })),
   };
 }
 
@@ -48,7 +61,7 @@ export default function BuyerDashboard() {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
-  const reload = () => loadDashboard().then(setData).catch((err) => setError(err.message || 'Could not load your dashboard.'));
+  const reload = () => loadDashboard().then((d) => { setData(d); setError(''); }).catch((err) => setError(err.message || 'Could not load your dashboard.'));
   useEffect(() => { reload(); }, []);
 
   const withdraw = async (offer) => {
@@ -67,7 +80,18 @@ export default function BuyerDashboard() {
     }
   };
 
-  if (!data) return <div>{error || 'Loading...'}</div>;
+  if (!data) {
+    return (
+      <div className="bd-page">
+        <LightDashboardHeader ctas={CTAS} />
+        <main className="bd-main">
+          <h1 className="bd-h1">Trader Dashboard</h1>
+          <p className="bd-sub" style={error ? { color: 'var(--color-danger)' } : undefined}>{error || 'Loading your dashboard…'}</p>
+        </main>
+      </div>
+    );
+  }
+  const notice = [error, ...data.warnings].filter(Boolean).join(' · ');
   const ticker = data.ticker;
 
   return (
@@ -76,6 +100,7 @@ export default function BuyerDashboard() {
 
       <aside className="bd-ticker">
         <p className="bd-ticker-title">Live Ticker</p>
+        {Array.isArray(ticker) && ticker.length === 0 && <p className="bd-ticker-row-bottom">No live bids or offers.</p>}
         {Array.isArray(ticker) && ticker.map((t, i) => (
           <Link to={`/bidding-room?id=${t.listingId}`} key={i} className="bd-ticker-row">
             <div className="bd-ticker-row-top">{t.category} <span className="bd-ticker-format">{t.format}</span></div>
@@ -88,16 +113,16 @@ export default function BuyerDashboard() {
 
       <main className="bd-main">
         <div className="bd-title-row">
-          <h1 className="bd-h1">Welcome back, {data.party?.full_name || 'User'}</h1>
-          <span className="bd-kyc-badge">{data.party?.kyc_status || 'Unknown'}</span>
+          <h1 className="bd-h1">Welcome back, {data.party?.full_name || data.party?.mobile_number || 'there'}</h1>
+          {data.party?.kyc_status && <span className="bd-kyc-badge">KYC: {humanize(data.party.kyc_status)}</span>}
         </div>
-        <p className="bd-sub">{error || "Here's everything moving on your account right now."}</p>
+        <p className="bd-sub" style={notice ? { color: 'var(--color-danger)' } : undefined}>{notice || "Here's everything moving on your account right now."}</p>
 
         <div className="bd-stats">
-          <div className="bd-stat-card"><b>{data.stats?.activeBids || 0}</b><span>Active Bids</span></div>
-          <div className="bd-stat-card"><b>{data.stats?.activeOffers || 0}</b><span>Open Offers</span></div>
-          <div className="bd-stat-card"><b className="text-gold">{data.stats?.pendingRatings || 0}</b><span>Purchases to Rate</span></div>
-          <div className="bd-stat-card"><b>{data.stats?.favorites || 0}</b><span>Favorites</span></div>
+          <div className="bd-stat-card"><b>{data.stats?.activeBids ?? '—'}</b><span>Active Bids</span></div>
+          <div className="bd-stat-card"><b>{data.stats?.activeOffers ?? '—'}</b><span>Open Offers</span></div>
+          <div className="bd-stat-card"><b className="text-gold">{data.stats?.pendingRatings ?? '—'}</b><span>Purchases to Rate</span></div>
+          <div className="bd-stat-card"><b>{data.stats?.favorites ?? '—'}</b><span>Favorites</span></div>
         </div>
 
         <section className="bd-section">
@@ -105,7 +130,7 @@ export default function BuyerDashboard() {
           <div className="bd-table">
             {Array.isArray(data.bids) && data.bids.length > 0 ? (
               data.bids.map((b, i) => (
-                <Link to="#" key={i} className="bd-bid-row">
+                <Link to={b.listingId ? `/bidding-room?id=${b.listingId}` : '/marketplace'} key={i} className="bd-bid-row">
                   <span className="bd-bid-cat">{b.category} <span className="bd-ticker-format">{b.format}</span></span>
                   <span className="bd-bid-right">
                     <span className="bd-bid-amount">₹{b.amount?.toLocaleString('en-IN')}</span>
@@ -125,7 +150,7 @@ export default function BuyerDashboard() {
             {Array.isArray(data.offers) && data.offers.length > 0 ? (
               data.offers.map((o, i) => (
                 <div key={i} className="bd-offer-row">
-                  <Link to="#" className="bd-offer-label">{o.category} — ₹{o.amount?.toLocaleString('en-IN')}</Link>
+                  <Link to={o.listingId ? `/lot-detail?id=${o.listingId}` : '/marketplace'} className="bd-offer-label">{o.category} — ₹{o.amount?.toLocaleString('en-IN')}</Link>
                   <span className="bd-offer-right">
                     <span className="bd-offer-status">{o.status}</span>
                     {o.canWithdraw && <button type="button" onClick={() => withdraw(o)} className="bd-withdraw-btn">Withdraw</button>}
@@ -155,7 +180,7 @@ export default function BuyerDashboard() {
                   <div className="text-gold-strong">₹{p.price?.toLocaleString('en-IN')}</div>
                   <div className="bd-cell-sm2">{p.seller}</div>
                   <div className="bd-cell-status">{p.status}</div>
-                  <div><Link to={p.actionHref || '#'} className="bd-action-link">{p.actionLabel}</Link></div>
+                  <div><Link to={p.actionHref} className="bd-action-link">{p.actionLabel}</Link></div>
                 </div>
               ))
             ) : (
@@ -169,12 +194,12 @@ export default function BuyerDashboard() {
           <div className="bd-fav-grid">
             {Array.isArray(data.favorites) && data.favorites.length > 0 ? (
               data.favorites.map((f, i) => (
-                <Link to="/marketplace" key={i} className="bd-fav-card">
+                <Link to={f.listingId ? `/lot-detail?id=${f.listingId}` : '/marketplace'} key={i} className="bd-fav-card">
                   <div className="bd-fav-thumb" />
                   <div className="bd-fav-body">
                     <p className="bd-fav-format">{f.format}</p>
                     <p className="bd-fav-cat">{f.category}</p>
-                    <p className="bd-fav-price">₹{f.price?.toLocaleString('en-IN')}</p>
+                    {f.price != null && <p className="bd-fav-price">₹{f.price.toLocaleString('en-IN')}</p>}
                   </div>
                 </Link>
               ))
@@ -193,7 +218,7 @@ export default function BuyerDashboard() {
                 <Link to={r.listingId ? `/lot-detail?id=${r.listingId}` : '/marketplace'} key={i} className="bd-rec-card">
                   <p className="bd-rec-meta">{r.format}{r.bidCount != null ? ` · ${r.bidCount} bids` : ''}</p>
                   <p className="bd-rec-cat">{r.category}</p>
-                  <p className="bd-rec-price">₹{r.price?.toLocaleString('en-IN')}</p>
+                  {r.price != null && <p className="bd-rec-price">₹{r.price.toLocaleString('en-IN')}</p>}
                   {r.isMatch && <span className="bd-match-badge">✓ Matches your preferences</span>}
                 </Link>
               ))
@@ -209,7 +234,6 @@ export default function BuyerDashboard() {
             <Link to="/profile" className="bd-quick-link">Profile</Link>
             <Link to="/kyc" className="bd-quick-link">KYC</Link>
             <Link to="/preferences" className="bd-quick-link">Preferences</Link>
-            <Link to="/invoices" className="bd-quick-link">Invoices</Link>
             <Link to="/payout-bank" className="bd-quick-link">Payout Bank</Link>
           </div>
         </section>

@@ -10,14 +10,19 @@ export default function DeleteAccount() {
   const [requestedAt, setRequestedAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   // A pending request shows up as party.deletion_requested_at.
   const load = () => me.account().then((res) => {
     const at = (unwrap(res).party || {}).deletion_requested_at;
     setRequested(!!at);
     setRequestedAt((at || '').slice(0, 10));
+    setLoaded(true);
+    setLoadError('');
   });
-  useEffect(() => { load().catch(() => {}); }, []);
+  const loadInitial = () => load().catch((err) => setLoadError(err.message || 'Could not load your account status.'));
+  useEffect(() => { loadInitial(); }, []);
 
   const run = async (call) => {
     setBusy(true);
@@ -37,7 +42,11 @@ export default function DeleteAccount() {
       <LightDashboardHeader homeTo="/profile" />
       <main className="del-main">
         <h1 className="del-title">Delete Account</h1>
-        {!requested ? (
+        {!loaded ? (
+          loadError
+            ? <><p className="del-sub" style={{ color: 'var(--color-danger)' }}>{loadError}</p><button onClick={loadInitial} className="del-cancel-btn">Retry</button></>
+            : <p className="del-sub">Loading…</p>
+        ) : !requested ? (
           <>
             <p className="del-sub">Requesting deletion gives you a 30-day grace period to change your mind. After 30 days, your account is archived and you can no longer log in.</p>
             <textarea placeholder="Reason (optional)" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} className="del-textarea" />
