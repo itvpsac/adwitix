@@ -4,6 +4,11 @@ import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
+import StopAction from '../../components/custodian/StopAction.jsx';
+
+// Custodian: watch Trading Sessions and stop any live one (D-132, BR-14);
+// approval is the TSX Master's alone.
+const LIVE_SESSION = ['pending_approval', 'grace_period', 'active'];
 import './TradingSessionDirectory.css';
 
 const FORMAT_LABELS = { easy: 'Easy', express: 'Express', buy_now: 'Buy Now', tender: 'Tender' };
@@ -26,7 +31,7 @@ export default function TradingSessionDirectory() {
   const [page, setPage] = useState(1);
 
   // GET /admin/trading-sessions — filtered and paginated server side.
-  const { data, loading, error } = useApiQuery(
+  const { data, loading, error, reload } = useApiQuery(
     () => admin.tradingSessions({ tenant_id: tenantFilter, format: formatFilter, status: statusFilter, page, per_page: PER_PAGE }),
     [tenantFilter, formatFilter, statusFilter, page],
   );
@@ -72,7 +77,7 @@ export default function TradingSessionDirectory() {
         )}
 
         <div className="sd-table">
-          <div className="sd-row sd-row--head"><span>ERN</span><span>Tenant</span><span>Category</span><span>Format</span><span>Status</span><span>Value</span></div>
+          <div className="sd-row sd-row--head"><span>ERN</span><span>Tenant</span><span>Category</span><span>Format</span><span>Status</span><span>Value</span><span /></div>
           {rows.map((se, i) => {
             const meta = STATUS_DEFS[se.status] || { label: se.status, color: 'var(--color-text-muted)', bg: '#EEF0F4' };
             return (
@@ -83,6 +88,7 @@ export default function TradingSessionDirectory() {
                 <span className="sd-cell-faint">{FORMAT_LABELS[se.format] || se.format}</span>
                 <span><span className="sd-status" style={{ color: meta.color, background: meta.bg }}>{meta.label}</span></span>
                 <span className="sd-cell-value">{se.value}</span>
+                <span>{LIVE_SESSION.includes(se.status) && <StopAction what={`Trading Session ${se.ern}`} onStop={(reason) => admin.stopSession(se.id, reason)} onDone={() => reload && reload()} />}</span>
               </div>
             );
           })}

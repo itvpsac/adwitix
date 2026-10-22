@@ -4,6 +4,12 @@ import { Link } from 'react-router-dom';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
+import StopAction from '../../components/custodian/StopAction.jsx';
+
+// The Custodian watches Lots here and can stop any live one (D-132);
+// approving Lots and Trading Sessions is the TSX Master's alone.
+const LIVE_LOT = ['inventory', 'pending_approval', 'upcoming', 'active'];
+const LIVE_SESSION = ['pending_approval', 'grace_period', 'active'];
 import './LotDirectory.css';
 
 // Data: GET /api/v1/app/admin/lots (AdminController::lotDirectory, Super Admin only).
@@ -112,7 +118,7 @@ export default function LotDirectory() {
         {lots.length > 0 && (
           <div className="ld-table">
             <div className="ld-row ld-row--head">
-              <span>Tenant</span><span>Category</span><span>Status</span><span>Format</span><span>Sale Status</span><span>Views</span>
+              <span>Tenant</span><span>Category</span><span>Status</span><span>Format</span><span>Sale Status</span><span>Views</span><span />
             </div>
             {lots.map((l, i) => (
               <div key={`${l.id}-${l.sale_event_id || i}`} className="ld-row" style={{ background: i % 2 === 1 ? '#FCFCFB' : '#fff' }}>
@@ -122,6 +128,10 @@ export default function LotDirectory() {
                 <span className="ld-faint">{FORMAT_LABELS[l.sale_format] || '—'}</span>
                 <span className="ld-faint">{l.sale_status ? (SALE_STATUS_LABELS[l.sale_status] || l.sale_status) : '—'}</span>
                 <span>{l.view_count ?? 0}</span>
+                <span>{LIVE_LOT.includes(l.status) && (
+                  <StopAction what={`the Lot "${l.title || l.category}"`} onStop={(reason) => admin.stopLot(l.id, reason)}
+                    onDone={() => setLots((ls) => ls.map((x) => (x.id === l.id ? { ...x, status: 'suspended', sale_status: LIVE_SESSION.includes(x.sale_status) ? 'cancelled' : x.sale_status } : x)))} />
+                )}</span>
               </div>
             ))}
           </div>
@@ -134,7 +144,7 @@ export default function LotDirectory() {
           </button>
         )}
       </main>
-      <footer className="ld-footer"><p>Approvals, rejections, and edits are recorded in the <Link to="/audit-ledger">Audit Ledger</Link>.</p></footer>
+      <footer className="ld-footer"><p>Each Lot is approved by its own TradeSphereX's TSX Master. Approvals, stops and edits are recorded in the <Link to="/audit-ledger">Audit Ledger</Link>.</p></footer>
     </div>
     </ConsoleFrame>
   );

@@ -246,6 +246,8 @@ export const admin = {
 
   lots: (query) => api.get(`${APP}/admin/lots`, { query }),
   tradingSessions: (query) => api.get(`${APP}/admin/trading-sessions`, { query }),
+  stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
+  stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 
   kycQueue: (query) => api.get(`${APP}/admin/kyc`, { query }),
   kycDetail: (id) => api.get(`${APP}/admin/kyc/${id}`),
