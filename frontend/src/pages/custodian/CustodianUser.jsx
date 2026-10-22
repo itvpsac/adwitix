@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import CustodianShell from '../../components/custodian/CustodianShell.jsx';
 import StopAction from '../../components/custodian/StopAction.jsx';
 import RatingChart from '../../components/custodian/RatingChart.jsx';
+import KycReviewPanel from '../../components/custodian/KycReviewPanel.jsx';
 import { Fields, Table, label } from '../../components/custodian/DossierParts.jsx';
 import { admin } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
@@ -77,6 +78,7 @@ export default function CustodianUser() {
             : <StopAction label="Freeze account" verb="Freeze" what={`${p.full_name || p.mobile_number}'s account`} note="They keep their record and can still sign in and finish open settlements, but can't bid, offer, pledge, list or sell until unfrozen. Their live lots keep running — stop those separately if needed. The reason is recorded in the Audit Ledger." onStop={(r) => admin.freezeUser(id, r)} onDone={load} />}
         </div>
 
+        {p.kyc_status === 'submitted' && <p className="cl-banner cl-banner--info">KYC submitted and waiting for review — <a href="#id" className="cc-link">review it below</a>.</p>}
         {p.frozen_at && <p className="cl-banner cl-banner--bad" role="status">Frozen since {p.frozen_at}: {p.frozen_reason}</p>}
         {p.seller_delisted_at && <p className="cl-banner cl-banner--bad">Seller delisted {p.seller_delisted_at}{p.seller_delisted_reason ? `: ${p.seller_delisted_reason}` : ''}</p>}
         {hiddenCount > 0 && <p className="cl-banner cl-banner--info">{hiddenCount} bid/offer/deposit record{hiddenCount === 1 ? '' : 's'} on {hidden.sessions} live Trading Session{hidden.sessions === 1 ? '' : 's'} {hiddenCount === 1 ? 'is' : 'are'} hidden until {hidden.sessions === 1 ? 'it closes' : 'they close'} (BR-16).</p>}
@@ -85,6 +87,7 @@ export default function CustodianUser() {
 
         <section id="id" className="cc-card cc-card--pad">
           <h2 className="cc-h2">Identity &amp; KYC</h2>
+          <KycReviewPanel partyId={id} onChanged={load} />
           <Fields row={p} skip={new Set()} />
           <Table title="Addresses" rows={d.kyc.addresses} party={party} />
           <Table title="Documents" rows={d.kyc.documents} party={party} />

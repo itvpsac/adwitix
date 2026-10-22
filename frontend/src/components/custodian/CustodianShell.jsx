@@ -19,7 +19,6 @@ const NAV = [
     { label: 'Users', to: '/user-directory' },
   ] },
   { group: 'Risk & Compliance', items: [
-    { label: 'KYC Review', to: '/kyc-queue', badge: 'kyc' },
     { label: 'AML Monitoring', to: '/aml-monitoring', badge: 'aml' },
     { label: 'Disputes', to: '/dispute-center', badge: 'dispute' },
     { label: 'Chargebacks', to: '/chargeback-handling', badge: 'chargeback' },

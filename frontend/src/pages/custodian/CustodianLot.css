@@ -31,3 +31,12 @@
 .cl-banner { margin: 0; padding: 12px 16px; border-radius: 10px; font: 600 13.5px/1.45 var(--font-sans); }
 .cl-banner--bad { background: var(--color-danger-bg); color: var(--color-danger); }
 .cl-banner--info { background: var(--color-bg); color: var(--color-text-muted); }
+
+/* KYC review inside the User file (KycReviewPanel.jsx) */
+.kyc-panel { margin: 12px 0 6px; padding: 14px 16px; border: 1px solid var(--color-border-soft); border-radius: 12px; background: #FCFCFA; display: flex; flex-direction: column; gap: 10px; }
+.kyc-panel__head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.kyc-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.kyc-check { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--color-border-soft); border-radius: 8px; background: #fff; font: 600 13px var(--font-sans); }
+.kyc-check .cc-btn { height: 30px; padding: 0 10px; font-size: 12px; }
+.kyc-docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
+.kyc-decide { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

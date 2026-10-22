@@ -1,3 +1,4 @@
+import { Navigate } from 'react-router-dom';
 import lazyPage from './lazyPage.js';
 import { ProtectedRoute } from './ProtectedRoute.jsx';
 // Central route table. Add one entry per converted screen as batches land.
@@ -65,7 +66,6 @@ const ActivityLog = lazyPage(() => import('./pages/account/ActivityLog.jsx'));
 const Kyc = lazyPage(() => import('./pages/onboarding/Kyc.jsx'));
 const Onboarding = lazyPage(() => import('./pages/onboarding/Onboarding.jsx'));
 const ForgotMpin = lazyPage(() => import('./pages/onboarding/ForgotMpin.jsx'));
-const KycQueue = lazyPage(() => import('./pages/compliance/KycQueue.jsx'));
 const CustodianCredentialSetup = lazyPage(() => import('./pages/custodian/CustodianCredentialSetup.jsx'));
 const TenantDirectory = lazyPage(() => import('./pages/lots/TenantDirectory.jsx'));
 const TradingSessionDirectory = lazyPage(() => import('./pages/directories/TradingSessionDirectory.jsx'));
@@ -118,7 +118,9 @@ export const routes = [
   { path: '/kyc', element: <Kyc /> },
   { path: '/onboarding', element: <Onboarding /> },
   { path: '/forgot-mpin', element: <ForgotMpin /> },
-  { path: '/kyc-queue', element: <ProtectedRoute requiredRole="super_admin"><KycQueue /></ProtectedRoute> },
+  // KYC is reviewed inside each User file (D-136); old links land on the
+  // Users list filtered to dossiers waiting for review.
+  { path: '/kyc-queue', element: <Navigate to="/user-directory?kyc=Submitted" replace /> },
   { path: '/custodian-credential-setup', element: <CustodianCredentialSetup /> },
   { path: '/tenant-directory', element: <ConsoleFrame><TenantDirectory /></ConsoleFrame> },
   { path: '/trading-session-directory', element: <ProtectedRoute requiredRole="super_admin"><TradingSessionDirectory /></ProtectedRoute> },
