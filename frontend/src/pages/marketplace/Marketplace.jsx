@@ -9,6 +9,9 @@ const FORMATS = ['all', 'BUY-NOW', 'EASY', 'EXPRESS', 'TENDER'];
 const FORMAT_PARAM = { 'BUY-NOW': 'buy_now', EASY: 'easy', EXPRESS: 'express', TENDER: 'tender' };
 const FORMAT_LABEL = { buy_now: 'BUY-NOW', easy: 'EASY', express: 'EXPRESS', tender: 'TENDER' };
 const PER_PAGE = 12;
+// listing.physical_condition values written by Create Lot.
+const CONDITIONS = { working_minimal: 'Working, Minimal Wear', working_moderate: 'Working, Moderate Wear', needs_repair: 'Needs Repair', non_functional: 'Non-Functional / For Parts' };
+const humanize = (v) => (v ? String(v).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '');
 
 // UI filter state → GET /api/v1/app/browse query params.
 function toQuery(f) {
@@ -40,18 +43,23 @@ export default function Marketplace() {
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [saveError, setSaveError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [f, setF] = useState(() => fromParams(params));
   const [searchSaved, setSearchSaved] = useState(false);
   const set = (patch) => setF({ ...f, ...patch, page: patch.page ?? 1 });
 
   useEffect(() => {
+    let alive = true;
+    setLoading(true); setLoadError('');
     discovery.browse({ ...toQuery(f), page: f.page, per_page: PER_PAGE }).then((res) => {
+      if (!alive) return;
       const d = unwrap(res);
       setLots((d.listings || []).map((l) => ({
         id: l.listing_id,
         format: FORMAT_LABEL[l.sale_format] || l.sale_format,
         matches: !!l.clvMatch,
-        condition: l.physical_condition || '—',
+        condition: CONDITIONS[l.physical_condition] || humanize(l.physical_condition) || '—',
         category: [l.category, l.subcategory].filter(Boolean).join(' › '),
         price: l.display_price != null ? Number(l.display_price) : null,
         sellerRating: l.seller_star_rating != null ? Number(l.seller_star_rating) : null,
@@ -59,7 +67,13 @@ export default function Marketplace() {
       setCategories(['all', ...(d.allCategories || [])]);
       setTotal(d.total || 0);
       setTotalPages(Math.max(1, d.totalPages || 1));
-    }).catch(console.error);
+      setLoading(false);
+    }).catch((err) => {
+      if (!alive) return;
+      setLots([]); setTotal(0); setTotalPages(1); setLoading(false);
+      setLoadError(err.description || err.message || 'Could not load listings.');
+    });
+    return () => { alive = false; };
   }, [f]);
 
   const page = Math.min(f.page, totalPages);
@@ -85,7 +99,7 @@ export default function Marketplace() {
       <main className="mk-main">
         <div className="mk-title-row">
           <h1>Browse All Listings</h1>
-          <span className="mk-count">{total} active Listings</span>
+          <span className="mk-count">{loading ? 'Loading…' : loadError ? '' : `${total} active Listings`}</span>
         </div>
         <p className="mk-sub">Adjust filters below, then <button onClick={saveSearch} className="mk-link-btn">save this search</button> to re-run it later.</p>
         {searchSaved && <p className="mk-saved">Search saved — find it under Saved Searches.</p>}
@@ -114,7 +128,7 @@ export default function Marketplace() {
             <div>
               <div className="mk-label">Condition</div>
               <select className="mk-select" value={f.condition} onChange={(e) => set({ condition: e.target.value })}>
-                <option value="">Any condition</option><option value="New">New</option><option value="Used">Used</option><option value="Refurbished">Refurbished</option><option value="For Parts">For Parts</option>
+                <option value="">Any condition</option>{Object.entries(CONDITIONS).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </select>
             </div>
             <div>
@@ -160,12 +174,13 @@ export default function Marketplace() {
                   <div className="mk-card__body">
                     <div className="mk-card__meta">{lot.format} · {lot.condition}</div>
                     <div className="mk-card__title">{lot.category}</div>
-                    <div className="mk-card__row"><span className="mk-card__price">₹{lot.price?.toLocaleString('en-IN') || '—'}</span><span className="mk-card__rating">Seller {lot.sellerRating?.toFixed(1) || '—'}★</span></div>
+                    <div className="mk-card__row"><span className="mk-card__price">{lot.price != null ? `₹${lot.price.toLocaleString('en-IN')}` : '—'}</span><span className="mk-card__rating">Seller {lot.sellerRating?.toFixed(1) || '—'}★</span></div>
                   </div>
                 </Link>
               ))}
             </div>
-            {lots.length === 0 && <div className="mk-empty">No Listings match this filter.</div>}
+            {loadError && <div className="mk-empty" style={{ color: 'var(--color-danger)' }}>{loadError}</div>}
+            {!loading && !loadError && lots.length === 0 && <div className="mk-empty">No Listings match this filter.</div>}
             {totalPages > 1 && (
               <div className="mk-pagination">
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
