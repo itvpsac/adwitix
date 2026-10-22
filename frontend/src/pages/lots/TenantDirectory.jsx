@@ -25,7 +25,9 @@ export default function TenantDirectory() {
     name: t.name || t.display_name || '—',
     domain: t.custom_domain || t.subdomain || '',
     tenantClass: humanize(t.tenant_class) || 'General',
-    tier: humanize(t.subscription_tier),
+    // Salvage Managers (the CoCo plan) needs no seller approval (D-131).
+    openSelling: t.subscription_tier === 'coco_starter',
+    tier: t.subscription_tier === 'coco_starter' ? 'Salvage Managers' : humanize(t.subscription_tier),
     swatch: t.branding_primary_color || SWATCHES[i % SWATCHES.length],
     suspended: !!t.suspended_at,
   })).filter((t) => !t.suspended);
@@ -73,7 +75,14 @@ export default function TenantDirectory() {
                   <div className="tdir-card__name">{t.name}</div>
                   {t.domain && <div className="tdir-card__subdomain">{t.domain}</div>}
                   <div className="tdir-card__class">{t.tenantClass}</div>
-                  <button onClick={() => { setApplyingTenant(t); setSubmitted(false); setSubmitError(''); }} className="tdir-apply-btn">Apply to Sell Here</button>
+                  {t.openSelling ? (
+                    <>
+                      <p style={{ margin: '8px 0 0', font: '500 12.5px/1.45 var(--font-sans)', color: 'var(--color-text-muted)' }}>Open to every verified seller — no approval needed. Each Lot is approved by its TSX Master.</p>
+                      <Link to={`/create-lot?tenant=${t.id}`} className="tdir-apply-btn" style={{ textAlign: 'center', textDecoration: 'none' }}>List a Lot Here</Link>
+                    </>
+                  ) : (
+                    <button onClick={() => { setApplyingTenant(t); setSubmitted(false); setSubmitError(''); }} className="tdir-apply-btn">Apply to Sell Here</button>
+                  )}
                 </div>
               ))}
             </div>

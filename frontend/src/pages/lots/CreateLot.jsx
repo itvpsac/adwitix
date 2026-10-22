@@ -19,9 +19,9 @@ const FORMATS = [
 
 // MediaService::MIN_PHOTOS on the backend.
 const MIN_PHOTOS = 5;
-// The TradeSphereX the Lot is listed on. BR-09: only one the seller is an
-// approved seller on (GET /my-seller-tenants). Salvage Managers — where
-// individual sellers list — comes first and is the default (D-130).
+// The TradeSphereX the Lot is listed on (GET /my-seller-tenants): Salvage
+// Managers, open to every verified seller (D-131), first and by default,
+// then any TSX whose TSX Master approved this seller (BR-09).
 export default function CreateLot() {
   const [params] = useSearchParams();
   const [sellerTenants, setSellerTenants] = useState(null);
@@ -284,8 +284,8 @@ export default function CreateLot() {
                 {sellerTenants === null ? <p className="cl-hint">Loading…</p>
                   : sellerTenants.length === 0 ? (
                     <p className="cl-hint" style={{ color: 'var(--color-danger)' }}>
-                      You aren't an approved seller on any TradeSphereX yet.{' '}
-                      {salvageManagers ? <Link to={`/apply-to-sell?tenant=${salvageManagers.id}`}>Apply to sell on {salvageManagers.name}</Link> : <Link to="/tenant-directory">Find a TradeSphereX to apply to</Link>}.
+                      You can't list on any TradeSphereX right now{salvageManagers ? ` — your selling on ${salvageManagers.name} has been suspended by its TSX Master` : ''}.{' '}
+                      <Link to="/tenant-directory">See the TradeSphereX Directory</Link>.
                     </p>
                   ) : (
                     <select className="cl-input" value={tenantId} onChange={(e) => setTenantId(e.target.value)} disabled={sellerTenants.length === 1}>
