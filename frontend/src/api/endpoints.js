@@ -169,6 +169,7 @@ export const me = {
   messages: () => api.get(`${APP}/my-messages`),
   markMessageRead: (id) => api.post(`${APP}/my-messages/${id}/read`),
   starRatings: () => api.get(`${APP}/my-star-ratings`),
+  sellerTenants: () => api.get(`${APP}/my-seller-tenants`),
   ratingHistory: () => api.get(`${APP}/my-rating-history`),
   buyerDashboard: () => api.get(`${APP}/my-buyer-dashboard`),
   sellerDashboard: () => api.get(`${APP}/my-seller-dashboard`),
@@ -241,6 +242,7 @@ export const admin = {
   createTenant: (payload) => api.post(`${APP}/admin/tenants`, payload),
   tenant: (id) => api.get(`${APP}/admin/tenants/${id}`),
   editTenant: (id, payload) => api.post(`${APP}/admin/tenants/${id}/edit`, payload),
+  deleteTenant: (id) => api.post(`${APP}/admin/tenants/${id}/delete`),
 
   lots: (query) => api.get(`${APP}/admin/lots`, { query }),
   tradingSessions: (query) => api.get(`${APP}/admin/trading-sessions`, { query }),

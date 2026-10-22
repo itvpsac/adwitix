@@ -53,7 +53,7 @@ export default function CustodianTenants() {
             {tenants && list.length === 0 && <p className="cc-lbl" style={{ padding: '8px 6px' }}>None found.</p>}
           </aside>
           <div className="tx-main">
-            {selectedId ? <TenantDetail key={selectedId} id={selectedId} salvageHolder={salvageHolder} onSaved={(t) => setTenants((ts) => (ts || []).map((x) => (x.id === t.id ? t : x)))} />
+            {selectedId ? <TenantDetail key={selectedId} id={selectedId} salvageHolder={salvageHolder} onDeleted={(id) => { setTenants((ts) => (ts || []).filter((x) => x.id !== id)); setParams({}); }} onSaved={(t) => setTenants((ts) => (ts || []).map((x) => (x.id === t.id ? t : x)))} />
               : <p className="cc-lbl">{tenants ? 'No TradeSphereX whitelisted yet.' : 'Loading…'}</p>}
           </div>
         </div>
@@ -62,7 +62,7 @@ export default function CustodianTenants() {
   );
 }
 
-function TenantDetail({ id, salvageHolder, onSaved }) {
+function TenantDetail({ id, salvageHolder, onSaved, onDeleted }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(null);
   const [error, setError] = useState('');
@@ -81,7 +81,7 @@ function TenantDetail({ id, salvageHolder, onSaved }) {
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
-  if (error) return <p className="cc-error">{error}</p>;
+  if (error && !data) return <p className="cc-error">{error}</p>;
   if (!data || !form) return <p className="cc-lbl">Loading…</p>;
   const t = data.tenant || {};
   const s = data.stats || {};
@@ -105,6 +105,21 @@ function TenantDetail({ id, salvageHolder, onSaved }) {
     }
   };
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  // Only an empty TSX can go; the server re-checks every table that points
+  // at it and says what's still there. Salvage Managers can never be deleted.
+  const isSalvage = t.subscription_tier === SALVAGE;
+  const empty = !admins.length && !s.liveLots && !s.pendingLots && !s.upcomingLots && !s.approvedSellers && !s.pendingSellers && !s.openDisputes;
+  const remove = async () => {
+    if (!window.confirm(`Delete "${t.name}" permanently? This can't be undone.`)) return;
+    setSaving(true); setSaved(''); setError('');
+    try {
+      unwrap(await admin.deleteTenant(id));
+      onDeleted(id);
+    } catch (e) {
+      setError(e.description || e.message || 'Could not delete.');
+      setSaving(false);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -119,9 +134,13 @@ function TenantDetail({ id, salvageHolder, onSaved }) {
             </p>
           </div>
         </div>
-        <button type="button" className="cc-btn cc-btn--gold" disabled={!dirty || saving} onClick={save}>{saving ? 'Saving…' : 'Save changes'}</button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          {!isSalvage && <button type="button" className="cc-btn cc-btn--bad" disabled={!empty || saving} onClick={remove} title={empty ? 'Delete this TradeSphereX' : 'Only a TradeSphereX with no lots, sellers, TSX Master or disputes can be deleted'}>Delete</button>}
+          <button type="button" className="cc-btn cc-btn--gold" disabled={!dirty || saving} onClick={save}>{saving ? 'Saving…' : 'Save changes'}</button>
+        </div>
       </div>
       {saved && <p className="dq-notice" role="status" style={{ display: 'block' }}>{saved}</p>}
+      {error && <p className="cc-error" role="alert">{error}</p>}
 
       <div className="cc-card tx-stats">
         <div><span className="cc-lbl">Live lots</span><b>{s.liveLots ?? 0}</b></div>

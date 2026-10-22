@@ -5,7 +5,8 @@ import './CreateLot.css';
 import AppHeader from '../../components/AppHeader.jsx';
 import { CATEGORY_MAP, SUBCATEGORY_MAP, MICROCATEGORY_MAP } from '../../constants.js';
 import { CATEGORIES, SUBCATS_BY_CAT, MICROCATS_BY_SUBCAT } from '../../data/classification.js';
-import { listings } from '../../api/endpoints.js';
+import { listings, me } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
 import SearchableSelect from '../../components/SearchableSelect.jsx';
 
@@ -18,14 +19,23 @@ const FORMATS = [
 
 // MediaService::MIN_PHOTOS on the backend.
 const MIN_PHOTOS = 5;
-// Tenant the lot is listed on (BR-09: the seller must be an approved seller
-// there). No endpoint yet returns the tenants a seller is approved on, so
-// this stays the platform's default tenant unless ?tenant=<id> is given.
-const DEFAULT_TENANT_ID = '550e8400-e29b-41d4-a716-446655440001';
-
+// The TradeSphereX the Lot is listed on. BR-09: only one the seller is an
+// approved seller on (GET /my-seller-tenants). Salvage Managers — where
+// individual sellers list — comes first and is the default (D-130).
 export default function CreateLot() {
   const [params] = useSearchParams();
-  const tenantId = params.get('tenant') || DEFAULT_TENANT_ID;
+  const [sellerTenants, setSellerTenants] = useState(null);
+  const [salvageManagers, setSalvageManagers] = useState(null);
+  const [tenantId, setTenantId] = useState(params.get('tenant') || '');
+  useEffect(() => {
+    me.sellerTenants().then((r) => {
+      const d = unwrap(r) || {};
+      const list = d.tenants || [];
+      setSellerTenants(list);
+      setSalvageManagers(d.salvageManagers || null);
+      setTenantId((cur) => (cur && list.some((t) => t.id === cur) ? cur : (list[0] && list[0].id) || ''));
+    }).catch(() => setSellerTenants([]));
+  }, []);
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [newLotId, setNewLotId] = useState('');
@@ -154,6 +164,7 @@ export default function CreateLot() {
   };
 
   const goToStep2 = () => {
+    if (!tenantId) { setStep1Error('Choose the TradeSphereX to list on — you need to be an approved seller there first.'); return; }
     if (!catId || !condition || !title.trim()) { setStep1Error('Fill in category, condition, and title before continuing.'); return; }
     if (!subcatId) { setStep1Error('Choose a subcategory before continuing.'); return; }
     if (pincode.length !== 6 || !city || !state) { setStep1Error('Enter a valid 6-digit pincode so State and City are filled in.'); return; }
@@ -268,6 +279,19 @@ export default function CreateLot() {
             {step === 1 && (
               <>
                 <h2 className="cl-h2">1. What are you listing?</h2>
+
+                <label className="cl-label">TradeSphereX</label>
+                {sellerTenants === null ? <p className="cl-hint">Loading…</p>
+                  : sellerTenants.length === 0 ? (
+                    <p className="cl-hint" style={{ color: 'var(--color-danger)' }}>
+                      You aren't an approved seller on any TradeSphereX yet.{' '}
+                      {salvageManagers ? <Link to={`/apply-to-sell?tenant=${salvageManagers.id}`}>Apply to sell on {salvageManagers.name}</Link> : <Link to="/tenant-directory">Find a TradeSphereX to apply to</Link>}.
+                    </p>
+                  ) : (
+                    <select className="cl-input" value={tenantId} onChange={(e) => setTenantId(e.target.value)} disabled={sellerTenants.length === 1}>
+                      {sellerTenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  )}
                 
                 <label className="cl-label">Title</label>
                 <input className="cl-input" placeholder="e.g. CNC Lathe Machine, 2018, Surplus" value={title} onChange={(e) => { setTitle(e.target.value); setStep1Error(''); }} />
