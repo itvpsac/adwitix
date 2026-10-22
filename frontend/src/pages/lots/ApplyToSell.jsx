@@ -16,7 +16,8 @@ export default function ApplyToSell() {
   const { data, loading, error: loadError } = useApiQuery(() => tenants.applyStatus(tenantId), [tenantId], { skip: !tenantId });
   const tenant = (data && data.tenant) || { name: 'a TradeSphereX' };
   const existing = data && data.existing;
-  const status = submitted ? 'submitted' : !tenantId ? 'pick' : loading ? 'loading' : existing ? existing.status : 'none';
+  // A failed load or an unknown tenant id must not offer the Apply button.
+  const status = submitted ? 'submitted' : !tenantId ? 'pick' : loading ? 'loading' : loadError ? 'error' : !(data && data.tenant) ? 'notfound' : existing ? existing.status : 'none';
 
   const apply = async () => {
     setBusy(true);
@@ -44,7 +45,8 @@ export default function ApplyToSell() {
           </div>
         )}
         {status === 'loading' && <div className="ats-card"><p>Loading…</p></div>}
-        {loadError && <div className="ats-card"><p>{loadError.message || 'Could not load this TradeSphereX.'}</p></div>}
+        {loadError && <div className="ats-card"><p>{loadError.status === 401 ? 'Please log in to apply to sell.' : (loadError.message || 'Could not load this TradeSphereX.')}</p></div>}
+        {status === 'notfound' && <div className="ats-card"><p>This TradeSphereX was not found. Choose one from the <Link to="/tenant-directory">TradeSphereX Directory</Link>.</p></div>}
         {error && <div className="ats-card"><p style={{ color: 'var(--color-danger)' }}>{error}</p></div>}
         {status === 'approved' && (
           <div className="ats-success">
@@ -71,7 +73,10 @@ export default function ApplyToSell() {
               <div className="ats-reason__label">Reason given by {tenant.name}</div>
               <p>{(existing && existing.rejection_reason) || 'No reason recorded.'}</p>
             </div>
-            <button className="ats-btn" onClick={apply} disabled={busy}>{busy ? 'Applying…' : 'Re-apply'}</button>
+            {/* SellerApplicationService::apply refuses any party+tenant that
+                already has an application (UNIQUE party_id, tenant_id), so a
+                rejected application cannot be re-submitted from here. */}
+            <p className="ats-card__text">Re-applying to the same TradeSphereX isn't available yet — contact {tenant.name}'s Tenant Admin.</p>
           </div>
         )}
         {status === 'submitted' && (

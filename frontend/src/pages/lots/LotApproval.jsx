@@ -122,7 +122,7 @@ export default function LotApproval() {
 
   return (
     <div className="la-page">
-      <DashboardHeader consoleLabel="TSX Master" navItems={[{ label: 'Dashboard', to: '/tenant-admin-dashboard' }, { label: 'Lot Approval', to: '/lot-approval', active: true }]} />
+      <DashboardHeader consoleLabel="TSX Master" navItems={[{ label: 'Dashboard', to: '/tenant-admin/dashboard' }, { label: 'Lot Approval', to: '/lot-approval', active: true }]} />
       <main className="la-main">
         <div className="legal-eyebrow">TSX Master{tenant?.name ? ` · ${tenant.name}` : ''}</div>
         <h1 className="la-title">Lot &amp; Trading Session Approval</h1>

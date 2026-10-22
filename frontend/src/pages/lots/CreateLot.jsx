@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import imageCompression from 'browser-image-compression';
 import './CreateLot.css';
 import AppHeader from '../../components/AppHeader.jsx';
@@ -18,8 +18,14 @@ const FORMATS = [
 
 // MediaService::MIN_PHOTOS on the backend.
 const MIN_PHOTOS = 5;
+// Tenant the lot is listed on (BR-09: the seller must be an approved seller
+// there). No endpoint yet returns the tenants a seller is approved on, so
+// this stays the platform's default tenant unless ?tenant=<id> is given.
+const DEFAULT_TENANT_ID = '550e8400-e29b-41d4-a716-446655440001';
 
 export default function CreateLot() {
+  const [params] = useSearchParams();
+  const tenantId = params.get('tenant') || DEFAULT_TENANT_ID;
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [newLotId, setNewLotId] = useState('');
@@ -65,7 +71,6 @@ export default function CreateLot() {
       setPincodeError('');
     }
   }, [pincode]);
-  const [extraBatches, setExtraBatches] = useState(0);
   const [documents, setDocuments] = useState([]);
   const mediaFileInputRef = useRef(null);
   const docFileInputRef = useRef(null);
@@ -161,7 +166,7 @@ export default function CreateLot() {
     setStep3Error('');
     try {
       const payload = {
-        tenant_id: "550e8400-e29b-41d4-a716-446655440001",
+        tenant_id: tenantId,
         title,
         description,
         category: CATEGORY_MAP.find(c => c.id === catId)?.apiValue || catId,
@@ -175,13 +180,15 @@ export default function CreateLot() {
         state,
         full_address: fullAddress,
         media_tier: "certified_by_seller",
-        inspector_mobile: "9876543210",
+        // No inspector/shipping fields on this form: send none rather than
+        // binding a made-up inspector or inventing a shipping charge.
+        inspector_mobile: "",
         surveyor_mobile: "",
         custodian_mobile: "",
         related_group_label: "",
-        shipping_enabled: "1",
-        shipping_cost_type: "fixed",
-        shipping_fixed_cost: 1500,
+        shipping_enabled: "0",
+        shipping_cost_type: null,
+        shipping_fixed_cost: null,
         shipping_variable_rate_per_km: null,
         media_is_representative_under_waiver: "0"
       };
@@ -266,6 +273,7 @@ export default function CreateLot() {
                 <input className="cl-input" placeholder="e.g. CNC Lathe Machine, 2018, Surplus" value={title} onChange={(e) => { setTitle(e.target.value); setStep1Error(''); }} />
                 
                 <h2 className="cl-h2">Sale Format</h2>
+                <p className="cl-hint">For planning only — the format, Reserve Value and other session details below are not saved with the Lot. You set them when you request a Trading Session after your TSX Master approves the Lot.</p>
                 <div className="cl-format-grid">
                   {FORMATS.map((f) => (
                     <button key={f.id} onClick={() => { setFormatId(f.id); setStep1Error(''); }} className="cl-format-opt" style={{ borderColor: formatId === f.id ? 'var(--color-accent)' : 'var(--color-border)' }}>
@@ -361,6 +369,9 @@ export default function CreateLot() {
                 {formatId === 'express' && (
                   <div className="cl-defect-fields" style={{ background: '#F8F1E7', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
                     <h3 className="cl-h2">Defect Disclosure — Express Auction</h3>
+                    {/* POST /sale-events/:id/defect-disclosure needs an Express sale event, which
+                        can only be attached once the Lot is approved — none exists here. */}
+                    <p className="cl-hint">Not saved with the Lot — you complete the disclosure on your Express Trading Session after the Lot is approved.</p>
                     <label className="cl-label">Known Damage</label>
                     <textarea className="cl-textarea" placeholder="e.g. Minor dent on rear panel, none if not applicable" rows={3} value={defectDisclosure.knownDamage} onChange={(e) => setDefectDisclosure({ ...defectDisclosure, knownDamage: e.target.value })} />
                     <label className="cl-label">Missing Components</label>
@@ -370,7 +381,7 @@ export default function CreateLot() {
                   </div>
                 )}
 
-                <label className="cl-label">Description — include any known defects (see <Link to="/legal/defect-disclosure">Defect Disclosure</Link> requirements)</label>
+                <label className="cl-label">Description — include any known defects (see <Link to="/defect-disclosure">Defect Disclosure</Link> requirements)</label>
                 <textarea className="cl-textarea" placeholder="Describe the item accurately, including condition, age, and any known flaws." rows={4} value={description} onChange={(e) => { setDescription(e.target.value); setStep1Error(''); }} />
                 
                 {step1Error && <p className="cl-error">{step1Error}</p>}
@@ -383,7 +394,7 @@ export default function CreateLot() {
                 <h2 className="cl-h2">2. Upload media</h2>
                 <p className="cl-hint">At least {MIN_PHOTOS} real photos of the actual item, captured through the app — no stock images. Location/timestamp is captured automatically.</p>
                 <div className="cl-row-between">
-                  <p className="cl-strong">Photos ({5 + extraBatches * 5}/50)</p>
+                  <p className="cl-strong">Photos ({photoCount}/50)</p>
                   <button className="cl-outline-btn" onClick={() => mediaFileInputRef.current?.click()}>⇪ Bulk Upload</button>
                   <input type="file" multiple ref={mediaFileInputRef} onChange={handleBulkUpload} style={{ display: 'none' }} accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" />
                 </div>
@@ -405,7 +416,7 @@ export default function CreateLot() {
                     <div key={mediaFiles.length + i} className="cl-photo-slot">Slot {mediaFiles.length + i + 1}</div>
                   ))}
                 </div>
-                <p className="cl-hint">Up to 50 photos total. Bulk Upload adds 5 more slots at a time.</p>
+                <p className="cl-hint">Up to 50 photos total. Bulk Upload adds all the files you select.</p>
 
                 <p className="cl-strong">Video (optional, up to 2 minutes)</p>
                 <button type="button" className="cl-video-slot" onClick={() => videoFileInputRef.current?.click()}>
@@ -448,8 +459,8 @@ export default function CreateLot() {
                       })()}
                     </span>
                   </div>
-                  <div className="cl-review-row"><span>Format</span><span>{selectedFormat ? selectedFormat.label : ''}</span></div>
-                  <div className="cl-review-row"><span>Reserve Value</span><span>{formatCurrency(reserveValue)}</span></div>
+                  <div className="cl-review-row"><span>Format (not saved — set when requesting a Trading Session)</span><span>{selectedFormat ? selectedFormat.label : '—'}</span></div>
+                  <div className="cl-review-row"><span>Reserve Value (not saved — set when requesting a Trading Session)</span><span>{reserveValue ? formatCurrency(reserveValue) : '—'}</span></div>
                 </div>
                 <div className="cl-notice">Submitting routes this Lot to your TSX Master for approval. It won't go live until approved.</div>
                 <div className="cl-nav-row">
