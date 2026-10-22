@@ -40,6 +40,8 @@ export function partyToUser(party) {
                 (party.roles?.includes('buyer') || party.entity_type === 'buyer' || party.entity_type === 'trader' || party.roles?.includes('trader')) ? 'trader' : 'trader',
     kycStatus: (party.kyc_status || 'pending').toLowerCase(),
     adminTenants: Array.isArray(party.admin_tenants) ? party.admin_tenants : [],
+    // BR-51(d), D-137: documents to (re-)accept before further use.
+    pendingAcceptances: Array.isArray(party.pendingAcceptances) ? party.pendingAcceptances : [],
   };
 }
 
@@ -136,4 +138,13 @@ export function initials(name) {
     .join('')
     .slice(0, 2)
     .toUpperCase();
+}
+
+// Merge fields into the cached signed-in user (e.g. after accepting the
+// updated Terms) and let every useAuth() consumer re-render.
+export function patchStoredUser(patch) {
+  const current = readAuth();
+  if (!current) return;
+  localStorage.setItem(USER_KEY, JSON.stringify({ ...current, ...patch }));
+  emit();
 }

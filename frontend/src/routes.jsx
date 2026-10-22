@@ -12,6 +12,7 @@ const CustodianDecisions = lazyPage(() => import('./pages/custodian/CustodianDec
 const CustodianTenants = lazyPage(() => import('./pages/custodian/CustodianTenants.jsx'));
 const CustodianLot = lazyPage(() => import('./pages/custodian/CustodianLot.jsx'));
 const CustodianUser = lazyPage(() => import('./pages/custodian/CustodianUser.jsx'));
+const CustodianDocuments = lazyPage(() => import('./pages/custodian/CustodianDocuments.jsx'));
 const CookiePolicy = lazyPage(() => import('./pages/legal/CookiePolicy.jsx'));
 const GrievanceRedressalPolicy = lazyPage(() => import('./pages/legal/GrievanceRedressalPolicy.jsx'));
 const RefundAndCancellationPolicy = lazyPage(() => import('./pages/legal/RefundAndCancellationPolicy.jsx'));
@@ -141,6 +142,7 @@ export const routes = [
   { path: '/custodian/dashboard', element: <ProtectedRoute requiredRole="super_admin"><CustodianDashboard /></ProtectedRoute> },
   { path: '/custodian/decisions', element: <ProtectedRoute requiredRole="super_admin"><CustodianDecisions /></ProtectedRoute> },
   { path: '/custodian/tenants', element: <ProtectedRoute requiredRole="super_admin"><CustodianTenants /></ProtectedRoute> },
+  { path: '/custodian/documents', element: <ProtectedRoute requiredRole="super_admin"><CustodianDocuments /></ProtectedRoute> },
   { path: '/custodian/lot', element: <ProtectedRoute requiredRole="super_admin"><CustodianLot /></ProtectedRoute> },
   { path: '/cookie-policy', element: <CookiePolicy /> },
   { path: '/grievance-redressal-policy', element: <GrievanceRedressalPolicy /> },

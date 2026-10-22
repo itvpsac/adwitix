@@ -250,6 +250,13 @@ export const admin = {
   lots: (query) => api.get(`${APP}/admin/lots`, { query }),
   tradingSessions: (query) => api.get(`${APP}/admin/trading-sessions`, { query }),
   lotDossier: (id) => api.get(`${APP}/admin/listings/${id}/dossier`),
+  legalList: () => api.get(`${APP}/admin/legal`),
+  legalDoc: (slug) => api.get(`${APP}/admin/legal/${slug}`),
+  legalVersion: (slug, n) => api.get(`${APP}/admin/legal/${slug}/versions/${n}`),
+  legalSaveDraft: (slug, payload) => api.post(`${APP}/admin/legal/${slug}/draft`, payload),
+  legalPublish: (slug) => api.post(`${APP}/admin/legal/${slug}/publish`),
+  legalDiscard: (slug) => api.post(`${APP}/admin/legal/${slug}/discard-draft`),
+  legalRestore: (slug, n) => api.post(`${APP}/admin/legal/${slug}/restore/${n}`),
   stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
   stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 
@@ -355,6 +362,7 @@ export const invoices = {
 // ── Published legal & help documents (D-137) ────────────────────────
 export const legalDocs = {
   get: (slug) => api.get(`${APP}/legal/${slug}`, { auth: false }),
+  accept: (slugs) => api.post(`${APP}/me/accept-documents`, { slugs }),
 };
 
 // ── Public info & legal content ─────────────────────────────────────
