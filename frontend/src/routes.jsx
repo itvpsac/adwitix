@@ -9,6 +9,7 @@ import CustodianDashboard from './pages/custodian/CustodianDashboard.jsx';
 import CustodianDecisions from './pages/custodian/CustodianDecisions.jsx';
 import CustodianTenants from './pages/custodian/CustodianTenants.jsx';
 import CustodianLot from './pages/custodian/CustodianLot.jsx';
+import CustodianUser from './pages/custodian/CustodianUser.jsx';
 import CookiePolicy from './pages/legal/CookiePolicy.jsx';
 import GrievanceRedressalPolicy from './pages/legal/GrievanceRedressalPolicy.jsx';
 import RefundAndCancellationPolicy from './pages/legal/RefundAndCancellationPolicy.jsx';
@@ -67,7 +68,6 @@ import KycQueue from './pages/compliance/KycQueue.jsx';
 import CustodianCredentialSetup from './pages/custodian/CustodianCredentialSetup.jsx';
 import TenantDirectory from './pages/lots/TenantDirectory.jsx';
 import TradingSessionDirectory from './pages/directories/TradingSessionDirectory.jsx';
-import UserDetail from './pages/directories/UserDetail.jsx';
 import UserDirectory from './pages/directories/UserDirectory.jsx';
 import TenderAuctionReport from './pages/tender/TenderAuctionReport.jsx';
 import TenderConciergeConsole from './pages/tender/TenderConciergeConsole.jsx';
@@ -121,7 +121,7 @@ export const routes = [
   { path: '/custodian-credential-setup', element: <CustodianCredentialSetup /> },
   { path: '/tenant-directory', element: <ConsoleFrame><TenantDirectory /></ConsoleFrame> },
   { path: '/trading-session-directory', element: <ProtectedRoute requiredRole="super_admin"><TradingSessionDirectory /></ProtectedRoute> },
-  { path: '/user-detail', element: <ProtectedRoute requiredRole="super_admin"><UserDetail /></ProtectedRoute> },
+  { path: '/user-detail', element: <ProtectedRoute requiredRole="super_admin"><CustodianUser /></ProtectedRoute> },
   { path: '/user-directory', element: <ProtectedRoute requiredRole="super_admin"><UserDirectory /></ProtectedRoute> },
   { path: '/tender-auction-report', element: <TenderAuctionReport /> },
   { path: '/tender-concierge-console', element: <TenderConciergeConsole /> },

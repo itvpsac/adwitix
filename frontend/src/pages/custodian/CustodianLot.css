@@ -17,3 +17,17 @@
 .cl-audit { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
 .cl-audit li { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--color-border-soft); font: 500 13px var(--font-sans); }
 .cl-audit code { font: 500 11.5px/1.45 var(--font-mono); color: var(--color-text-muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+/* Star-rating chart (RatingChart.jsx) */
+.rc { margin: 12px 0 0; }
+.rc-legend { display: flex; flex-wrap: wrap; gap: 16px; font: 500 12.5px var(--font-sans); color: var(--color-text-muted); margin-bottom: 6px; }
+.rc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.rc-legend b { color: var(--color-text); }
+.rc-tip { position: absolute; transform: translate(-50%, calc(-100% - 12px)); display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: #fff; border: 1px solid var(--color-border); border-radius: 8px; box-shadow: 0 8px 20px rgba(30,34,51,.14); font: 500 12px/1.35 var(--font-sans); color: var(--color-text-muted); white-space: nowrap; pointer-events: none; }
+.rc-tip b { color: var(--color-text); }
+.cl-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.cl-tabs a { padding: 6px 12px; border-radius: 100px; border: 1px solid var(--color-border); font: 600 12.5px var(--font-sans); color: var(--color-text); text-decoration: none; background: #fff; }
+.cl-tabs a:hover { border-color: var(--color-accent); }
+.cl-banner { margin: 0; padding: 12px 16px; border-radius: 10px; font: 600 13.5px/1.45 var(--font-sans); }
+.cl-banner--bad { background: var(--color-danger-bg); color: var(--color-danger); }
+.cl-banner--info { background: var(--color-bg); color: var(--color-text-muted); }

@@ -4,7 +4,7 @@ import CustodianShell from '../../components/custodian/CustodianShell.jsx';
 import StopAction from '../../components/custodian/StopAction.jsx';
 import { admin } from '../../api/endpoints.js';
 import { unwrap, mediaUrl } from '../../api/client.js';
-import { formatCurrency } from '../../utils/format.js';
+import { Fields, Table, label } from '../../components/custodian/DossierParts.jsx';
 import './CustodianLot.css';
 
 // The Custodian's full file on one Lot (D-133): GET /admin/listings/:id/dossier.
@@ -15,55 +15,6 @@ import './CustodianLot.css';
 // Master (D-132); the Custodian can stop the Lot or any live session.
 const LIVE_LOT = ['inventory', 'pending_approval', 'upcoming', 'active'];
 const LIVE_SESSION = ['pending_approval', 'grace_period', 'active'];
-const MONEY = /(amount|price|value|_fee|tds_amount|forfeited_to)/;
-const HIDDEN = new Set(['bids', 'offers', 'emdHolds', 'tenderInterest', 'settlements', 'disputes', 'chronicles']);
-
-const label = (k) => k.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase());
-function show(k, v) {
-  if (v === null || v === undefined || v === '') return '—';
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No';
-  if (typeof v === 'object') return JSON.stringify(v);
-  if (MONEY.test(k) && !Number.isNaN(Number(v))) return formatCurrency(v);
-  return String(v);
-}
-
-function Fields({ row, skip = HIDDEN }) {
-  const [all, setAll] = useState(false);
-  if (!row) return <p className="cl-empty">—</p>;
-  const entries = Object.entries(row).filter(([k]) => !skip.has(k));
-  const shown = all ? entries : entries.filter(([, v]) => v !== null && v !== '' && v !== undefined);
-  return (
-    <>
-      <dl className="cl-kv">
-        {shown.map(([k, v]) => <div key={k}><dt>{label(k)}</dt><dd>{show(k, v)}</dd></div>)}
-      </dl>
-      {shown.length < entries.length && <button type="button" className="cl-more" onClick={() => setAll(true)}>Show {entries.length - shown.length} empty fields</button>}
-    </>
-  );
-}
-
-function Table({ title, rows, party }) {
-  if (!rows || rows.length === 0) return <div className="cl-sub"><h4>{title}</h4><p className="cl-empty">None.</p></div>;
-  const cols = Object.keys(rows[0]).filter((c) => c !== 'sale_event_id');
-  return (
-    <div className="cl-sub">
-      <h4>{title} <span className="cc-lbl">{rows.length}</span></h4>
-      <div className="cl-table">
-        <table>
-          <thead><tr>{cols.map((c) => <th key={c}>{label(c)}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id || JSON.stringify(r)}>
-                {cols.map((c) => <td key={c}>{/party_id$/.test(c) && r[c] ? party(r[c]) : show(c, r[c])}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 export default function CustodianLot() {
   const [params] = useSearchParams();
   const id = params.get('id');

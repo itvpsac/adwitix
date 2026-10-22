@@ -237,6 +237,9 @@ export const admin = {
   users: (query) => api.get(`${APP}/admin/users`, { query }),
   userDetail: (id) => api.get(`${APP}/admin/users/${id}`),
   promoteTenantAdmin: (id, payload) => api.post(`${APP}/admin/users/${id}/promote-tenant-admin`, payload),
+  userDossier: (id) => api.get(`${APP}/admin/users/${id}/dossier`),
+  freezeUser: (id, reason) => api.post(`${APP}/admin/users/${id}/freeze`, { reason }),
+  unfreezeUser: (id, reason) => api.post(`${APP}/admin/users/${id}/unfreeze`, { reason }),
 
   tenants: (query) => api.get(`${APP}/admin/tenants`, { query }),
   createTenant: (payload) => api.post(`${APP}/admin/tenants`, payload),
