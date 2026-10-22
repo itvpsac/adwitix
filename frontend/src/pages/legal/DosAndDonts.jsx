@@ -1,5 +1,7 @@
 import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
 import './DosAndDonts.css';
+import { usePublishedContent } from '../../utils/publishedContent.js';
+
 
 const CHIPS = [
   ['getting-started', 'Getting Started'], ['bidding', 'Bidding & EMD'], ['buying', 'Buying'], ['selling', 'Selling'],
@@ -57,25 +59,34 @@ const SECTIONS = [
   ]},
 ];
 
+// Built-in content = version 1 (D-137); a published version replaces it.
+const CHIP_LABEL = Object.fromEntries(CHIPS);
+export const DOSDONTS_CONTENT = {
+  desc: "A practical guide for Traders and Market Makers. Everything here reflects ADWITIX's actual rules — when in doubt, the safer choice is almost always the one on the left.",
+  sections: SECTIONS.map((s) => ({ id: s.id, chip: CHIP_LABEL[s.id] || s.title, title: s.title, rows: s.rows.map(([d, n]) => ({ do: d, dont: n })) })),
+};
+
 export default function DosAndDonts() {
+  const c = usePublishedContent('dos-and-donts', DOSDONTS_CONTENT);
+  const sections = c.sections || [];
   return (
     <div className="dd-page">
       <PublicMiniHeader />
       <main className="dd-main">
         <div className="legal-eyebrow">Trust &amp; Support</div>
         <h1 className="dd-title">Dos &amp; Don'ts</h1>
-        <p className="dd-desc">A practical guide for Traders and Market Makers. Everything here reflects ADWITIX's actual rules — when in doubt, the safer choice is almost always the one on the left.</p>
+        <p className="dd-desc">{c.desc}</p>
 
         <div className="dd-chips">
-          {CHIPS.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}
+          {sections.map((s) => <a key={s.id} href={`#${s.id}`}>{s.chip || s.title}</a>)}
         </div>
 
-        {SECTIONS.map((sec) => (
+        {sections.map((sec) => (
           <section key={sec.id} id={sec.id} className="dd-section">
             <h2>{sec.title}</h2>
             <div className="dd-table">
               <div className="dd-row dd-row--head"><div className="dd-do">✓ DO</div><div className="dd-dont">✗ DON'T</div></div>
-              {sec.rows.map(([doText, dontText], i) => (
+              {(sec.rows || []).map(({ do: doText, dont: dontText }, i) => (
                 <div key={i} className="dd-row">
                   <div className="dd-cell dd-cell--do"><span className="dd-icon">✓</span><span>{doText}</span></div>
                   <div className="dd-cell dd-cell--dont"><span className="dd-icon">✗</span><span>{dontText}</span></div>

@@ -1,6 +1,9 @@
 import LegalPage from '../../components/LegalPage.jsx';
+import PublishedLegalPage from '../../components/PublishedLegalPage.jsx';
 
-export default function PrivacyPolicy() {
+// Built-in text = version 1 (D-137); a version published from the
+// Custodian's Documents page replaces it.
+function Builtin() {
   const sections = [
     { id: 's1', title: '1. Introduction & Scope', body: (
       <>
@@ -59,4 +62,8 @@ export default function PrivacyPolicy() {
       sections={sections} maxWidth={780}
       footerNote={<>See also our <a href="/cookie-policy">Cookie Policy</a> and <a href="/terms-of-usage">Terms of Usage</a>.</>} />
   );
+}
+
+export default function PrivacyPolicy() {
+  return <PublishedLegalPage slug="privacy-policy"><Builtin /></PublishedLegalPage>;
 }

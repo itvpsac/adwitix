@@ -1,6 +1,9 @@
 import LegalPage from '../../components/LegalPage.jsx';
+import PublishedLegalPage from '../../components/PublishedLegalPage.jsx';
 
-export default function TermsOfUsage() {
+// Built-in text = version 1 (D-137); a version published from the
+// Custodian's Documents page replaces it.
+function Builtin() {
   const sections = [
     { id: 'def', title: '1. Definitions', body: (
       <ul>
@@ -69,4 +72,8 @@ export default function TermsOfUsage() {
       sections={sections} maxWidth={760}
       footerNote={<>See also our <a href="/privacy-policy">Privacy Policy</a> and <a href="/trust-and-support">Trust &amp; Support</a>.</>} />
   );
+}
+
+export default function TermsOfUsage() {
+  return <PublishedLegalPage slug="terms-of-usage"><Builtin /></PublishedLegalPage>;
 }

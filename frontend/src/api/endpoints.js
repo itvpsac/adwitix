@@ -352,6 +352,11 @@ export const invoices = {
   pdf: (id) => api.download(`/account/invoices/${id}/pdf`),
 };
 
+// ── Published legal & help documents (D-137) ────────────────────────
+export const legalDocs = {
+  get: (slug) => api.get(`${APP}/legal/${slug}`, { auth: false }),
+};
+
 // ── Public info & legal content ─────────────────────────────────────
 export const content = {
   terms: () => api.get('/terms', { auth: false }),

@@ -1,5 +1,7 @@
 import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
 import './SecurityAndTrust.css';
+import { usePublishedContent } from '../../utils/publishedContent.js';
+
 
 const BADGES = ['Segregated deposits', 'Anonymous bidding', 'Encrypted identity data', 'Tamper-checked timing', '150% bid ceiling', 'Independent audits'];
 
@@ -36,21 +38,25 @@ const PILLARS = [
     'Our payment infrastructure runs through a licensed, RBI-authorised partner, not an in-house or unregulated system.'] },
 ];
 
+// Built-in content = version 1 (D-137); a published version replaces it.
+export const SECURITY_CONTENT = { desc: 'A plain explanation of how your money, your data, and your Trading Sessions are protected on ADWITIX — and how we hold ourselves accountable.', badges: BADGES, pillars: PILLARS };
+
 export default function SecurityAndTrust() {
+  const c = usePublishedContent('security-and-trust', SECURITY_CONTENT);
   return (
     <div className="sat-page">
       <PublicMiniHeader />
       <main className="sat-main">
         <div className="legal-eyebrow">Trust &amp; Support</div>
         <h1 className="sat-title">Security &amp; Trust</h1>
-        <p className="sat-desc">A plain explanation of how your money, your data, and your Trading Sessions are protected on ADWITIX — and how we hold ourselves accountable.</p>
+        <p className="sat-desc">{c.desc}</p>
 
         <div className="sat-badges">
-          {BADGES.map((b) => <span key={b}>🔒 {b}</span>)}
+          {(c.badges || []).map((b) => <span key={b}>🔒 {b}</span>)}
         </div>
 
         <div className="sat-grid">
-          {PILLARS.map((p, i) => (
+          {(c.pillars || []).map((p, i) => (
             <div key={p.title} className="sat-card">
               <div className="sat-card__head">
                 <div className="sat-card__icon">{p.emoji}</div>
@@ -61,7 +67,7 @@ export default function SecurityAndTrust() {
               </div>
               <p className="sat-card__intro">{p.intro}</p>
               <div className="sat-card__points">
-                {p.points.map((pt) => <div key={pt}><span>→</span><span>{pt}</span></div>)}
+                {(p.points || []).map((pt) => <div key={pt}><span>→</span><span>{pt}</span></div>)}
               </div>
             </div>
           ))}

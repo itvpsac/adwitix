@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
 import './FAQ.css';
+import { usePublishedContent } from '../../utils/publishedContent.js';
+
 
 const CATEGORIES = [
   { id: 'start', label: 'Getting Started', items: [
@@ -55,18 +57,23 @@ const CATEGORIES = [
   ]},
 ];
 
+// Built-in content = version 1 (D-137); a published version replaces it.
+export const FAQ_CONTENT = { desc: 'Every topic is explained twice — once for Traders, once for Market Makers — so you only read the half that applies to you.', categories: CATEGORIES };
+
 export default function FAQ() {
+  const c = usePublishedContent('faq', FAQ_CONTENT);
+  const cats = c.categories || [];
   const [query, setQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [open, setOpen] = useState({});
   const q = query.trim().toLowerCase();
 
   const groups = useMemo(() => {
-    return CATEGORIES
+    return cats
       .filter((c) => activeCategory === 'all' || activeCategory === c.id)
       .map((c) => ({ ...c, items: c.items.filter((it) => !q || (it.q + ' ' + it.buyer + ' ' + it.seller).toLowerCase().includes(q)) }))
       .filter((g) => g.items.length > 0);
-  }, [q, activeCategory]);
+  }, [q, activeCategory, cats]);
   const total = groups.reduce((n, g) => n + g.items.length, 0);
 
   return (
@@ -75,11 +82,11 @@ export default function FAQ() {
       <main className="faq-main">
         <div className="legal-eyebrow">Trust &amp; Support</div>
         <h1 className="faq-title">Frequently Asked Questions</h1>
-        <p className="faq-desc">Every topic is explained twice — once for Traders, once for Market Makers — so you only read the half that applies to you.</p>
+        <p className="faq-desc">{c.desc}</p>
 
         <input className="faq-search" placeholder="Search topics — deposits, ratings, disputes, shipping..." value={query} onChange={(e) => setQuery(e.target.value)} />
         <div className="faq-chips">
-          {[{ id: 'all', label: 'All topics' }, ...CATEGORIES.map((c) => ({ id: c.id, label: c.label }))].map((c) => (
+          {[{ id: 'all', label: 'All topics' }, ...cats.map((x) => ({ id: x.id, label: x.label }))].map((c) => (
             <button key={c.id} onClick={() => setActiveCategory(c.id)} className={`faq-chip${activeCategory === c.id ? ' faq-chip--active' : ''}`}>{c.label}</button>
           ))}
         </div>
