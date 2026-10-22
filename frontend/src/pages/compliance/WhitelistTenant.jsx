@@ -62,7 +62,6 @@ export default function WhitelistTenant() {
                 <select value={tenantClass} onChange={(e) => setTenantClass(e.target.value)} className="wt-input">
                   <option value="general">General</option>
                   <option value="institutional">Institutional</option>
-                  <option value="company_shop">Company Shop</option>
                 </select>
               </div>
               <div>
@@ -72,7 +71,7 @@ export default function WhitelistTenant() {
                   <option value="tsx_launch">TSX Launch</option>
                   <option value="tsx_growth">TSX Growth</option>
                   <option value="tsx_enterprise">TSX Enterprise</option>
-                  <option value="coco_starter">Salvage Managers (Buyer-Pays only; there is only one)</option>
+                  <option value="coco_starter">Salvage Managers — the Company Shop (only one)</option>
                 </select>
               </div>
             </div>
