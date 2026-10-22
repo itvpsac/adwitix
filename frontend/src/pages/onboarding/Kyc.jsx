@@ -7,7 +7,7 @@ import { unwrap } from '../../api/client.js';
 // Keys are KycService document types; `required` mirrors its REQUIRED_DOCUMENTS.
 const DOCS_INDIVIDUAL = [
   { key: 'pan_card', name: 'PAN Card', hint: 'Used for registry verification', required: true },
-  { key: 'aadhaar_card', name: 'Aadhaar Card', hint: 'Number is tokenized, never stored in plain text', required: true },
+  { key: 'aadhaar_card', name: 'Aadhaar Card', hint: 'Stored encrypted; the number is kept only in masked form', required: true },
   { key: 'cancelled_cheque', name: 'Bank Proof', hint: 'Cancelled cheque or passbook first page (optional)', required: false },
 ];
 const DOCS_ORG = [
@@ -76,9 +76,13 @@ export default function Kyc() {
   const [consentError, setConsentError] = useState('');
   const [stepError, setStepError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [kycStatus, setKycStatus] = useState('');
+  const [kycReason, setKycReason] = useState('');
 
   // GET /kyc → { party, documents, addressesByType } — resume a partial dossier.
-  useEffect(() => {
+  const loadDossier = () => {
+    setLoadError('');
     kyc.form().then((res) => {
       const { party = {}, documents = [], addressesByType = {} } = unwrap(res);
       if (party.entity_type === 'individual' || party.entity_type === 'organization') setEntityType(party.entity_type);
@@ -95,9 +99,14 @@ export default function Kyc() {
         line1: a.line1 || '', line2: a.line2 || '', city: a.city || '', district: a.district || '', state: a.state || '', pin: a.pin_code || '',
       }));
       if (saved.length) setAddresses(saved.some((a) => a.required) ? saved : [emptyAddress('Registered', true), ...saved]);
-      if (party.kyc_status === 'submitted') setStep('submitted');
-    }).catch(() => { /* offline — start blank */ });
-  }, []);
+      setKycStatus(party.kyc_status || '');
+      setKycReason(party.kyc_status_reason || '');
+      // A submitted or already-verified dossier is locked; resubmitting a
+      // verified one would send it back to review.
+      if (party.kyc_status === 'submitted' || party.kyc_status === 'verified') setStep('submitted');
+    }).catch((err) => setLoadError(err.message || 'Could not load your saved KYC details.'));
+  };
+  useEffect(() => { loadDossier(); }, []);
 
   const requiredDocsList = entityType === 'organization' ? DOCS_ORG : DOCS_INDIVIDUAL;
   const stepIndex = STEP_ORDER.indexOf(step);
@@ -152,14 +161,18 @@ export default function Kyc() {
       setDocsError(err.message || 'Upload failed.');
     }
   };
-  const removeDoc = (key) => { const next = { ...docs }; delete next[key]; setDocs(next); };
   const nextFromDocs = () => {
     if (!requiredDocsList.filter((d) => d.required).every((d) => docs[d.key])) { setDocsError('Please upload all required documents to continue.'); return; }
     setStep('review');
   };
   const submitKyc = () => {
+    if (busy) return;
     if (!consentChecked) { setConsentError('Please accept the Terms of Use to submit your KYC.'); return; }
-    kyc.submit().then(() => setStep('submitted')).catch((err) => setConsentError(err.message || 'Submission failed. Please try again.'));
+    setBusy(true);
+    kyc.submit()
+      .then(() => { setKycStatus('submitted'); setStep('submitted'); })
+      .catch((err) => setConsentError(err.message || 'Submission failed. Please try again.'))
+      .finally(() => setBusy(false));
   };
 
   return (
@@ -167,6 +180,8 @@ export default function Kyc() {
       <AppHeader variant="light" contextLabel="Identity Verification" backTo="/profile" backLabel="Profile" />
 
       <main className="kyc-main">
+        {loadError && <p className="kyc-error">{loadError} <button onClick={loadDossier} className="kyc-edit-link">Retry</button></p>}
+        {kycStatus === 'suspended' && <p className="kyc-error">Your KYC was suspended{kycReason ? `: ${kycReason}` : ''}. Update your details and submit again.</p>}
         <div className="kyc-steps">
           {STEP_LABELS.map((label, i) => (
             <div key={label} className="kyc-step">
@@ -226,7 +241,7 @@ export default function Kyc() {
         {step === 'docs' && (
           <>
             <h1 className="kyc-h1">Upload your documents</h1>
-            <p className="kyc-p">Documents are encrypted end-to-end; Aadhaar numbers are tokenized and never stored in plain text.</p>
+            <p className="kyc-p">Documents are stored encrypted; Aadhaar numbers are kept only in masked form. PDF, JPEG or PNG only.</p>
             <div className="kyc-docs-list">
               {requiredDocsList.map((d) => {
                 const fileName = docs[d.key];
@@ -240,14 +255,13 @@ export default function Kyc() {
                       </div>
                       <label className="kyc-upload-btn" style={{ borderColor: uploaded ? 'var(--color-success)' : 'var(--color-border)', background: uploaded ? 'var(--color-success-bg)' : '#fff', color: uploaded ? 'var(--color-success)' : 'var(--color-text)' }}>
                         {uploaded ? 'Replace' : 'Upload'}
-                        <input type="file" accept="image/*,.pdf" onChange={(e) => uploadDoc(d.key, e.target.files && e.target.files[0])} style={{ display: 'none' }} />
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(e) => uploadDoc(d.key, e.target.files && e.target.files[0])} style={{ display: 'none' }} />
                       </label>
                     </div>
                     {fileName && (
                       <div className="kyc-file-row">
                         <span>📄</span>
                         <span className="kyc-file-name">{fileName}</span>
-                        <button onClick={() => removeDoc(d.key)} className="kyc-file-remove">×</button>
                       </div>
                     )}
                   </div>
@@ -338,7 +352,7 @@ export default function Kyc() {
 
             <div className="kyc-btn-row" style={{ marginTop: 22 }}>
               <button onClick={() => setStep('docs')} className="kyc-btn-outline">Back</button>
-              <button onClick={submitKyc} className="kyc-btn-gold">Submit for Review</button>
+              <button onClick={submitKyc} disabled={busy} className="kyc-btn-gold">{busy ? 'Submitting…' : 'Submit for Review'}</button>
             </div>
           </>
         )}
@@ -346,8 +360,8 @@ export default function Kyc() {
         {step === 'submitted' && (
           <div className="kyc-done">
             <div className="kyc-done__icon">✓</div>
-            <h1 className="kyc-done__title">Submitted for review</h1>
-            <p className="kyc-done__body">Your compliance dossier is locked and with {approverLabel}. You'll be notified once your KYC status moves to Verified — usually within 1–2 business days.</p>
+            <h1 className="kyc-done__title">{kycStatus === 'verified' ? 'KYC verified' : 'Submitted for review'}</h1>
+            <p className="kyc-done__body">{kycStatus === 'verified' ? 'Your compliance dossier has been verified.' : `Your compliance dossier is locked and with ${approverLabel}. You'll be notified once your KYC status moves to Verified.`}</p>
           </div>
         )}
       </main>

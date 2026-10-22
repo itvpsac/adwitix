@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth as authApi } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
-import { establishSession, loginUser } from '../../utils/auth.js';
+import { establishSession } from '../../utils/auth.js';
 import '../onboarding/Onboarding.css';
 import './ForgotMpin.css';
 
 // Reset flow for returning users who've forgotten their mPIN.
-// Dual-factor per the backend contract: mobile OTP + email OTP, both
-// verified together via /auth/login/verify-reset-otp, then a new mPIN
+// Mobile OTP, plus an email OTP only when the account has a recovery
+// email on file (the response then includes `email`), verified via
+// /auth/forgot-password/verify, then a new mPIN
 // is set via /auth/mpin/complete (same endpoint registration uses).
 export default function ForgotMpin() {
   const navigate = useNavigate();
@@ -22,34 +23,38 @@ export default function ForgotMpin() {
   const [mpinConfirm, setMpinConfirm] = useState('');
   const [mpinError, setMpinError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [devOtp, setDevOtp] = useState('');
   const [pendingTicket, setPendingTicket] = useState('');
-  const [offline, setOffline] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [notice, setNotice] = useState('');
 
   const requestReset = async () => {
     if (mobile.length !== 10) { setMobileError('Enter a valid 10-digit mobile number.'); return; }
     setBusy(true); setMobileError('');
     try {
-      const res = await authApi.forgotPassword(`+91${mobile}`);
-      setPendingTicket(unwrap(res).pending_ticket || '');
+      const data = unwrap(await authApi.forgotPassword(`+91${mobile}`));
+      // The backend answers generically (no ticket) for unknown numbers.
+      setPendingTicket(data.pending_ticket || '');
+      setResetEmail(data.email || '');
+      setNotice(data.message || '');
       setStep('verify');
     } catch (err) {
-      setOffline(true); setStep('verify');
+      setMobileError(err.status ? (err.message || 'Could not send reset codes.') : 'Could not reach the server. Check your connection and try again.');
     } finally { setBusy(false); }
   };
 
   const verifyCodes = async () => {
     if (otp.length !== 6) { setVerifyError('Enter the 6-digit code sent to your mobile.'); return; }
-    if (emailOtp.length !== 6) { setVerifyError('Enter the 6-digit code sent to your registered email.'); return; }
-    if (offline) { setStep('reset'); return; }
+    if (resetEmail && emailOtp.length !== 6) { setVerifyError('Enter the 6-digit code sent to your registered email.'); return; }
+    if (!pendingTicket) { setVerifyError('Those codes did not match an account. Check the number and start again.'); return; }
     setBusy(true); setVerifyError('');
     try {
-      const res = await authApi.forgotPasswordVerify(pendingTicket, otp, emailOtp);
-      setPendingTicket(unwrap(res).pending_ticket || pendingTicket);
+      const res = await authApi.forgotPasswordVerify(pendingTicket, otp, resetEmail ? emailOtp : undefined);
+      const next = unwrap(res).pending_ticket;
+      if (!next) { setVerifyError('Verification did not complete. Please start again.'); return; }
+      setPendingTicket(next);
       setStep('reset');
     } catch (err) {
-      if (err.status) { setVerifyError(err.message || 'Those codes did not match.'); }
-      else { setOffline(true); setStep('reset'); }
+      setVerifyError(err.status ? (err.message || 'Those codes did not match.') : 'Could not reach the server. Try again.');
     } finally { setBusy(false); }
   };
 
@@ -58,15 +63,13 @@ export default function ForgotMpin() {
     if (mpin !== mpinConfirm) { setMpinError('mPINs do not match.'); return; }
     setMpinError('');
 
-    if (offline || !pendingTicket) {
-      loginUser({ name: `+91 ${mobile}`, mobile: `+91 ${mobile}`, kycStatus: 'verified' });
-      navigate('/profile');
-      return;
-    }
+    if (!pendingTicket) { setMpinError('Your verification has expired. Please start again.'); return; }
     setBusy(true);
     try {
       const res = await authApi.completeMpin(pendingTicket, mpin);
-      establishSession(unwrap(res));
+      const data = unwrap(res);
+      if (!data.access_token) { setMpinError('Could not sign you in. Please log in with your new mPIN.'); return; }
+      establishSession(data);
       navigate('/profile');
     } catch (err) {
       setMpinError(err.status ? err.message : 'Could not reach the server. Try again.');
@@ -99,12 +102,14 @@ export default function ForgotMpin() {
         {step === 'verify' && (
           <>
             <h1 className="ob-h1">Verify it's you</h1>
-            <p className="ob-p">Enter the 6-digit codes sent to <strong style={{ color: 'var(--color-text)' }}>+91 {mobile}</strong> and your registered email.</p>
-            {offline && <p className="ob-dev-otp">Backend not reachable — continuing in local preview mode.</p>}
+            <p className="ob-p">Enter the 6-digit code sent to <strong style={{ color: 'var(--color-text)' }}>+91 {mobile}</strong>{resetEmail ? <> and the code sent to <strong style={{ color: 'var(--color-text)' }}>{resetEmail}</strong></> : ''}.</p>
+            {notice && <p className="ob-p">{notice}</p>}
             <label className="ob-label">Mobile OTP</label>
             <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={otp} onChange={(e) => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setVerifyError(''); }} className="fm-code-input" />
-            <label className="ob-label">Email OTP</label>
-            <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={emailOtp} onChange={(e) => { setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setVerifyError(''); }} className="fm-code-input" style={{ marginBottom: 8 }} />
+            {resetEmail && <>
+              <label className="ob-label">Email OTP</label>
+              <input type="text" inputMode="numeric" maxLength={6} placeholder="000000" value={emailOtp} onChange={(e) => { setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6)); setVerifyError(''); }} className="fm-code-input" style={{ marginBottom: 8 }} />
+            </>}
             {verifyError && <p className="ob-error">{verifyError}</p>}
             <button onClick={verifyCodes} disabled={busy} className="ob-btn-dark">{busy ? 'Verifying…' : 'Verify Codes'}</button>
           </>
