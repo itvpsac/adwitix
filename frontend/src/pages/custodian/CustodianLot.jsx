@@ -95,13 +95,17 @@ export default function CustodianLot() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {LIVE_LOT.includes(l.status) && <ObjectionAction reasons={d.objectionReasons} lotTitle={l.title || l.category} sessionsLive={liveSessions.length}
               onRaise={(payload) => admin.raiseObjection(l.id, payload)} onDone={(res) => { setNotice(res.message || 'Lot put on hold.'); load(); }} />}
+            {d.reactivation?.allowed && <StopAction label="Reactivate Lot" verb="Reactivate" tone="ok" what={`the Lot "${l.title || l.category}"`}
+              note={`${d.reactivation.why} The reason is recorded in the Audit Ledger.`}
+              onStop={(reason) => admin.reactivateLot(l.id, reason)} onDone={(res) => { setNotice(res.message || 'Lot reactivated.'); load(); }} />}
             {(LIVE_LOT.includes(l.status) || l.status === 'on_hold') && <StopAction label="Stop Lot" what={`the Lot "${l.title || l.category}"`} onStop={(reason) => admin.stopLot(l.id, reason)} onDone={load} />}
           </div>
         </div>
 
         {notice && <p className="dq-notice" role="status" style={{ display: 'block' }}>{notice}</p>}
+        {l.status === 'suspended' && d.reactivation && !d.reactivation.allowed && <p className="cl-banner cl-banner--info">Suspended{l.rejection_reason ? ` — ${l.rejection_reason}` : ''}. Can&apos;t be reactivated: {d.reactivation.why}</p>}
         {openObjection && <ObjectionPanel o={openObjection} party={party} onDone={(msg) => { setNotice(msg); load(); }} />}
-        {l.rejection_reason && <p className="cl-banner cl-banner--info">Last rejection: {l.rejection_reason}</p>}
+        {l.rejection_reason && !(l.status === 'suspended' && d.reactivation && !d.reactivation.allowed) && <p className="cl-banner cl-banner--info">{l.status === 'suspended' ? 'Suspended' : 'Last rejection'}: {l.rejection_reason}</p>}
         {disputes > 0 && <p className="cl-banner cl-banner--bad">{disputes} dispute{disputes === 1 ? '' : 's'} on this Lot — see Trading Sessions.</p>}
 
         <div className="cc-card lf-facts">

@@ -263,6 +263,7 @@ export const admin = {
   savePlan: (key, payload) => api.post(`${APP}/admin/plans/${key}`, payload),
   raiseObjection: (id, payload) => api.post(`${APP}/admin/listings/${id}/objections`, payload),
   reviewObjection: (id, payload) => api.post(`${APP}/admin/objections/${id}/review`, payload),
+  reactivateLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/reactivate`, { reason }),
   stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
   stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 
