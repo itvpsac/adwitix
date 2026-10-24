@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ConsoleFrame from '../../components/custodian/ConsoleFrame.jsx';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import UserFormModal from '../../components/custodian/UserFormModal.jsx';
 import DashboardHeader from '../../components/DashboardHeader.jsx';
 import { admin } from '../../api/endpoints.js';
 import { useApiQuery } from '../../api/hooks.js';
@@ -15,6 +16,8 @@ export default function UserDirectory() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [kycFilter, setKycFilter] = useState(params.get('kyc') || 'all');
   const [page, setPage] = useState(1);
+  const [adding, setAdding] = useState(false);
+  const navigate = useNavigate();
 
   // Search and paging run server-side (UserController::index matches mobile,
   // name, recovery email and GSTIN; sorted by mobile). Wait for typing to
@@ -29,18 +32,24 @@ export default function UserDirectory() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
-  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.users({ q: debouncedQuery, page, per_page: PER_PAGE }), [debouncedQuery, page]);
+  const { data: apiData, loading: apiLoading, error: apiError, reload } = useApiQuery(() => admin.users({
+    q: debouncedQuery, page, per_page: PER_PAGE,
+    ...(type !== 'all' && { type: type === 'Business' ? 'organization' : 'individual' }),
+    ...(statusFilter !== 'all' && { status: statusFilter }),
+    ...(kycFilter !== 'all' && { kyc: kycFilter.toLowerCase() }),
+  }), [debouncedQuery, page, type, statusFilter, kycFilter]);
   const apiRows = (!apiError && apiData && apiData.users) || [];
   const serverTotal = Number((apiData && apiData.total) ?? apiRows.length);
   const totalPages = Math.max(1, Number((apiData && apiData.totalPages) || 1));
-  const filtersActive = type !== 'all' || statusFilter !== 'all' || kycFilter !== 'all';
-  const statusStyle = (st) => st === 'Delisted'
-    ? { statusColor: 'var(--color-danger)', statusBg: 'var(--color-danger-bg)' }
-    : st === 'Shadow-banned'
-      ? { statusColor: 'var(--color-warning)', statusBg: 'var(--color-warning-bg)' }
-      : { statusColor: 'var(--color-success)', statusBg: 'var(--color-success-bg)' };
+  // Standing comes from the server (PartyModel::standing), most serious first.
+  const STATUS = {
+    frozen: ['Frozen', 'var(--color-danger)', 'var(--color-danger-bg)'],
+    delisted: ['Delisted', 'var(--color-danger)', 'var(--color-danger-bg)'],
+    shadow_banned: ['Shadow-banned', 'var(--color-warning)', 'var(--color-warning-bg)'],
+    active: ['Active', 'var(--color-success)', 'var(--color-success-bg)'],
+  };
   const source = apiRows.map((u) => {
-    const st = u.seller_delisted_at ? 'Delisted' : (u.shadow_banned_at_buyer || u.shadow_banned_at_seller) ? 'Shadow-banned' : 'Active';
+    const [st, statusColor, statusBg] = STATUS[u.status] || STATUS.active;
     return {
       id: u.id,
       mobile: u.mobile_number || '—',
@@ -49,14 +58,10 @@ export default function UserDirectory() {
       kyc: u.kyc_status ? u.kyc_status.charAt(0).toUpperCase() + u.kyc_status.slice(1) : 'Pending',
       traderRating: Number(u.star_rating ?? 3).toFixed(1),
       mmRating: Number(u.seller_star_rating ?? 0).toFixed(1),
-      status: st,
-      ...statusStyle(st),
+      status: st, statusColor, statusBg,
     };
   });
-  let filtered = source;
-  if (type !== 'all') filtered = filtered.filter((u) => u.type === type);
-  if (statusFilter !== 'all') filtered = filtered.filter((u) => u.status === statusFilter);
-  if (kycFilter !== 'all') filtered = filtered.filter((u) => u.kyc === kycFilter);
+  const filtered = source;
   const total = filtered.length;
 
   return (
@@ -64,7 +69,11 @@ export default function UserDirectory() {
     <div className="ud-page">
       <main className="ud-main">
         <div className="legal-eyebrow">Custodian</div>
-        <h1 className="ud-title">User Directory</h1>
+        <div className="ud-titlebar">
+          <h1 className="ud-title">User Directory</h1>
+          <button type="button" className="ud-add" onClick={() => setAdding(true)}>+ Add user</button>
+        </div>
+        {adding && <UserFormModal onSubmit={(payload) => admin.createUser(payload)} onClose={() => setAdding(false)} onDone={(res) => { setAdding(false); if (res.party) navigate(`/user-detail?id=${res.party.id}`); else reload(); }} />}
         <p className="ud-sub">Every registered user, platform-wide, with dual Trader★/Market Maker★ ratings, KYC status, and account standing.</p>
 
         <div className="ud-search">
@@ -73,15 +82,15 @@ export default function UserDirectory() {
         </div>
         <div className="ud-filters">
           {['all', 'Individual', 'Business'].map((t) => (
-            <button key={t} onClick={() => { setType(t); }} className={`ud-pill${type === t ? ' ud-pill--active' : ''}`}>{t === 'all' ? 'All Types' : t}</button>
+            <button key={t} onClick={() => { setType(t); setPage(1); }} className={`ud-pill${type === t ? ' ud-pill--active' : ''}`}>{t === 'all' ? 'All Types' : t}</button>
           ))}
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); }} className="ud-select">
-            <option value="all">All Statuses</option><option value="Active">Active</option><option value="Shadow-banned">Shadow-banned</option><option value="Delisted">Delisted</option>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }} className="ud-select" aria-label="Status">
+            <option value="all">All Statuses</option><option value="active">Active</option><option value="frozen">Frozen</option><option value="shadow_banned">Shadow-banned</option><option value="delisted">Delisted</option>
           </select>
-          <select value={kycFilter} onChange={(e) => { setKycFilter(e.target.value); }} className="ud-select">
+          <select value={kycFilter} onChange={(e) => { setKycFilter(e.target.value); setPage(1); }} className="ud-select" aria-label="KYC">
             <option value="all">All KYC</option><option value="Verified">Verified</option><option value="Pending">Pending</option><option value="Submitted">Submitted</option><option value="Suspended">Suspended</option>
           </select>
-          <button onClick={() => { setQuery(''); setType('all'); setStatusFilter('all'); setKycFilter('all'); }} className="ud-clear">Clear</button>
+          <button onClick={() => { setQuery(''); setType('all'); setStatusFilter('all'); setKycFilter('all'); setPage(1); }} className="ud-clear">Clear</button>
           <button onClick={reload} disabled={apiLoading} className="ud-refresh">↻ Refresh</button>
         </div>
 
@@ -89,7 +98,7 @@ export default function UserDirectory() {
           <div className="ud-count">
             {apiLoading
               ? 'Loading…'
-              : `Page ${page} of ${totalPages} · ${serverTotal}${serverTotal === 1 ? ' user' : ' users'}${filtersActive ? ` · ${total} on this page match the type/status/KYC filters (filters apply to the current page only)` : ''}`}
+              : `Page ${page} of ${totalPages} · ${serverTotal}${serverTotal === 1 ? ' user' : ' users'}`}
           </div>
         )}
 
@@ -114,7 +123,7 @@ export default function UserDirectory() {
               : (apiError.message || 'Could not load users. Please try again.')}
           </div>
         )}
-        {!apiLoading && !apiError && total === 0 && <div className="ud-empty">{apiRows.length === 0 ? (debouncedQuery ? 'No users match your search.' : 'No users yet.') : 'No users on this page match the filters — try another page or clear the filters.'}</div>}
+        {!apiLoading && !apiError && total === 0 && <div className="ud-empty">{debouncedQuery || type !== 'all' || statusFilter !== 'all' || kycFilter !== 'all' ? 'No users match.' : 'No users yet.'}</div>}
         {!apiError && totalPages > 1 && (
           <div className="ud-pager">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={apiLoading || page <= 1} className="ud-pager__btn">← Previous</button>

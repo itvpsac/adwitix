@@ -13,3 +13,5 @@
 .tx-stats > div:first-child { border-left: none; }
 .tx-stats b { font: 700 24px/1 var(--font-display); }
 .tx-form { display: flex; flex-direction: column; gap: 14px; }
+.tx-meter { height: 8px; border-radius: 99px; background: var(--color-border-soft); overflow: hidden; margin: 2px 0 6px; }
+.tx-meter span { display: block; height: 100%; border-radius: 99px; }

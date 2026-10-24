@@ -1,5 +1,8 @@
 .ud-page { background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); min-height: 100vh; }
 .ud-main { max-width: 1100px; margin: 0 auto; padding: 40px 20px 90px; }
+.ud-titlebar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+.ud-titlebar .ud-title { margin: 0; }
+.ud-add { padding: 9px 18px; border-radius: 100px; border: 1px solid var(--color-bg-dark); background: var(--color-bg-dark); color: #fff; font: 700 12.5px var(--font-sans); cursor: pointer; }
 .ud-title { font-family: var(--font-serif); font-size: 30px; font-weight: 800; letter-spacing: -0.6px; margin: 0 0 10px; }
 .ud-sub { font-size: 14px; color: var(--color-text-muted); margin: 0 0 24px; max-width: 640px; line-height: 1.6; }
 .ud-search { position: relative; margin-bottom: 12px; }
