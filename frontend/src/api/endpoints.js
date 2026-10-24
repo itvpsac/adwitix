@@ -169,6 +169,7 @@ export const me = {
   messages: () => api.get(`${APP}/my-messages`),
   markMessageRead: (id) => api.post(`${APP}/my-messages/${id}/read`),
   starRatings: () => api.get(`${APP}/my-star-ratings`),
+  sellerTenants: () => api.get(`${APP}/my-seller-tenants`),
   ratingHistory: () => api.get(`${APP}/my-rating-history`),
   buyerDashboard: () => api.get(`${APP}/my-buyer-dashboard`),
   sellerDashboard: () => api.get(`${APP}/my-seller-dashboard`),
@@ -236,14 +237,28 @@ export const admin = {
   users: (query) => api.get(`${APP}/admin/users`, { query }),
   userDetail: (id) => api.get(`${APP}/admin/users/${id}`),
   promoteTenantAdmin: (id, payload) => api.post(`${APP}/admin/users/${id}/promote-tenant-admin`, payload),
+  userDossier: (id) => api.get(`${APP}/admin/users/${id}/dossier`),
+  freezeUser: (id, reason) => api.post(`${APP}/admin/users/${id}/freeze`, { reason }),
+  unfreezeUser: (id, reason) => api.post(`${APP}/admin/users/${id}/unfreeze`, { reason }),
 
   tenants: (query) => api.get(`${APP}/admin/tenants`, { query }),
   createTenant: (payload) => api.post(`${APP}/admin/tenants`, payload),
   tenant: (id) => api.get(`${APP}/admin/tenants/${id}`),
   editTenant: (id, payload) => api.post(`${APP}/admin/tenants/${id}/edit`, payload),
+  deleteTenant: (id) => api.post(`${APP}/admin/tenants/${id}/delete`),
 
   lots: (query) => api.get(`${APP}/admin/lots`, { query }),
   tradingSessions: (query) => api.get(`${APP}/admin/trading-sessions`, { query }),
+  lotDossier: (id) => api.get(`${APP}/admin/listings/${id}/dossier`),
+  legalList: () => api.get(`${APP}/admin/legal`),
+  legalDoc: (slug) => api.get(`${APP}/admin/legal/${slug}`),
+  legalVersion: (slug, n) => api.get(`${APP}/admin/legal/${slug}/versions/${n}`),
+  legalSaveDraft: (slug, payload) => api.post(`${APP}/admin/legal/${slug}/draft`, payload),
+  legalPublish: (slug) => api.post(`${APP}/admin/legal/${slug}/publish`),
+  legalDiscard: (slug) => api.post(`${APP}/admin/legal/${slug}/discard-draft`),
+  legalRestore: (slug, n) => api.post(`${APP}/admin/legal/${slug}/restore/${n}`),
+  stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
+  stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 
   kycQueue: (query) => api.get(`${APP}/admin/kyc`, { query }),
   kycDetail: (id) => api.get(`${APP}/admin/kyc/${id}`),
@@ -342,6 +357,12 @@ export const chronicle = {
 export const invoices = {
   index: (query) => api.get('/account/invoices', { query }),
   pdf: (id) => api.download(`/account/invoices/${id}/pdf`),
+};
+
+// ── Published legal & help documents (D-137) ────────────────────────
+export const legalDocs = {
+  get: (slug) => api.get(`${APP}/legal/${slug}`, { auth: false }),
+  accept: (slugs) => api.post(`${APP}/me/accept-documents`, { slugs }),
 };
 
 // ── Public info & legal content ─────────────────────────────────────

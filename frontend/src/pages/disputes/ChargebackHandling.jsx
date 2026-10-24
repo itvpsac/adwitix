@@ -18,7 +18,6 @@ const STATUS_META = {
 };
 
 export default function ChargebackHandling() {
-  const [role, setRole] = useState('admin');
   const [busyId, setBusyId] = useState(null);
   const [actionError, setActionError] = useState('');
 
@@ -66,16 +65,11 @@ export default function ChargebackHandling() {
   return (
     <ConsoleFrame header={<DashboardHeader consoleLabel="PR-30" />}>
     <div className="cb-page">
-      <div className="cb-role-toggle">
-        <button onClick={() => setRole('admin')} className={`cb-role-btn${role === 'admin' ? ' cb-role-btn--active' : ''}`}>SaaS Admin</button>
-        <button onClick={() => setRole('trader')} className={`cb-role-btn${role === 'trader' ? ' cb-role-btn--active' : ''}`}>Buyer / Seller</button>
-      </div>
       <main className="cb-main">
-        {role === 'admin' && (
-          <>
+        <>
             <div className="legal-eyebrow">PR-30</div>
             <h1 className="cb-title">Chargeback Handling</h1>
-            <p className="cb-intro">Card-funded EMD is held as an authorization hold and captured only at settlement or a confirmed forfeiture. When a chargeback is filed, the platform automatically assembles an evidence package — the buyer's per-pledge consent record, bid/transaction history, and the forfeiture approval chain — and reaches representment in one step. A chargeback against an already-approved forfeiture is flagged separately for a SaaS Admin to decide whether the rating penalty applies.</p>
+            <p className="cb-intro">Card-funded EMD is held as an authorization hold and captured only at settlement or a confirmed forfeiture. When a chargeback is filed, the platform automatically assembles an evidence package — the buyer's per-pledge consent record, bid/transaction history, and the forfeiture approval chain — and reaches representment in one step. A chargeback against an already-approved forfeiture is flagged separately for the Custodian to decide whether the rating penalty applies.</p>
 
             <div className="cb-list">
               {CASES.map((c) => {
@@ -117,23 +111,7 @@ export default function ChargebackHandling() {
             {loading && <p className="cb-intro">Loading cases…</p>}
             {!loading && loadError && <p className="cb-intro" style={{ color: 'var(--color-danger)' }}>Could not load chargeback cases: {loadError.message || 'request failed'}.</p>}
             {!loading && !loadError && CASES.length === 0 && <p className="cb-intro">No chargeback cases on record.</p>}
-          </>
-        )}
-
-        {role === 'trader' && (
-          <>
-            <div className="legal-eyebrow">PR-30</div>
-            <h1 className="cb-title cb-title--sm">What a buyer or seller sees</h1>
-            <p className="cb-sub">Card-funded EMD · explainer (no individual case shown)</p>
-            <div className="cb-trader-card">
-              <div className="cb-trader-head">
-                <div className="cb-trader-title">Chargeback Filed</div>
-              </div>
-              <p className="cb-trader-body">When a chargeback is filed against a transaction with the cardholder's issuing bank, AdwitiX automatically assembles the evidence package — the per-pledge consent record, bid/transaction history, and the forfeiture approval chain — and reaches representment.</p>
-              <div className="cb-flag cb-flag--nested">If the chargeback was filed against an already-approved forfeiture, filing it does not extinguish the underlying payment obligation — AdwitiX retains the right to pursue recovery, and it is logged as an account-integrity event on the buyer's record.</div>
-            </div>
-          </>
-        )}
+        </>
       </main>
     </div>
     </ConsoleFrame>

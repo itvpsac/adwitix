@@ -4,10 +4,10 @@ import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
 import './Pricing.css';
 
 const TIERS = [
-  { name: 'CoCo Starter', price: 'Free', period: '', annualNote: 'For individual & one-time Market Makers', highlight: '#DDE0EA', badge: '', ctaLabel: 'Start Free', solid: false,
-    features: ['Unlimited Lots & Trading Sessions', 'Standard auction engine', 'Buy-Now, Express, Easy Auction', 'Buyer-Pays only', 'No API access'] },
+  { name: 'Salvage Managers', price: 'Free', period: '', annualNote: "Sell on the platform's own TradeSphereX — for individual & one-time Market Makers", highlight: '#DDE0EA', badge: '', ctaLabel: 'Start Free', solid: false,
+    features: ['Unlimited Lots & Trading Sessions', 'Buy-Now, Express, Easy Auction', 'Tender Auctions via CoCo Concierge', 'Buyer-Pays only', 'No API access'] },
   { name: 'TSX Launch', price: '₹10,000', period: '/month', annualNote: '₹1,20,000/yr list', highlight: '#DDE0EA', badge: '', ctaLabel: 'Choose Launch', solid: false,
-    features: ['Everything in CoCo Starter', 'Branded marketplace', 'One TSX Master (+ add-on)', 'Seller-Pays available', 'Read-only API access'] },
+    features: ['Your own branded marketplace', 'Buy-Now, Express, Easy Auction', 'One TSX Master (+ add-on)', 'Seller-Pays available', 'Read-only API access'] },
   { name: 'TSX Growth', price: '₹25,000', period: '/month', annualNote: '₹3,00,000/yr list', highlight: '#C9974C', badge: 'Most Popular', ctaLabel: 'Choose Growth', solid: true,
     features: ['Everything in TSX Launch', 'Basic RBAC (view/approve)', 'API read + push Lots', '400 GB storage', '7-year data retention'] },
   { name: 'TSX Enterprise', price: '₹60,000', period: '/month', annualNote: '₹7,20,000/yr list', highlight: '#DDE0EA', badge: '', ctaLabel: 'Talk to Sales', solid: false,
@@ -29,12 +29,12 @@ const DISCOUNT_LADDER = [
   { commitment: '5-year prepaid', discount: '50%', launch: '60,000', growth: '1,50,000', enterprise: '3,60,000' },
 ];
 const STORAGE_ROWS = [
-  { feature: 'Included storage', starter: '5 GB', launch: '100 GB', growth: '400 GB', enterprise: '1 TB' },
-  { feature: 'Max file size', starter: '25 MB', launch: '100 MB', growth: '250 MB', enterprise: '500 MB' },
-  { feature: 'Images per Lot', starter: '20', launch: '100', growth: '300', enterprise: 'Unlimited' },
-  { feature: 'Videos per Lot', starter: '1', launch: '5', growth: '10', enterprise: 'Unlimited' },
-  { feature: 'Data retention', starter: '1 Year', launch: '5 Years', growth: '7 Years', enterprise: '10 Yrs / Unlimited' },
-  { feature: 'Deleted-data recovery', starter: '7 Days', launch: '30 Days', growth: '90 Days', enterprise: '180 Days' },
+  { feature: 'Included storage', starter: '1 TB', launch: '100 GB', growth: '400 GB', enterprise: '1 TB' },
+  { feature: 'Max file size', starter: '500 MB', launch: '100 MB', growth: '250 MB', enterprise: '500 MB' },
+  { feature: 'Images per Lot', starter: 'Unlimited', launch: '100', growth: '300', enterprise: 'Unlimited' },
+  { feature: 'Videos per Lot', starter: 'Unlimited', launch: '5', growth: '10', enterprise: 'Unlimited' },
+  { feature: 'Data retention', starter: '10 Years', launch: '5 Years', growth: '7 Years', enterprise: '10 Yrs / Unlimited' },
+  { feature: 'Deleted-data recovery', starter: '180 Days', launch: '30 Days', growth: '90 Days', enterprise: '180 Days' },
 ];
 const OPTIONAL_SERVICES = [
   ['Marketplace Setup & Branding', '₹50,000+'], ['Data Migration', '₹25,000+'], ['API Integration Setup (one-time)', '₹1,00,000+'],
@@ -166,7 +166,7 @@ export default function Pricing() {
           <div className="pr-table-wrap">
             <div className="pr-table pr-table--storage">
               <div className="pr-table__row pr-table__row--head pr-storage-cols">
-                <div>Feature</div><div>CoCo Starter</div><div>TSX Launch</div><div>TSX Growth</div><div>TSX Enterprise</div>
+                <div>Feature</div><div>Salvage Managers</div><div>TSX Launch</div><div>TSX Growth</div><div>TSX Enterprise</div>
               </div>
               {STORAGE_ROWS.map((row) => (
                 <div key={row.feature} className="pr-table__row pr-storage-cols">
@@ -195,7 +195,7 @@ export default function Pricing() {
 
       <section className="pr-cta">
         <div className="pr-cta__inner">
-          <div><h3>Start free on CoCo Starter.</h3><p>Upgrade whenever Seller-Pays or API access matters to you.</p></div>
+          <div><h3>Start free on Salvage Managers.</h3><p>Move to your own TradeSphereX whenever your brand, Seller-Pays or API access matters to you.</p></div>
           <Link to="/onboarding" className="pr-cta__btn">Get Started</Link>
         </div>
       </section>

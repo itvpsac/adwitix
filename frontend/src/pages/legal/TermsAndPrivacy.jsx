@@ -1,6 +1,9 @@
 import LegalPage from '../../components/LegalPage.jsx';
+import PublishedLegalPage from '../../components/PublishedLegalPage.jsx';
 
-export default function TermsAndPrivacy() {
+// Built-in text = version 1 (D-137); a version published from the
+// Custodian's Documents page replaces it.
+function Builtin() {
   const sections = [
     { id: 'accounts', title: '1. Accounts & Roles', body: <p>You may hold multiple roles on ADWITIX — Trader, Market Maker, or both — under a single verified identity. Custodians are structurally barred from holding any participant role. A suspension or revoked compliance flag on your master KYC status cascades automatically to every role you hold.</p> },
     { id: 'kyc', title: '2. Identity Verification (KYC)', body: <p>You must complete KYC before bidding or listing: document upload to an encrypted vault, Aadhaar tokenization, and PAN/GSTIN registry checks. Buyers are verified by the platform Custodian; Market Makers are verified by their TSX Master. Submitted KYC dossiers lock until a Verified or Suspended decision is issued.</p> },
@@ -16,4 +19,8 @@ export default function TermsAndPrivacy() {
     <LegalPage eyebrow="" title="Terms of Use & Privacy Policy" meta="Adwiti Technocrats Pvt. Ltd · Effective Date: 15-September-2026 · Applies to every TradeSphereX operating on ADWITIX"
       sections={sections} toc maxWidth={1060} backTo="/trust-and-support" />
   );
+}
+
+export default function TermsAndPrivacy() {
+  return <PublishedLegalPage slug="terms-and-privacy"><Builtin /></PublishedLegalPage>;
 }

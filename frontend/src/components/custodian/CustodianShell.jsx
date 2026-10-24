@@ -19,7 +19,6 @@ const NAV = [
     { label: 'Users', to: '/user-directory' },
   ] },
   { group: 'Risk & Compliance', items: [
-    { label: 'KYC Review', to: '/kyc-queue', badge: 'kyc' },
     { label: 'AML Monitoring', to: '/aml-monitoring', badge: 'aml' },
     { label: 'Disputes', to: '/dispute-center', badge: 'dispute' },
     { label: 'Chargebacks', to: '/chargeback-handling', badge: 'chargeback' },
@@ -34,8 +33,8 @@ const NAV = [
   ] },
   { group: 'Governance', items: [
     { label: 'Rating Reviews', to: '/rating-reviews', badge: 'rating' },
-    { label: 'Delist Market Maker', to: '/delist-market-maker' },
     { label: 'Rules & Specifications', to: '/rules-and-specifications' },
+    { label: 'Documents', to: '/custodian/documents' },
     { label: 'Audit Log', to: '/audit-ledger' },
   ] },
 ];

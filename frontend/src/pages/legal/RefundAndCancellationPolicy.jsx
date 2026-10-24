@@ -1,6 +1,9 @@
 import LegalPage from '../../components/LegalPage.jsx';
+import PublishedLegalPage from '../../components/PublishedLegalPage.jsx';
 
-export default function RefundAndCancellationPolicy() {
+// Built-in text = version 1 (D-137); a version published from the
+// Custodian's Documents page replaces it.
+function Builtin() {
   const sections = [
     { id: 's1', title: '1. Scope', body: <p>1.1. This Policy explains when an EMD is refunded, when it is forfeited, and how Lot or Trading Session cancellations are handled on ADWITIX. It should be read together with our Fee &amp; Charges Schedule and Terms of Usage.</p> },
     { id: 's2', title: '2. EMD Refunds', body: (
@@ -39,4 +42,8 @@ export default function RefundAndCancellationPolicy() {
       sections={sections} maxWidth={760}
       footerNote={<>See also our <a href="/pricing">Fee &amp; Charges Schedule</a> and <a href="/terms-of-usage">Terms of Usage</a>.</>} />
   );
+}
+
+export default function RefundAndCancellationPolicy() {
+  return <PublishedLegalPage slug="refund-and-cancellation-policy"><Builtin /></PublishedLegalPage>;
 }

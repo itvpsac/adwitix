@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
 import './Terminology.css';
+import { usePublishedContent } from '../../utils/publishedContent.js';
+
 
 const TERMS = [
   { term: 'Baton-Pass (Cascading Default)', def: "What happens when a winning Trader doesn't pay: the win passes to the next-highest Trader at their own price, within their own time window. This can happen up to three times before a Trading Session is cancelled outright.", related: ['Forfeiture', 'H1 / H2 / H3'] },
@@ -37,11 +39,16 @@ const TERMS = [
   { term: 'Verified Lot', def: "A Lot where ADWITIX's own inspection team has visited the item and taken the photos themselves. Contrast with Certified by Seller.", related: ['Certified by Seller (CBS)'] },
 ];
 
+// Built-in content = version 1 (D-137); a published version replaces it.
+export const TERMINOLOGY_CONTENT = { desc: "Plain-language definitions for every ADWITIX-specific term you'll come across as a Trader or Market Maker.", terms: TERMS };
+
 export default function Terminology() {
+  const c = usePublishedContent('terminology', TERMINOLOGY_CONTENT);
+  const terms = c.terms || [];
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
 
-  const filtered = useMemo(() => (q ? TERMS.filter((t) => t.term.toLowerCase().includes(q) || t.def.toLowerCase().includes(q)) : TERMS), [q]);
+  const filtered = useMemo(() => (q ? terms.filter((t) => t.term.toLowerCase().includes(q) || t.def.toLowerCase().includes(q)) : terms), [q, terms]);
   const groups = useMemo(() => {
     const map = new Map();
     filtered.forEach((t) => {
@@ -51,7 +58,7 @@ export default function Terminology() {
     });
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtered]);
-  const alphabet = useMemo(() => [...new Set(TERMS.map((t) => t.term[0].toUpperCase()))].sort(), []);
+  const alphabet = useMemo(() => [...new Set(terms.map((t) => t.term[0].toUpperCase()))].sort(), [terms]);
 
   return (
     <div className="tm-page">
@@ -59,7 +66,7 @@ export default function Terminology() {
       <main className="tm-main">
         <div className="legal-eyebrow">Trust &amp; Support</div>
         <h1 className="tm-title">Terminology</h1>
-        <p className="tm-desc">Plain-language definitions for every ADWITIX-specific term you'll come across as a Trader or Market Maker.</p>
+        <p className="tm-desc">{c.desc}</p>
 
         <input className="tm-search" placeholder="Search a term — EMD, Crawl-Back, Verified, Forfeiture..." value={query} onChange={(e) => setQuery(e.target.value)} />
 
@@ -79,7 +86,7 @@ export default function Terminology() {
                 <div key={t.term} className="tm-card">
                   <h3>{t.term}</h3>
                   <p>{t.def}</p>
-                  {t.related.length > 0 && (
+                  {(t.related || []).length > 0 && (
                     <div className="tm-related">
                       <span>SEE ALSO:</span>
                       {t.related.map((r) => <span key={r} className="tm-related__chip">{r}</span>)}

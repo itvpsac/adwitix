@@ -1,80 +1,82 @@
+import { Navigate } from 'react-router-dom';
+import lazyPage from './lazyPage.js';
 import { ProtectedRoute } from './ProtectedRoute.jsx';
 // Central route table. Add one entry per converted screen as batches land.
 import HomeRoute from './HomeRoute.jsx';
 import ConsoleFrame from './components/custodian/ConsoleFrame.jsx';
-import CustodianLogin from './pages/custodian/CustodianLogin.jsx';
-import CustodianForgotPassword from './pages/custodian/CustodianForgotPassword.jsx';
-import CustodianForgotMpin from './pages/custodian/CustodianForgotMpin.jsx';
-import CustodianDashboard from './pages/custodian/CustodianDashboard.jsx';
-import CustodianDecisions from './pages/custodian/CustodianDecisions.jsx';
-import CustodianTenants from './pages/custodian/CustodianTenants.jsx';
-import CookiePolicy from './pages/legal/CookiePolicy.jsx';
-import GrievanceRedressalPolicy from './pages/legal/GrievanceRedressalPolicy.jsx';
-import RefundAndCancellationPolicy from './pages/legal/RefundAndCancellationPolicy.jsx';
-import TermsOfUsage from './pages/legal/TermsOfUsage.jsx';
-import PrivacyPolicy from './pages/legal/PrivacyPolicy.jsx';
-import DisputeResolutionProcess from './pages/legal/DisputeResolutionProcess.jsx';
-import TermsAndPrivacy from './pages/legal/TermsAndPrivacy.jsx';
-import StarRatings from './pages/legal/StarRatings.jsx';
-import SecurityAndTrust from './pages/legal/SecurityAndTrust.jsx';
-import DosAndDonts from './pages/legal/DosAndDonts.jsx';
-import Terminology from './pages/legal/Terminology.jsx';
-import FAQ from './pages/legal/FAQ.jsx';
-import TrustAndSupport from './pages/legal/TrustAndSupport.jsx';
-import DefectDisclosure from './pages/legal/DefectDisclosure.jsx';
-import Pricing from './pages/legal/Pricing.jsx';
-import Marketplace from './pages/marketplace/Marketplace.jsx';
-import LotDetail from './pages/marketplace/LotDetail.jsx';
-import LotDirectory from './pages/lots/LotDirectory.jsx';
-import ApplyToSell from './pages/lots/ApplyToSell.jsx';
-import CreateLot from './pages/lots/CreateLot.jsx';
-import LotApproval from './pages/lots/LotApproval.jsx';
-import LotChronicle from './pages/lots/LotChronicle.jsx';
-import LotReachInterest from './pages/lots/LotReachInterest.jsx';
-import BiddingRoom from './pages/lots/BiddingRoom.jsx';
-import BuyerDashboard from './pages/dashboards/BuyerDashboard.jsx';
-import SellerDashboard from './pages/dashboards/SellerDashboard.jsx';
-import TenantAdminDashboard from './pages/dashboards/TenantAdminDashboard.jsx';
-import Profile from './pages/dashboards/Profile.jsx';
-import Preferences from './pages/dashboards/Preferences.jsx';
-import DisputeCenter from './pages/disputes/DisputeCenter.jsx';
-import Settlement from './pages/disputes/Settlement.jsx';
-import ChargebackHandling from './pages/disputes/ChargebackHandling.jsx';
-import PayoutReviews from './pages/disputes/PayoutReviews.jsx';
-import RatingReviews from './pages/disputes/RatingReviews.jsx';
-import EmdConsent from './pages/disputes/EmdConsent.jsx';
-import AmlMonitoring from './pages/compliance/AmlMonitoring.jsx';
-import Alerts from './pages/compliance/Alerts.jsx';
-import AuditChainVerify from './pages/compliance/AuditChainVerify.jsx';
-import AuditLedger from './pages/compliance/AuditLedger.jsx';
-import ConsentAudit from './pages/compliance/ConsentAudit.jsx';
-import DelistMarketMaker from './pages/compliance/DelistMarketMaker.jsx';
-import MediaWaivers from './pages/compliance/MediaWaivers.jsx';
-import RulesAndSpecifications from './pages/compliance/RulesAndSpecifications.jsx';
-import StatutoryExport from './pages/compliance/StatutoryExport.jsx';
-import WhitelistTenant from './pages/compliance/WhitelistTenant.jsx';
-import ChangeMpin from './pages/account/ChangeMpin.jsx';
-import DeleteAccount from './pages/account/DeleteAccount.jsx';
-import PayoutBank from './pages/account/PayoutBank.jsx';
-import RatingHistory from './pages/account/RatingHistory.jsx';
-import SavedSearches from './pages/account/SavedSearches.jsx';
-import ActivityLog from './pages/account/ActivityLog.jsx';
-import Kyc from './pages/onboarding/Kyc.jsx';
-import Onboarding from './pages/onboarding/Onboarding.jsx';
-import ForgotMpin from './pages/onboarding/ForgotMpin.jsx';
-import KycQueue from './pages/compliance/KycQueue.jsx';
-import CustodianCredentialSetup from './pages/custodian/CustodianCredentialSetup.jsx';
-import TenantDirectory from './pages/lots/TenantDirectory.jsx';
-import TradingSessionDirectory from './pages/directories/TradingSessionDirectory.jsx';
-import UserDetail from './pages/directories/UserDetail.jsx';
-import UserDirectory from './pages/directories/UserDirectory.jsx';
-import TenderAuctionReport from './pages/tender/TenderAuctionReport.jsx';
-import TenderConciergeConsole from './pages/tender/TenderConciergeConsole.jsx';
-import TenderEligibility from './pages/tender/TenderEligibility.jsx';
-import TenderStakeholderView from './pages/tender/TenderStakeholderView.jsx';
-import AxChronicle from './pages/chronicle/AxChronicle.jsx';
-import ChronicleVerify from './pages/chronicle/ChronicleVerify.jsx';
-import Invoices from './pages/compliance/Invoices.jsx';
+const CustodianLogin = lazyPage(() => import('./pages/custodian/CustodianLogin.jsx'));
+const CustodianForgotPassword = lazyPage(() => import('./pages/custodian/CustodianForgotPassword.jsx'));
+const CustodianForgotMpin = lazyPage(() => import('./pages/custodian/CustodianForgotMpin.jsx'));
+const CustodianDashboard = lazyPage(() => import('./pages/custodian/CustodianDashboard.jsx'));
+const CustodianDecisions = lazyPage(() => import('./pages/custodian/CustodianDecisions.jsx'));
+const CustodianTenants = lazyPage(() => import('./pages/custodian/CustodianTenants.jsx'));
+const CustodianLot = lazyPage(() => import('./pages/custodian/CustodianLot.jsx'));
+const CustodianUser = lazyPage(() => import('./pages/custodian/CustodianUser.jsx'));
+const CustodianDocuments = lazyPage(() => import('./pages/custodian/CustodianDocuments.jsx'));
+const CookiePolicy = lazyPage(() => import('./pages/legal/CookiePolicy.jsx'));
+const GrievanceRedressalPolicy = lazyPage(() => import('./pages/legal/GrievanceRedressalPolicy.jsx'));
+const RefundAndCancellationPolicy = lazyPage(() => import('./pages/legal/RefundAndCancellationPolicy.jsx'));
+const TermsOfUsage = lazyPage(() => import('./pages/legal/TermsOfUsage.jsx'));
+const PrivacyPolicy = lazyPage(() => import('./pages/legal/PrivacyPolicy.jsx'));
+const DisputeResolutionProcess = lazyPage(() => import('./pages/legal/DisputeResolutionProcess.jsx'));
+const TermsAndPrivacy = lazyPage(() => import('./pages/legal/TermsAndPrivacy.jsx'));
+const StarRatings = lazyPage(() => import('./pages/legal/StarRatings.jsx'));
+const SecurityAndTrust = lazyPage(() => import('./pages/legal/SecurityAndTrust.jsx'));
+const DosAndDonts = lazyPage(() => import('./pages/legal/DosAndDonts.jsx'));
+const Terminology = lazyPage(() => import('./pages/legal/Terminology.jsx'));
+const FAQ = lazyPage(() => import('./pages/legal/FAQ.jsx'));
+const TrustAndSupport = lazyPage(() => import('./pages/legal/TrustAndSupport.jsx'));
+const DefectDisclosure = lazyPage(() => import('./pages/legal/DefectDisclosure.jsx'));
+const Pricing = lazyPage(() => import('./pages/legal/Pricing.jsx'));
+const Marketplace = lazyPage(() => import('./pages/marketplace/Marketplace.jsx'));
+const LotDetail = lazyPage(() => import('./pages/marketplace/LotDetail.jsx'));
+const LotDirectory = lazyPage(() => import('./pages/lots/LotDirectory.jsx'));
+const ApplyToSell = lazyPage(() => import('./pages/lots/ApplyToSell.jsx'));
+const CreateLot = lazyPage(() => import('./pages/lots/CreateLot.jsx'));
+const LotApproval = lazyPage(() => import('./pages/lots/LotApproval.jsx'));
+const LotChronicle = lazyPage(() => import('./pages/lots/LotChronicle.jsx'));
+const LotReachInterest = lazyPage(() => import('./pages/lots/LotReachInterest.jsx'));
+const BiddingRoom = lazyPage(() => import('./pages/lots/BiddingRoom.jsx'));
+const BuyerDashboard = lazyPage(() => import('./pages/dashboards/BuyerDashboard.jsx'));
+const SellerDashboard = lazyPage(() => import('./pages/dashboards/SellerDashboard.jsx'));
+const TenantAdminDashboard = lazyPage(() => import('./pages/dashboards/TenantAdminDashboard.jsx'));
+const Profile = lazyPage(() => import('./pages/dashboards/Profile.jsx'));
+const Preferences = lazyPage(() => import('./pages/dashboards/Preferences.jsx'));
+const DisputeCenter = lazyPage(() => import('./pages/disputes/DisputeCenter.jsx'));
+const Settlement = lazyPage(() => import('./pages/disputes/Settlement.jsx'));
+const ChargebackHandling = lazyPage(() => import('./pages/disputes/ChargebackHandling.jsx'));
+const PayoutReviews = lazyPage(() => import('./pages/disputes/PayoutReviews.jsx'));
+const RatingReviews = lazyPage(() => import('./pages/disputes/RatingReviews.jsx'));
+const EmdConsent = lazyPage(() => import('./pages/disputes/EmdConsent.jsx'));
+const AmlMonitoring = lazyPage(() => import('./pages/compliance/AmlMonitoring.jsx'));
+const Alerts = lazyPage(() => import('./pages/compliance/Alerts.jsx'));
+const AuditChainVerify = lazyPage(() => import('./pages/compliance/AuditChainVerify.jsx'));
+const AuditLedger = lazyPage(() => import('./pages/compliance/AuditLedger.jsx'));
+const ConsentAudit = lazyPage(() => import('./pages/compliance/ConsentAudit.jsx'));
+const MediaWaivers = lazyPage(() => import('./pages/compliance/MediaWaivers.jsx'));
+const RulesAndSpecifications = lazyPage(() => import('./pages/compliance/RulesAndSpecifications.jsx'));
+const StatutoryExport = lazyPage(() => import('./pages/compliance/StatutoryExport.jsx'));
+const WhitelistTenant = lazyPage(() => import('./pages/compliance/WhitelistTenant.jsx'));
+const ChangeMpin = lazyPage(() => import('./pages/account/ChangeMpin.jsx'));
+const DeleteAccount = lazyPage(() => import('./pages/account/DeleteAccount.jsx'));
+const PayoutBank = lazyPage(() => import('./pages/account/PayoutBank.jsx'));
+const RatingHistory = lazyPage(() => import('./pages/account/RatingHistory.jsx'));
+const SavedSearches = lazyPage(() => import('./pages/account/SavedSearches.jsx'));
+const ActivityLog = lazyPage(() => import('./pages/account/ActivityLog.jsx'));
+const Kyc = lazyPage(() => import('./pages/onboarding/Kyc.jsx'));
+const Onboarding = lazyPage(() => import('./pages/onboarding/Onboarding.jsx'));
+const ForgotMpin = lazyPage(() => import('./pages/onboarding/ForgotMpin.jsx'));
+const CustodianCredentialSetup = lazyPage(() => import('./pages/custodian/CustodianCredentialSetup.jsx'));
+const TenantDirectory = lazyPage(() => import('./pages/lots/TenantDirectory.jsx'));
+const TradingSessionDirectory = lazyPage(() => import('./pages/directories/TradingSessionDirectory.jsx'));
+const UserDirectory = lazyPage(() => import('./pages/directories/UserDirectory.jsx'));
+const TenderAuctionReport = lazyPage(() => import('./pages/tender/TenderAuctionReport.jsx'));
+const TenderConciergeConsole = lazyPage(() => import('./pages/tender/TenderConciergeConsole.jsx'));
+const TenderEligibility = lazyPage(() => import('./pages/tender/TenderEligibility.jsx'));
+const TenderStakeholderView = lazyPage(() => import('./pages/tender/TenderStakeholderView.jsx'));
+const AxChronicle = lazyPage(() => import('./pages/chronicle/AxChronicle.jsx'));
+const ChronicleVerify = lazyPage(() => import('./pages/chronicle/ChronicleVerify.jsx'));
+const Invoices = lazyPage(() => import('./pages/compliance/Invoices.jsx'));
 
 export const routes = [
   { path: '/marketplace', element: <ConsoleFrame><Marketplace /></ConsoleFrame> },
@@ -102,7 +104,8 @@ export const routes = [
   { path: '/audit-chain-verify', element: <ConsoleFrame><AuditChainVerify /></ConsoleFrame> },
   { path: '/audit-ledger', element: <ProtectedRoute requiredRole="super_admin"><AuditLedger /></ProtectedRoute> },
   { path: '/consent-audit', element: <ProtectedRoute requiredRole="super_admin"><ConsentAudit /></ProtectedRoute> },
-  { path: '/delist-market-maker', element: <ProtectedRoute requiredRole="super_admin"><DelistMarketMaker /></ProtectedRoute> },
+  // Delisting is done from the person's User file (D-136).
+  { path: '/delist-market-maker', element: <Navigate to="/user-directory" replace /> },
   { path: '/media-waivers', element: <ProtectedRoute requiredRole="super_admin"><MediaWaivers /></ProtectedRoute> },
   { path: '/rules-and-specifications', element: <ProtectedRoute requiredRole="super_admin"><RulesAndSpecifications /></ProtectedRoute> },
   { path: '/statutory-export', element: <ProtectedRoute requiredRole="super_admin"><StatutoryExport /></ProtectedRoute> },
@@ -116,11 +119,13 @@ export const routes = [
   { path: '/kyc', element: <Kyc /> },
   { path: '/onboarding', element: <Onboarding /> },
   { path: '/forgot-mpin', element: <ForgotMpin /> },
-  { path: '/kyc-queue', element: <ProtectedRoute requiredRole="super_admin"><KycQueue /></ProtectedRoute> },
+  // KYC is reviewed inside each User file (D-136); old links land on the
+  // Users list filtered to dossiers waiting for review.
+  { path: '/kyc-queue', element: <Navigate to="/user-directory?kyc=Submitted" replace /> },
   { path: '/custodian-credential-setup', element: <CustodianCredentialSetup /> },
   { path: '/tenant-directory', element: <ConsoleFrame><TenantDirectory /></ConsoleFrame> },
   { path: '/trading-session-directory', element: <ProtectedRoute requiredRole="super_admin"><TradingSessionDirectory /></ProtectedRoute> },
-  { path: '/user-detail', element: <ProtectedRoute requiredRole="super_admin"><UserDetail /></ProtectedRoute> },
+  { path: '/user-detail', element: <ProtectedRoute requiredRole="super_admin"><CustodianUser /></ProtectedRoute> },
   { path: '/user-directory', element: <ProtectedRoute requiredRole="super_admin"><UserDirectory /></ProtectedRoute> },
   { path: '/tender-auction-report', element: <TenderAuctionReport /> },
   { path: '/tender-concierge-console', element: <TenderConciergeConsole /> },
@@ -137,6 +142,8 @@ export const routes = [
   { path: '/custodian/dashboard', element: <ProtectedRoute requiredRole="super_admin"><CustodianDashboard /></ProtectedRoute> },
   { path: '/custodian/decisions', element: <ProtectedRoute requiredRole="super_admin"><CustodianDecisions /></ProtectedRoute> },
   { path: '/custodian/tenants', element: <ProtectedRoute requiredRole="super_admin"><CustodianTenants /></ProtectedRoute> },
+  { path: '/custodian/documents', element: <ProtectedRoute requiredRole="super_admin"><CustodianDocuments /></ProtectedRoute> },
+  { path: '/custodian/lot', element: <ProtectedRoute requiredRole="super_admin"><CustodianLot /></ProtectedRoute> },
   { path: '/cookie-policy', element: <CookiePolicy /> },
   { path: '/grievance-redressal-policy', element: <GrievanceRedressalPolicy /> },
   { path: '/refund-and-cancellation-policy', element: <RefundAndCancellationPolicy /> },

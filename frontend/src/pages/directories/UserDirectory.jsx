@@ -13,7 +13,7 @@ export default function UserDirectory() {
   const [query, setQuery] = useState(params.get('q') || '');
   const [type, setType] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [kycFilter, setKycFilter] = useState('all');
+  const [kycFilter, setKycFilter] = useState(params.get('kyc') || 'all');
   const [page, setPage] = useState(1);
 
   // Search and paging run server-side (UserController::index matches mobile,

@@ -117,7 +117,10 @@ function Detail({ item, onDecided }) {
           <p className="dq-info">Only this TradeSphereX&apos;s own TSX Master can approve this (BR-09). It&apos;s listed here so you can see the backlog and follow up with them.</p>
           <Link to={meta.page} className="cc-btn" style={{ alignSelf: 'flex-start' }}>Open {meta.label.toLowerCase()} →</Link>
         </>
-      ) : item.type === 'kyc' ? <KycDecision item={item} onDecided={onDecided} />
+      ) : item.type === 'kyc' ? (
+        <div className="dq-info">KYC is reviewed inside the person's User file, next to everything else about them.{' '}
+          <Link to={`/user-detail?id=${item.id}#id`} className="cc-link">Review KYC in the User file →</Link></div>
+      )
         : item.type === 'aml' ? <AmlDecision item={item} onDecided={onDecided} />
           : item.type === 'payout' ? <PayoutDecision item={item} onDecided={onDecided} />
             : item.type === 'rating' ? <RatingDecision item={item} onDecided={onDecided} />
@@ -140,50 +143,6 @@ function useSubmit(onDecided) {
     try { await fn(); onDecided(message); } catch (e) { setErr(e.description || e.message || 'That did not go through.'); } finally { setBusy(false); }
   };
   return { busy, err, run };
-}
-
-function KycDecision({ item, onDecided }) {
-  const [detail, setDetail] = useState(null);
-  const [reason, setReason] = useState('');
-  const { busy, err, run } = useSubmit(onDecided);
-  useEffect(() => { admin.kycDetail(item.id).then((r) => setDetail(unwrap(r))).catch(() => setDetail({})); }, [item.id]);
-  const p = detail?.party || {};
-  const reasons = Object.entries(detail?.suspensionReasons || {});
-  const fields = [
-    ['Mobile', p.mobile_number], ['Name', p.full_name], ['Type', p.entity_type], ['PAN', p.pan], ['Aadhaar', p.aadhaar_masked],
-    ['Date of birth', p.date_of_birth], ['Organisation PAN', p.org_pan], ['GSTIN', p.org_gstin], ['CIN', p.org_cin],
-  ].filter(([, v]) => v);
-  return (
-    <>
-      {!detail ? <p className="cc-lbl">Loading application…</p> : (
-        <>
-          <dl className="dq-kv">{fields.map(([k, v]) => <div key={k} style={{ display: 'contents' }}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
-          <div>
-            <h3 className="dq-h3">Documents</h3>
-            {(detail.documents || []).map((doc) => (
-              <button key={doc.id} type="button" className="dq-doc" onClick={() => admin.kycDocumentDownload(doc.id)}>
-                {String(doc.document_type || 'document').replace(/_/g, ' ')} — {doc.original_filename || 'file'} ↓
-              </button>
-            ))}
-            {!(detail.documents || []).length && <p className="cc-lbl" style={{ margin: 0 }}>No documents uploaded.</p>}
-          </div>
-        </>
-      )}
-      <label className="dq-field">Reason (required to suspend)
-        <select value={reason} onChange={(e) => setReason(e.target.value)}>
-          <option value="">Choose a reason…</option>
-          {reasons.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-        </select>
-      </label>
-      <div className="dq-actions">
-        <button type="button" className="cc-btn cc-btn--ok" disabled={busy || !detail} onClick={() => run(() => admin.kycDecide(item.id, { decision: 'verify' }), `KYC verified for ${item.title}.`)}>Verify KYC</button>
-        <button type="button" className="cc-btn cc-btn--bad" disabled={busy || !reason} onClick={() => run(() => admin.kycDecide(item.id, { decision: 'suspend', reason }), `KYC suspended for ${item.title}.`)}>Suspend</button>
-        <Link to={`/user-detail?id=${item.id}`} className="cc-btn">Profile</Link>
-      </div>
-      {err && <p className="cc-error">{err}</p>}
-      <p className="cc-lbl" style={{ margin: 0, fontSize: 12 }}>Recorded in the audit log under your name.</p>
-    </>
-  );
 }
 
 function AmlDecision({ item, onDecided }) {

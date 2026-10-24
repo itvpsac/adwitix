@@ -1,6 +1,9 @@
 import LegalPage from '../../components/LegalPage.jsx';
+import PublishedLegalPage from '../../components/PublishedLegalPage.jsx';
 
-export default function CookiePolicy() {
+// Built-in text = version 1 (D-137); a version published from the
+// Custodian's Documents page replaces it.
+function Builtin() {
   const sections = [
     { id: 's1', title: '1. What Are Cookies', body: <p>Cookies are small text files placed on your device when you use ADWITIX, used to remember information about your visit.</p> },
     { id: 's2', title: '2. Cookies We Use', body: (
@@ -26,4 +29,8 @@ export default function CookiePolicy() {
       sections={sections} maxWidth={760}
       footerNote={<>See also our <a href="/privacy-policy">Privacy Policy</a>.</>} />
   );
+}
+
+export default function CookiePolicy() {
+  return <PublishedLegalPage slug="cookie-policy"><Builtin /></PublishedLegalPage>;
 }

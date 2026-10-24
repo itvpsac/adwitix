@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import './LotDetail.css';
 import AppHeader from '../../components/AppHeader.jsx';
-import { listings } from '../../api/endpoints.js';
+import { listings, admin } from '../../api/endpoints.js';
 import { unwrap, mediaUrl } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
 import { readAuth, isCustodian } from '../../utils/auth.js';
@@ -51,6 +51,13 @@ export default function LotDetail() {
   const [newFiles, setNewFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState('');
+  // The Custodian sees who the seller is (D-133); buyers don't.
+  const custodian = isCustodian(readAuth());
+  const [custodianSeller, setCustodianSeller] = useState(null);
+  useEffect(() => {
+    if (!custodian || !id) return;
+    admin.lotDossier(id).then((r) => setCustodianSeller((unwrap(r) || {}).seller || null)).catch(() => {});
+  }, [custodian, id]);
 
   useEffect(() => {
     if (!reloadKey) { setData(null); setActiveMedia(0); }
@@ -215,11 +222,12 @@ export default function LotDetail() {
             <div className="ldp-mm">
               <div className="ldp-mm__avatar">MM</div>
               <div>
-                <div className="ldp-mm__name">Identity not disclosed</div>
+                <div className="ldp-mm__name">{custodian && custodianSeller ? `${custodianSeller.full_name || 'Unnamed'} · ${custodianSeller.mobile_number}` : 'Identity not disclosed'}</div>
                 <div className="ldp-mm__meta">
                   {data.sellerStarRating != null ? `MM★ ${Number(data.sellerStarRating).toFixed(1)}` : 'No rating yet'}
                   {tenant && ` · Selling on ${tenant.name}`}
                 </div>
+                {custodian && <Link to={`/custodian/lot?id=${id}`} style={{ font: '600 12.5px var(--font-sans)' }}>Open the full Custodian file — sessions, bids, deposits, audit →</Link>}
               </div>
             </div>
           </div>

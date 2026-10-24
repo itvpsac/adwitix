@@ -1,6 +1,9 @@
 import LegalPage from '../../components/LegalPage.jsx';
+import PublishedLegalPage from '../../components/PublishedLegalPage.jsx';
 
-export default function DisputeResolutionProcess() {
+// Built-in text = version 1 (D-137); a version published from the
+// Custodian's Documents page replaces it.
+function Builtin() {
   const sections = [
     { id: 's1', title: '1. What This Covers', body: <p>This document explains, in plain language, how a disagreement about a specific Trading Session gets reviewed and resolved on ADWITIX. It applies to Buy-Now, Express, and Easy Auctions. Tender Auctions are excluded, since they run entirely on terms set directly by the Market Maker.</p> },
     { id: 's2', title: '2. What Can Be Disputed', body: (
@@ -49,4 +52,8 @@ export default function DisputeResolutionProcess() {
       sections={sections} maxWidth={780}
       footerNote={<>See also our <a href="/grievance-redressal-policy">Grievance Redressal Policy</a> and <a href="/star-ratings">Star Ratings</a>.</>} />
   );
+}
+
+export default function DisputeResolutionProcess() {
+  return <PublishedLegalPage slug="dispute-resolution-process"><Builtin /></PublishedLegalPage>;
 }

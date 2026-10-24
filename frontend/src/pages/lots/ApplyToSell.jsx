@@ -17,7 +17,8 @@ export default function ApplyToSell() {
   const tenant = (data && data.tenant) || { name: 'a TradeSphereX' };
   const existing = data && data.existing;
   // A failed load or an unknown tenant id must not offer the Apply button.
-  const status = submitted ? 'submitted' : !tenantId ? 'pick' : loading ? 'loading' : loadError ? 'error' : !(data && data.tenant) ? 'notfound' : existing ? existing.status : 'none';
+  // Salvage Managers needs no seller approval (BR-09, D-131): no application.
+  const status = submitted ? 'submitted' : !tenantId ? 'pick' : loading ? 'loading' : loadError ? 'error' : !(data && data.tenant) ? 'notfound' : data.openSelling ? (data.canSell ? 'open' : 'suspended') : existing ? existing.status : 'none';
 
   const apply = async () => {
     setBusy(true);
@@ -48,6 +49,16 @@ export default function ApplyToSell() {
         {loadError && <div className="ats-card"><p>{loadError.status === 401 ? 'Please log in to apply to sell.' : (loadError.message || 'Could not load this TradeSphereX.')}</p></div>}
         {status === 'notfound' && <div className="ats-card"><p>This TradeSphereX was not found. Choose one from the <Link to="/tenant-directory">TradeSphereX Directory</Link>.</p></div>}
         {error && <div className="ats-card"><p style={{ color: 'var(--color-danger)' }}>{error}</p></div>}
+        {status === 'open' && (
+          <div className="ats-success">
+            <div className="ats-success__title">No approval needed</div>
+            <p>Any verified seller can list on {tenant.name}. Each Lot is still reviewed and approved by its TSX Master before it goes live.</p>
+            <Link to={`/create-lot?tenant=${tenantId}`} className="ats-btn" style={{ display: 'inline-block', textDecoration: 'none', marginTop: 12 }}>List a Lot</Link>
+          </div>
+        )}
+        {status === 'suspended' && (
+          <div className="ats-card"><p>Your selling on {tenant.name} has been suspended by its TSX Master. Contact them to have it reviewed.</p></div>
+        )}
         {status === 'approved' && (
           <div className="ats-success">
             <div className="ats-success__title">Approved</div>
