@@ -40,3 +40,28 @@
 .kyc-check .cc-btn { height: 30px; padding: 0 10px; font-size: 12px; }
 .kyc-docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
 .kyc-decide { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Lot file layout: summary facts, tabs, grouped panels */
+.lf-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.lf-facts > div { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-left: 1px solid var(--color-border-soft); min-width: 0; }
+.lf-facts > div:first-child { border-left: none; }
+.lf-facts b { font: 700 16px/1.25 var(--font-sans); overflow-wrap: anywhere; }
+.lf-facts small { font: 500 12px var(--font-sans); color: var(--color-text-muted); overflow-wrap: anywhere; }
+.lf-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--color-border); overflow-x: auto; scrollbar-width: thin; }
+.lf-tabs button { flex: 0 0 auto; padding: 10px 14px; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; font: 600 13.5px var(--font-sans); color: var(--color-text-muted); cursor: pointer; white-space: nowrap; }
+.lf-tabs button:hover { color: var(--color-text); }
+.lf-tabs button.on { color: var(--color-text); border-bottom-color: var(--color-accent); }
+.lf-panel { display: flex; flex-direction: column; gap: 18px; }
+.lf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 18px; align-items: start; }
+.lf-kv { grid-template-columns: repeat(auto-fill, minmax(min(140px, 42%), 1fr)); }
+.lf-desc { margin: 10px 0 0; font: 400 14.5px/1.6 var(--font-sans); white-space: pre-wrap; overflow-wrap: anywhere; }
+.lf-all summary, .lf-session > summary { cursor: pointer; font: 700 14px var(--font-sans); }
+.lf-session > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 18px; list-style: none; }
+.lf-session > summary::-webkit-details-marker { display: none; }
+.lf-session > summary::before { content: '▸'; color: var(--color-text-muted); }
+.lf-session[open] > summary::before { content: '▾'; }
+.lf-session__body { padding: 0 18px 18px; }
+.lf-media a { position: relative; }
+.lf-media em { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 100px; background: rgba(30, 34, 51, .75); color: #fff; font: 600 11px var(--font-sans); font-style: normal; }
+.lf-files { margin: 14px 0 0; padding-left: 18px; font: 500 13px/1.6 var(--font-sans); }
+.cl-audit details summary { cursor: pointer; font-size: 12px; }
