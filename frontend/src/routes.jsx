@@ -34,6 +34,7 @@ const LotDetail = lazyPage(() => import('./pages/marketplace/LotDetail.jsx'));
 const LotDirectory = lazyPage(() => import('./pages/lots/LotDirectory.jsx'));
 const ApplyToSell = lazyPage(() => import('./pages/lots/ApplyToSell.jsx'));
 const CreateLot = lazyPage(() => import('./pages/lots/CreateLot.jsx'));
+const FixLot = lazyPage(() => import('./pages/lots/FixLot.jsx'));
 const LotApproval = lazyPage(() => import('./pages/lots/LotApproval.jsx'));
 const LotChronicle = lazyPage(() => import('./pages/lots/LotChronicle.jsx'));
 const LotReachInterest = lazyPage(() => import('./pages/lots/LotReachInterest.jsx'));
@@ -85,6 +86,7 @@ export const routes = [
   { path: '/lot-directory', element: <ProtectedRoute requiredRole="super_admin"><LotDirectory /></ProtectedRoute> },
   { path: '/apply-to-sell', element: <ApplyToSell /> },
   { path: '/create-lot', element: <CreateLot /> },
+  { path: '/fix-lot', element: <FixLot /> },
   { path: '/lot-approval', element: <LotApproval /> },
   { path: '/lot-chronicle', element: <ConsoleFrame><LotChronicle /></ConsoleFrame> },
   { path: '/lot-reach-and-interest', element: <LotReachInterest /> },

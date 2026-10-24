@@ -4,7 +4,7 @@ import { unwrap } from '../../api/client.js';
 // Custodian "Stop" for a Lot or Trading Session (D-132). The Custodian
 // never approves — that's the TSX Master's — but can stop anything live,
 // with a reason that goes into the audit trail.
-export default function StopAction({ label = 'Stop', what, onStop, onDone, verb = 'Stop', note = 'Any live bids are withdrawn and deposits released. The reason is shown to the seller and recorded in the Audit Ledger.' }) {
+export default function StopAction({ label = 'Stop', what, onStop, onDone, verb = 'Stop', tone = 'bad', note = 'Any live bids are withdrawn and deposits released. The reason is shown to the seller and recorded in the Audit Ledger.' }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export default function StopAction({ label = 'Stop', what, onStop, onDone, verb 
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} style={btn('#F0C9BE', 'var(--color-danger-bg)', 'var(--color-danger)')}>{label}</button>
+      <button type="button" onClick={() => setOpen(true)} style={tone === 'ok' ? btn('#BFDCC8', 'var(--color-success-bg)', 'var(--color-success)') : btn('#F0C9BE', 'var(--color-danger-bg)', 'var(--color-danger)')}>{label}</button>
     );
   }
   return (
@@ -38,7 +38,7 @@ export default function StopAction({ label = 'Stop', what, onStop, onDone, verb 
       {error && <span style={{ color: 'var(--color-danger)', font: '600 11.5px var(--font-sans)' }}>{error}</span>}
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
         <button type="button" onClick={() => { setOpen(false); setError(''); }} disabled={busy} style={btn('var(--color-border)', '#fff', 'var(--color-text)')}>Cancel</button>
-        <button type="button" onClick={submit} disabled={busy} style={btn('var(--color-danger)', 'var(--color-danger)', '#fff')}>{busy ? 'Working…' : verb}</button>
+        <button type="button" onClick={submit} disabled={busy} style={tone === 'ok' ? btn('var(--color-success)', 'var(--color-success)', '#fff') : btn('var(--color-danger)', 'var(--color-danger)', '#fff')}>{busy ? 'Working…' : verb}</button>
       </div>
     </div>
     </div>

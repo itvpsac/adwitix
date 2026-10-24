@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import './LotDetail.css';
+import LotsOnHoldBanner from '../../components/LotsOnHoldBanner.jsx';
 import AppHeader from '../../components/AppHeader.jsx';
 import { listings, admin } from '../../api/endpoints.js';
 import { unwrap, mediaUrl } from '../../api/client.js';
@@ -139,6 +140,11 @@ export default function LotDetail() {
           {lot.category}{lot.subcategory ? ` › ${lot.subcategory}` : ''}{lot.micro_category ? ` › ${lot.micro_category}` : ''}
           {tenant && ` · ${tenant.name}`} · <span className="ldp-mono">{se?.ern || lot.id}</span>
         </div>
+        {lot.status === 'on_hold' && (data.isOwner
+          ? <LotsOnHoldBanner listingId={lot.id} />
+          : <p role="status" style={{ margin: '0 0 16px', padding: '12px 16px', borderRadius: 12, background: '#FFF8F5', border: '1px solid #F0C9BE', font: '600 14px/1.5 var(--font-sans)' }}>
+              This Lot is on hold while the Custodian&apos;s objection{data.objection?.reason_label ? ` (${data.objection.reason_label.toLowerCase()})` : ''} is put right. It can&apos;t be bid on until then.
+            </p>)}
 
         <div className="ldp-layout">
           <div>

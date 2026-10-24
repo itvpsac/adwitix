@@ -65,3 +65,9 @@
 .lf-media em { position: absolute; left: 6px; bottom: 6px; padding: 2px 8px; border-radius: 100px; background: rgba(30, 34, 51, .75); color: #fff; font: 600 11px var(--font-sans); font-style: normal; }
 .lf-files { margin: 14px 0 0; padding-left: 18px; font: 500 13px/1.6 var(--font-sans); }
 .cl-audit details summary { cursor: pointer; font-size: 12px; }
+
+/* Open Custodian objection (D-140) */
+.lf-objection { border-color: #F0C9BE; display: flex; flex-direction: column; gap: 10px; }
+.lf-objection__head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font: 600 14px var(--font-sans); }
+.lf-pre { margin: 0; font: 400 14px/1.55 var(--font-sans); white-space: pre-wrap; overflow-wrap: anywhere; }
+.lf-fix { padding: 10px 12px; border-radius: 10px; background: var(--color-bg); }

@@ -9,6 +9,7 @@ export const QUEUE_TYPES = {
   rating: { label: 'Rating changes', hint: 'Downgrades awaiting approval', page: '/rating-reviews' },
   waiver: { label: 'Media waivers', hint: 'Tenants asking to skip photo rules', page: '/media-waivers' },
   chargeback: { label: 'Chargebacks', hint: 'Card disputes against EMD forfeitures', page: '/chargeback-handling' },
+  objection: { label: 'Lot fixes to review', hint: 'Sellers corrected a Lot you put on hold', page: '/custodian/lot' },
   lot: { label: 'Lots pending approval', hint: 'Approved by the tenant’s TSX Master', page: '/lot-directory' },
   seller: { label: 'Seller applications', hint: 'Approved by the tenant’s TSX Master', page: '/user-directory' },
 };
