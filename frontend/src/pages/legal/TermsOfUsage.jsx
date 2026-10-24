@@ -64,7 +64,7 @@ function Builtin() {
         <p>7.2. We may suspend or terminate your account for breach of these Terms, fraud, repeated non-payment, or as required by law, with a stated reason.</p>
       </>
     )},
-    { id: 's8', title: '8. Governing Law', body: <p>8.1. These Terms are governed by the laws of India. Disputes not resolved through our internal process are subject to the exclusive jurisdiction of the courts at [city — TODO].</p> },
+    { id: 's8', title: '8. Governing Law', body: <p>8.1. These Terms are governed by the laws of India. Disputes not resolved through our internal process are subject to the exclusive jurisdiction of the courts at New Delhi, India.</p> },
     { id: 's9', title: '9. Changes to These Terms', body: <p>9.1. We may update these Terms from time to time. Material changes will be reflected in the "Effective Date" above and, where required, notified to you directly.</p> },
   ];
   return (
