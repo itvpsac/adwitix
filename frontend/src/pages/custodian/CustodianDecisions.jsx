@@ -117,6 +117,9 @@ function Detail({ item, onDecided }) {
           <p className="dq-info">Only this TradeSphereX&apos;s own TSX Master can approve this (BR-09). It&apos;s listed here so you can see the backlog and follow up with them.</p>
           <Link to={meta.page} className="cc-btn" style={{ alignSelf: 'flex-start' }}>Open {meta.label.toLowerCase()} →</Link>
         </>
+      ) : item.type === 'objection' ? (
+        <div className="dq-info">The seller says they have fixed this Lot. Check it in the Lot file, then lift the hold or send it back.{' '}
+          <Link to={`/custodian/lot?id=${item.listingId}`} className="cc-link">Review in the Lot file →</Link></div>
       ) : item.type === 'kyc' ? (
         <div className="dq-info">KYC is reviewed inside the person's User file, next to everything else about them.{' '}
           <Link to={`/user-detail?id=${item.id}#id`} className="cc-link">Review KYC in the User file →</Link></div>

@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { routes } from './routes.jsx';
 import AcceptanceGate from './components/AcceptanceGate.jsx';
+import LotHoldGate from './components/LotHoldGate.jsx';
 
 // Pages load on demand (React.lazy in routes.jsx), so each visit downloads
 // only the screen it opens; this shows while that screen's code arrives.
@@ -18,6 +19,7 @@ export default function App() {
         ))}
       </Routes>
       <AcceptanceGate />
+      <LotHoldGate />
     </Suspense>
   );
 }

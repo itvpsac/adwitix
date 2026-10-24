@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import LightDashboardHeader from '../../components/LightDashboardHeader.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
+import LotsOnHoldBanner from '../../components/LotsOnHoldBanner.jsx';
 import './SellerDashboard.css';
 import { me } from '../../api/endpoints.js';
 import { unwrap, saveBlob } from '../../api/client.js';
@@ -89,6 +90,7 @@ export default function SellerDashboard() {
           <h1 className="sd-h1">Market Maker Dashboard</h1>
         </div>
         <p className="sd-sub">Your lots, sales and settlements at a glance.</p>
+        <LotsOnHoldBanner />
 
         <div className="sd-stats">
           <div className="sd-stat-card"><b>{data.stats.activeListings || 0}</b><span>Active Listings</span></div>

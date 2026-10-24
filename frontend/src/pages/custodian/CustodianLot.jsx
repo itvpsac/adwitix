@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import CustodianShell from '../../components/custodian/CustodianShell.jsx';
 import StopAction from '../../components/custodian/StopAction.jsx';
+import ObjectionAction from '../../components/custodian/ObjectionAction.jsx';
 import { admin } from '../../api/endpoints.js';
 import { unwrap, mediaUrl } from '../../api/client.js';
 import { Fields, Table, label, show } from '../../components/custodian/DossierParts.jsx';
@@ -15,7 +16,7 @@ import './CustodianLot.css';
 // Custodian can stop the Lot or any live session.
 const LIVE_LOT = ['inventory', 'pending_approval', 'upcoming', 'active'];
 const LIVE_SESSION = ['pending_approval', 'grace_period', 'active'];
-const STATUS_TONE = { active: 'ok', upcoming: 'ok', pending_approval: 'warn', inventory: 'muted', sold: 'ok', suspended: 'bad', archived: 'muted' };
+const STATUS_TONE = { on_hold: 'bad', active: 'ok', upcoming: 'ok', pending_approval: 'warn', inventory: 'muted', sold: 'ok', suspended: 'bad', archived: 'muted' };
 const day = (v) => (v ? String(v).slice(0, 16).replace('T', ' ') : '—');
 
 // What is being sold, grouped the way a reviewer reads a Lot.
@@ -35,6 +36,7 @@ export default function CustodianLot() {
   const id = params.get('id');
   const [d, setD] = useState(null);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const load = useCallback(() => {
     if (!id) return;
@@ -63,6 +65,8 @@ export default function CustodianLot() {
   const l = d.listing;
   const s = d.seller;
   const liveSessions = d.sessions.filter((se) => LIVE_SESSION.includes(se.status));
+  const objectionsAll = d.objections || [];
+  const openObjection = objectionsAll.find((o) => ['open', 'fix_submitted'].includes(o.status));
   const disputes = d.sessions.reduce((n, se) => n + (se.disputes || []).length, 0);
   const photos = d.media.filter((m) => m.media_type === 'photo');
   const TABS = [
@@ -88,9 +92,15 @@ export default function CustodianLot() {
               {' · '}<Link to={`/lot-detail?id=${l.id}`} className="cc-link">Public page →</Link>
             </p>
           </div>
-          {LIVE_LOT.includes(l.status) && <StopAction label="Stop Lot" what={`the Lot "${l.title || l.category}"`} onStop={(reason) => admin.stopLot(l.id, reason)} onDone={load} />}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {LIVE_LOT.includes(l.status) && <ObjectionAction reasons={d.objectionReasons} lotTitle={l.title || l.category} sessionsLive={liveSessions.length}
+              onRaise={(payload) => admin.raiseObjection(l.id, payload)} onDone={(res) => { setNotice(res.message || 'Lot put on hold.'); load(); }} />}
+            {(LIVE_LOT.includes(l.status) || l.status === 'on_hold') && <StopAction label="Stop Lot" what={`the Lot "${l.title || l.category}"`} onStop={(reason) => admin.stopLot(l.id, reason)} onDone={load} />}
+          </div>
         </div>
 
+        {notice && <p className="dq-notice" role="status" style={{ display: 'block' }}>{notice}</p>}
+        {openObjection && <ObjectionPanel o={openObjection} party={party} onDone={(msg) => { setNotice(msg); load(); }} />}
         {l.rejection_reason && <p className="cl-banner cl-banner--info">Last rejection: {l.rejection_reason}</p>}
         {disputes > 0 && <p className="cl-banner cl-banner--bad">{disputes} dispute{disputes === 1 ? '' : 's'} on this Lot — see Trading Sessions.</p>}
 
@@ -220,6 +230,7 @@ export default function CustodianLot() {
                 <div><dt>Favourites</dt><dd>{d.engagement.favorites}</dd></div>
                 <div><dt>Seller messages</dt><dd>{d.engagement.sellerMessages.length}</dd></div>
               </dl>
+              <Table title="Custodian objections" rows={objectionsAll.map((o) => ({ id: o.id, raised: o.raised_at, reason: o.reason_label, note: o.note, status: o.status, acknowledged: o.acknowledged_at, fix_note: o.fix_note, sent_back: o.returned_count, cbs_offence: o.cbs_offense_number, closed: o.closed_at, raised_by_party_id: o.raised_by_party_id }))} party={party} />
               <Table title="Seller messages" rows={d.engagement.sellerMessages} party={party} />
               <Table title="Other versions of this Lot" rows={d.versions} party={party} />
             </section>
@@ -244,5 +255,54 @@ export default function CustodianLot() {
         </div>
       </div>
     </CustodianShell>
+  );
+}
+
+// The open objection: what was raised, where the seller is, and the
+// Custodian's choices — lift the hold, send the fix back, or withdraw.
+function ObjectionPanel({ o, onDone }) {
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const fixIn = o.status === 'fix_submitted';
+  const act = async (decision) => {
+    if ((decision !== 'lift') && !note.trim()) { setError(decision === 'return' ? 'Say what still needs fixing.' : 'Say why the objection is withdrawn.'); return; }
+    setBusy(true); setError('');
+    try {
+      const res = unwrap(await admin.reviewObjection(o.id, { decision, note: note.trim() })) || {};
+      setNote('');
+      onDone(res.message || 'Done.');
+    } catch (e) {
+      setError(e.description || e.message || 'That did not go through.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="cc-card cc-card--pad lf-objection" aria-label="Objection">
+      <div className="lf-objection__head">
+        <span className={`cc-pill cc-pill--${fixIn ? 'warn' : 'bad'}`}>{fixIn ? 'Fix submitted — your review' : 'On hold — waiting on the seller'}</span>
+        <b>{o.reason_label}</b>
+        <span className="cc-lbl">raised {day(o.raised_at)}{Number(o.returned_count) ? ` · sent back ${o.returned_count}×` : ''}</span>
+      </div>
+      <p className="lf-pre">{o.note}</p>
+      <dl className="cl-kv">
+        <div><dt>Seller acknowledged</dt><dd>{o.acknowledged_at ? day(o.acknowledged_at) : 'Not yet'}</dd></div>
+        <div><dt>Sessions stopped</dt><dd>{o.sessions_stopped}</dd></div>
+        <div><dt>CBS violation</dt><dd>{o.cbs_offense_number ? `Offence #${o.cbs_offense_number}` : o.waiver_id ? 'No — media waiver applies' : '—'}</dd></div>
+        <div><dt>Returns to</dt><dd>{o.listing_status_before === 'inventory' ? 'Seller\'s inventory' : 'TSX Master approval'}</dd></div>
+      </dl>
+      {o.review_note && !fixIn && <p className="cl-banner cl-banner--info">You sent it back: {o.review_note}</p>}
+      {fixIn && <div className="lf-fix"><b>Seller&apos;s fix</b> <span className="cc-lbl">{day(o.fix_submitted_at)}</span><p className="lf-pre">{o.fix_note}</p></div>}
+      <label className="dq-field">Note {fixIn ? '(needed to send back)' : '(needed to withdraw)'}
+        <textarea rows={2} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} />
+      </label>
+      {error && <p className="cc-error" role="alert">{error}</p>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {fixIn && <button type="button" className="cc-btn cc-btn--ok" disabled={busy} onClick={() => act('lift')}>Lift the hold</button>}
+        {fixIn && <button type="button" className="cc-btn cc-btn--bad" disabled={busy} onClick={() => act('return')}>Send back to the seller</button>}
+        <button type="button" className="cc-btn" disabled={busy} onClick={() => act('withdraw')}>Withdraw objection</button>
+      </div>
+    </section>
   );
 }

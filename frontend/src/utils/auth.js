@@ -42,6 +42,8 @@ export function partyToUser(party) {
     adminTenants: Array.isArray(party.admin_tenants) ? party.admin_tenants : [],
     // BR-51(d), D-137: documents to (re-)accept before further use.
     pendingAcceptances: Array.isArray(party.pendingAcceptances) ? party.pendingAcceptances : [],
+    // D-140: their Lots on hold after a Custodian objection.
+    lotsOnHold: Array.isArray(party.lotsOnHold) ? party.lotsOnHold : [],
   };
 }
 

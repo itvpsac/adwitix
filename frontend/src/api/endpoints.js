@@ -261,6 +261,8 @@ export const admin = {
   legalRestore: (slug, n) => api.post(`${APP}/admin/legal/${slug}/restore/${n}`),
   plans: () => api.get(`${APP}/admin/plans`),
   savePlan: (key, payload) => api.post(`${APP}/admin/plans/${key}`, payload),
+  raiseObjection: (id, payload) => api.post(`${APP}/admin/listings/${id}/objections`, payload),
+  reviewObjection: (id, payload) => api.post(`${APP}/admin/objections/${id}/review`, payload),
   stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
   stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 
@@ -361,6 +363,15 @@ export const chronicle = {
 export const invoices = {
   index: (query) => api.get('/account/invoices', { query }),
   pdf: (id) => api.download(`/account/invoices/${id}/pdf`),
+};
+
+// ── Lots on hold after a Custodian objection (D-140) ────────────────
+export const objections = {
+  mine: () => api.get(`${APP}/me/lots-on-hold`),
+  acknowledge: (id) => api.post(`${APP}/objections/${id}/acknowledge`).then(invalidateMe),
+  submitFix: (id, note) => api.post(`${APP}/objections/${id}/submit-fix`, { note }).then(invalidateMe),
+  correct: (listingId, payload) => api.post(`${APP}/listings/${listingId}/correct`, payload),
+  removeMedia: (listingId, mediaId) => api.post(`${APP}/listings/${listingId}/media/${mediaId}/remove`),
 };
 
 // ── TSX subscription plans (D-138) ──────────────────────────────────

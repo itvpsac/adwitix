@@ -14,3 +14,6 @@
 .ufm__btn { height: 34px; padding: 0 16px; border-radius: 100px; border: 1px solid var(--color-border); background: #fff; color: var(--color-text); font: 600 12.5px var(--font-sans); cursor: pointer; }
 .ufm__btn--go { background: var(--color-bg-dark); border-color: var(--color-bg-dark); color: #fff; }
 .ufm__btn:disabled { opacity: .5; cursor: default; }
+.ufm__field select { font: 500 13.5px var(--font-sans); color: var(--color-text); padding: 9px 10px; border-radius: 8px; border: 1px solid var(--color-border); background: #fff; }
+.ufm__btn--bad { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
+.ob-btn { height: 30px; padding: 0 12px; border-radius: 100px; border: 1px solid #E8C47A; background: var(--color-warning-bg); color: var(--color-text); font: 600 12px var(--font-sans); cursor: pointer; }

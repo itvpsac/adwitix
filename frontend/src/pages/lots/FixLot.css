@@ -1,0 +1,34 @@
+/* Seller's "Fix your Lot" page (FixLot.jsx, D-140) */
+.fl-page { min-height: 100vh; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }
+.fl-main { max-width: 860px; margin: 0 auto; padding: 28px 16px 80px; display: flex; flex-direction: column; gap: 16px; }
+.fl-h1 { margin: 0; font: 800 28px/1.2 var(--font-display); }
+.fl-h2 { margin: 0; padding: 0; font: 700 17px var(--font-sans); }
+.fl-card { margin: 0; min-width: 0; padding: 18px 20px; border: 1px solid var(--color-border); border-radius: 14px; background: #fff; display: flex; flex-direction: column; gap: 12px; font: 400 14px/1.55 var(--font-sans); }
+.fl-card p { margin: 0; }
+.fl-card legend { float: left; width: 100%; margin-bottom: 4px; }
+.fl-card--warn { border-color: #F0C9BE; background: #FFF8F5; }
+.fl-card--info { border-color: var(--color-border); background: #F7F8FB; }
+.fl-tag { align-self: flex-start; padding: 3px 10px; border-radius: 100px; background: var(--color-danger-bg); color: var(--color-danger); font: 700 11px var(--font-sans); text-transform: uppercase; letter-spacing: .05em; }
+.fl-card--info .fl-tag { background: var(--color-border-soft); color: var(--color-text-muted); }
+.fl-pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.fl-returned { padding: 10px 12px; border-radius: 10px; background: var(--color-warning-bg); }
+.fl-muted { color: var(--color-text-muted); font-size: 13px; }
+.fl-ok { margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--color-success-bg); color: var(--color-success); font: 600 13.5px var(--font-sans); }
+.fl-err { margin: 0; padding: 10px 14px; border-radius: 10px; background: var(--color-danger-bg); color: var(--color-danger); font: 600 13.5px var(--font-sans); }
+.fl-link { color: var(--color-accent-dark, var(--color-text)); font-weight: 600; }
+.fl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: 12px; }
+.fl-field { display: flex; flex-direction: column; gap: 5px; font: 600 12.5px var(--font-sans); color: var(--color-text-muted); }
+.fl-field input, .fl-field select, .fl-field textarea { font: 500 14px var(--font-sans); color: var(--color-text); padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 9px; background: #fff; resize: vertical; }
+.fl-btn { align-self: flex-start; height: 42px; padding: 0 20px; border-radius: 100px; border: 1px solid var(--color-bg-dark); background: var(--color-bg-dark); color: #fff; font: 700 13.5px var(--font-sans); cursor: pointer; }
+.fl-btn--ghost { background: #fff; color: var(--color-text); }
+.fl-btn--go { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-bg-dark); }
+.fl-btn:disabled { opacity: .45; cursor: default; }
+.fl-media { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.fl-thumb { border: 1px solid var(--color-border-soft); border-radius: 10px; overflow: hidden; background: var(--color-bg); display: flex; flex-direction: column; }
+.fl-thumb--main { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); }
+.fl-thumb img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.fl-thumb > span { padding: 10px; font: 500 12px var(--font-sans); overflow-wrap: anywhere; aspect-ratio: 4 / 3; }
+.fl-thumb__acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; background: #fff; }
+.fl-thumb__acts button { border: none; background: none; padding: 2px 0; font: 600 12px var(--font-sans); color: var(--color-text); cursor: pointer; }
+.fl-thumb__acts .fl-del { color: var(--color-danger); margin-left: auto; }
+.fl-thumb__acts em { font: 600 11.5px var(--font-sans); font-style: normal; color: var(--color-accent-dark, var(--color-text)); }
