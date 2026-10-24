@@ -34,6 +34,7 @@ const NAV = [
   { group: 'Governance', items: [
     { label: 'Rating Reviews', to: '/rating-reviews', badge: 'rating' },
     { label: 'Rules & Specifications', to: '/rules-and-specifications' },
+    { label: 'Plans', to: '/custodian/plans' },
     { label: 'Documents', to: '/custodian/documents' },
     { label: 'Audit Log', to: '/audit-ledger' },
   ] },

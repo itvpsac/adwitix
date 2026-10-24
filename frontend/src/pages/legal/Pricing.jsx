@@ -1,6 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import PublicMiniHeader from '../../components/PublicMiniHeader.jsx';
+import { plans as plansApi } from '../../api/endpoints.js';
+import { unwrap } from '../../api/client.js';
+import { formatPlanValue } from '../../utils/plans.js';
 import './Pricing.css';
 
 const TIERS = [
@@ -36,6 +39,22 @@ const STORAGE_ROWS = [
   { feature: 'Data retention', starter: '10 Years', launch: '5 Years', growth: '7 Years', enterprise: '10 Yrs / Unlimited' },
   { feature: 'Deleted-data recovery', starter: '180 Days', launch: '30 Days', growth: '90 Days', enterprise: '180 Days' },
 ];
+// D-138: once GET /plans answers, these rows come from the same plan table
+// the platform enforces (edited on the Custodian's Plans page).
+const LIVE_STORAGE_ROWS = [
+  ['Included storage', 'storage_gb', 'gb'], ['Max file size', 'max_file_mb', 'mb'], ['Images per Lot', 'images_per_lot', 'limit'],
+  ['Videos per Lot', 'videos_per_lot', 'limit'], ['Documents per Lot', 'documents_per_lot', 'limit'],
+  ['Data retention', 'data_retention_years', 'years'], ['Deleted-data recovery', 'deleted_recovery_days', 'days'],
+];
+const COLUMN_FOR = { coco_starter: 'starter', tsx_launch: 'launch', tsx_growth: 'growth', tsx_enterprise: 'enterprise' };
+function storageRowsFrom(plans) {
+  if (!plans || plans.length === 0) return STORAGE_ROWS;
+  return LIVE_STORAGE_ROWS.map(([feature, key, type]) => {
+    const row = { feature };
+    plans.forEach((p) => { if (COLUMN_FOR[p.plan_key]) row[COLUMN_FOR[p.plan_key]] = formatPlanValue(type, p[key]); });
+    return row;
+  });
+}
 const OPTIONAL_SERVICES = [
   ['Marketplace Setup & Branding', '₹50,000+'], ['Data Migration', '₹25,000+'], ['API Integration Setup (one-time)', '₹1,00,000+'],
   ['Online Training', '₹10,000/day'], ['Custom Development', '₹2,500/hr'],
@@ -50,6 +69,10 @@ const bracketFor = (v) => BRACKETS.find((b) => v <= b.max) || BRACKETS[BRACKETS.
 
 export default function Pricing() {
   const [saleValue, setSaleValue] = useState(850000);
+  const [storageRows, setStorageRows] = useState(STORAGE_ROWS);
+  useEffect(() => {
+    plansApi.list().then((r) => setStorageRows(storageRowsFrom((unwrap(r) || {}).plans))).catch(() => {});
+  }, []);
 
   const calc = useMemo(() => {
     const { rate } = bracketFor(saleValue);
@@ -168,7 +191,7 @@ export default function Pricing() {
               <div className="pr-table__row pr-table__row--head pr-storage-cols">
                 <div>Feature</div><div>Salvage Managers</div><div>TSX Launch</div><div>TSX Growth</div><div>TSX Enterprise</div>
               </div>
-              {STORAGE_ROWS.map((row) => (
+              {storageRows.map((row) => (
                 <div key={row.feature} className="pr-table__row pr-storage-cols">
                   <div className="pr-cell-strong">{row.feature}</div>
                   <div>{row.starter}</div><div>{row.launch}</div><div>{row.growth}</div><div>{row.enterprise}</div>

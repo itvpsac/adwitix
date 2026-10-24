@@ -5,7 +5,7 @@ import './CreateLot.css';
 import AppHeader from '../../components/AppHeader.jsx';
 import { CATEGORY_MAP, SUBCATEGORY_MAP, MICROCATEGORY_MAP } from '../../constants.js';
 import { CATEGORIES, SUBCATS_BY_CAT, MICROCATS_BY_SUBCAT } from '../../data/classification.js';
-import { listings, me } from '../../api/endpoints.js';
+import { listings, me, plans as plansApi } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
 import SearchableSelect from '../../components/SearchableSelect.jsx';
@@ -27,6 +27,7 @@ export default function CreateLot() {
   const [sellerTenants, setSellerTenants] = useState(null);
   const [salvageManagers, setSalvageManagers] = useState(null);
   const [tenantId, setTenantId] = useState(params.get('tenant') || '');
+  const [plans, setPlans] = useState([]);
   useEffect(() => {
     me.sellerTenants().then((r) => {
       const d = unwrap(r) || {};
@@ -35,7 +36,13 @@ export default function CreateLot() {
       setSalvageManagers(d.salvageManagers || null);
       setTenantId((cur) => (cur && list.some((t) => t.id === cur) ? cur : (list[0] && list[0].id) || ''));
     }).catch(() => setSellerTenants([]));
+    plansApi.list().then((r) => setPlans((unwrap(r) || {}).plans || [])).catch(() => {});
   }, []);
+  // D-138: the chosen TSX's plan sets how many photos a Lot may have (the
+  // server enforces it on upload; this only tells the seller up front).
+  const tierOf = (sellerTenants || []).find((t) => t.id === tenantId)?.subscription_tier;
+  const lotPlan = plans.find((p) => p.plan_key === tierOf);
+  const maxPhotos = lotPlan ? lotPlan.images_per_lot : undefined; // null = unlimited
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [newLotId, setNewLotId] = useState('');
@@ -418,7 +425,7 @@ export default function CreateLot() {
                 <h2 className="cl-h2">2. Upload media</h2>
                 <p className="cl-hint">At least {MIN_PHOTOS} real photos of the actual item, captured through the app — no stock images. Location/timestamp is captured automatically.</p>
                 <div className="cl-row-between">
-                  <p className="cl-strong">Photos ({photoCount}/50)</p>
+                  <p className="cl-strong">Photos ({photoCount}{maxPhotos ? `/${maxPhotos}` : ''})</p>
                   <button className="cl-outline-btn" onClick={() => mediaFileInputRef.current?.click()}>⇪ Bulk Upload</button>
                   <input type="file" multiple ref={mediaFileInputRef} onChange={handleBulkUpload} style={{ display: 'none' }} accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" />
                 </div>
@@ -440,7 +447,11 @@ export default function CreateLot() {
                     <div key={mediaFiles.length + i} className="cl-photo-slot">Slot {mediaFiles.length + i + 1}</div>
                   ))}
                 </div>
-                <p className="cl-hint">Up to 50 photos total. Bulk Upload adds all the files you select.</p>
+                <p className="cl-hint">
+                  {maxPhotos ? `Up to ${maxPhotos} photos` : maxPhotos === null ? 'No limit on photos' : 'Photos'}
+                  {lotPlan ? ` on the ${lotPlan.name} plan` : ''}{lotPlan?.videos_per_lot != null ? `, ${lotPlan.videos_per_lot} videos` : ''}
+                  {lotPlan?.max_file_mb != null ? `, ${lotPlan.max_file_mb} MB a file` : ''}. Bulk Upload adds all the files you select.
+                </p>
 
                 <p className="cl-strong">Video (optional, up to 2 minutes)</p>
                 <button type="button" className="cl-video-slot" onClick={() => videoFileInputRef.current?.click()}>

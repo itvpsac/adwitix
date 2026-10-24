@@ -1,0 +1,30 @@
+/* Custodian Plans sheet (CustodianPlans.jsx); shared pieces: CustodianShell.css */
+.pl-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.pl-card { overflow: hidden; }
+.pl-table { width: 100%; min-width: 860px; border-collapse: collapse; font: 500 13px/1.4 var(--font-sans); color: var(--color-text); }
+.pl-table th, .pl-table td { padding: 11px 16px; border-top: 1px solid var(--color-border-soft); text-align: left; vertical-align: top; }
+.pl-table thead th { border-top: none; vertical-align: top; padding-top: 18px; }
+.pl-table td { font-variant-numeric: tabular-nums; }
+.pl-feature { width: 30%; min-width: 230px; position: sticky; left: 0; background: #fff; z-index: 1; }
+.pl-name { display: block; font: 700 16px/1.2 var(--font-display); }
+.pl-tag { display: block; margin-top: 4px; font: 500 12px/1.35 var(--font-sans); color: var(--color-text-muted); }
+.pl-count { display: inline-block; margin-top: 8px; font: 600 11.5px var(--font-sans); color: var(--color-accent-dark, var(--color-text)); }
+.pl-group th { background: var(--color-bg); font: 700 11px var(--font-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--color-text-muted); padding-top: 9px; padding-bottom: 9px; position: static; }
+.pl-label { font-weight: 600; margin-right: 8px; }
+.pl-feature .cc-pill { vertical-align: 1px; }
+.pl-help { display: block; margin-top: 4px; font: 400 12px/1.4 var(--font-sans); color: var(--color-text-muted); }
+.pl-meta td, .pl-meta th { color: var(--color-text-muted); font-size: 12px; }
+.pl-table input[type='text'], .pl-table input[type='number'], .pl-table select { width: 100%; max-width: 190px; box-sizing: border-box; height: 34px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: 7px; font: 500 13px var(--font-sans); background: #fff; }
+.pl-table input[type='checkbox'] { width: 18px; height: 18px; }
+.pl-cell--dirty, th.pl-col--dirty { background: var(--color-warning-bg); }
+.pl-hint { margin: 0; }
+.pl-notes ul { margin: 10px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font: 400 13.5px/1.55 var(--font-sans); }
+
+@media print {
+  .cs-top, .cs-nav, .pl-actions, .pl-notes { display: none !important; }
+  .cs-main, .cs-body { margin: 0 !important; padding: 0 !important; }
+  .pl-card { border: none; }
+  .pl-table { min-width: 0; font-size: 11px; }
+  .pl-feature { position: static; }
+  .pl-help { display: none; }
+}

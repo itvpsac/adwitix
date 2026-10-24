@@ -4,6 +4,7 @@ import CustodianShell from '../../components/custodian/CustodianShell.jsx';
 import { admin } from '../../api/endpoints.js';
 import { unwrap } from '../../api/client.js';
 import { formatCurrency } from '../../utils/format.js';
+import { formatBytes, formatPlanValue } from '../../utils/plans.js';
 import './CustodianTenants.css';
 
 // TradeSphereX management: GET /admin/tenants (list), GET /admin/tenants/:id
@@ -75,7 +76,7 @@ function TenantDetail({ id, salvageHolder, onSaved, onDeleted }) {
         const d = unwrap(r) || {};
         setData(d);
         const t = d.tenant || {};
-        setForm({ name: t.name || '', subscription_tier: t.subscription_tier || 'coco_starter', branding_primary_color: t.branding_primary_color || '', terms_url: t.terms_url || '' });
+        setForm({ name: t.name || '', subscription_tier: t.subscription_tier || 'coco_starter', branding_primary_color: t.branding_primary_color || '', terms_url: t.terms_url || '', extra_storage_gb: String(t.extra_storage_gb ?? 0) });
       })
       .catch((e) => setError(e.description || e.message || 'Could not load this TradeSphereX.'));
   }, [id]);
@@ -87,7 +88,13 @@ function TenantDetail({ id, salvageHolder, onSaved, onDeleted }) {
   const s = data.stats || {};
   const admins = data.admins || [];
   const dirty = form.name !== (t.name || '') || form.subscription_tier !== t.subscription_tier
-    || form.branding_primary_color !== (t.branding_primary_color || '') || form.terms_url !== (t.terms_url || '');
+    || form.branding_primary_color !== (t.branding_primary_color || '') || form.terms_url !== (t.terms_url || '')
+    || form.extra_storage_gb !== String(t.extra_storage_gb ?? 0);
+  const usage = data.planUsage || {};
+  const plan = usage.plan || {};
+  const st = usage.storage || {};
+  const big = usage.largest_lot || {};
+  const pct = st.percent ?? 0;
 
   const save = async () => {
     setSaving(true); setSaved(''); setError('');
@@ -167,6 +174,32 @@ function TenantDetail({ id, salvageHolder, onSaved, onDeleted }) {
         </section>
 
         <div className="cc-narrow" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          <section className="cc-card cc-card--pad tx-form" aria-labelledby="su">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 id="su" className="cc-h2" style={{ fontSize: 17 }}>Storage &amp; plan limits</h3>
+              <Link to="/custodian/plans" className="cc-link">Compare plans →</Link>
+            </div>
+            <div>
+              <div className="cc-row" style={{ borderTop: 'none', paddingTop: 0 }}>
+                <span>Storage used</span>
+                <span className="cc-mono">{formatBytes(st.used_bytes)} of {st.limit_bytes == null ? 'Unlimited' : formatBytes(st.limit_bytes)}</span>
+              </div>
+              {st.limit_bytes != null && (
+                <div className="tx-meter" role="meter" aria-label="Storage used" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+                  <span style={{ width: `${Math.min(100, Math.max(pct, pct > 0 ? 1 : 0))}%`, background: pct >= 90 ? 'var(--color-danger)' : pct >= 75 ? 'var(--color-warning)' : 'var(--color-success)' }} />
+                </div>
+              )}
+              {st.limit_bytes != null && <span className="cc-lbl" style={{ fontSize: 12 }}>{pct}% · {plan.name} includes {formatPlanValue('gb', plan.storage_gb)}{st.extra_gb ? ` + ${st.extra_gb} GB bought` : ''}</span>}
+            </div>
+            <label className="dq-field">Extra storage bought (GB)
+              <input type="number" min="0" step="100" value={form.extra_storage_gb} onChange={set('extra_storage_gb')} />
+            </label>
+            <div className="cc-row"><span>Photos per Lot</span><span className="cc-mono">largest {big.photos ?? 0} · limit {formatPlanValue('limit', plan.images_per_lot)}</span></div>
+            <div className="cc-row"><span>Videos per Lot</span><span className="cc-mono">largest {big.videos ?? 0} · limit {formatPlanValue('limit', plan.videos_per_lot)}</span></div>
+            <div className="cc-row"><span>Documents per Lot</span><span className="cc-mono">largest {big.documents ?? 0} · limit {formatPlanValue('limit', plan.documents_per_lot)}</span></div>
+            <div className="cc-row"><span>Largest file</span><span className="cc-mono">{formatPlanValue('mb', plan.max_file_mb)}</span></div>
+          </section>
+
           <section className="cc-card cc-card--pad" aria-labelledby="ad">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 id="ad" className="cc-h2" style={{ fontSize: 17 }}>TSX Master</h3>

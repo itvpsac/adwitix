@@ -257,6 +257,8 @@ export const admin = {
   legalPublish: (slug) => api.post(`${APP}/admin/legal/${slug}/publish`),
   legalDiscard: (slug) => api.post(`${APP}/admin/legal/${slug}/discard-draft`),
   legalRestore: (slug, n) => api.post(`${APP}/admin/legal/${slug}/restore/${n}`),
+  plans: () => api.get(`${APP}/admin/plans`),
+  savePlan: (key, payload) => api.post(`${APP}/admin/plans/${key}`, payload),
   stopLot: (id, reason) => api.post(`${APP}/admin/listings/${id}/stop`, { reason }),
   stopSession: (id, reason) => api.post(`${APP}/admin/sale-events/${id}/stop`, { reason }),
 
@@ -357,6 +359,11 @@ export const chronicle = {
 export const invoices = {
   index: (query) => api.get('/account/invoices', { query }),
   pdf: (id) => api.download(`/account/invoices/${id}/pdf`),
+};
+
+// ── TSX subscription plans (D-138) ──────────────────────────────────
+export const plans = {
+  list: () => api.get(`${APP}/plans`, { auth: false }),
 };
 
 // ── Published legal & help documents (D-137) ────────────────────────
