@@ -1,0 +1,16 @@
+.ufm-back { position: fixed; inset: 0; z-index: 60; background: rgba(30, 34, 51, .35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ufm { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 520px; max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box; padding: 22px; background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(30, 34, 51, .25); font-family: var(--font-sans); color: var(--color-text); }
+.ufm__title { font: 700 17px var(--font-sans); }
+.ufm__note { font: 500 13px/1.5 var(--font-sans); color: var(--color-text-muted); }
+.ufm__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.ufm__field { display: flex; flex-direction: column; gap: 5px; font: 600 12px var(--font-sans); color: var(--color-text-muted); }
+.ufm__field input, .ufm__field textarea { font: 500 13.5px var(--font-sans); color: var(--color-text); padding: 9px 10px; border-radius: 8px; border: 1px solid var(--color-border); resize: vertical; }
+.ufm__seg { display: inline-flex; align-self: flex-start; border: 1px solid var(--color-border); border-radius: 100px; padding: 3px; }
+.ufm__seg button { border: none; background: none; padding: 6px 14px; border-radius: 100px; font: 600 12px var(--font-sans); color: var(--color-text-muted); cursor: pointer; }
+.ufm__seg button.on { background: var(--color-bg-dark); color: #fff; }
+.ufm__warn { padding: 9px 11px; border-radius: 8px; background: var(--color-warning-bg); font: 500 12.5px/1.45 var(--font-sans); }
+.ufm__err { color: var(--color-danger); font: 600 12px var(--font-sans); }
+.ufm__acts { display: flex; gap: 8px; justify-content: flex-end; }
+.ufm__btn { height: 34px; padding: 0 16px; border-radius: 100px; border: 1px solid var(--color-border); background: #fff; color: var(--color-text); font: 600 12.5px var(--font-sans); cursor: pointer; }
+.ufm__btn--go { background: var(--color-bg-dark); border-color: var(--color-bg-dark); color: #fff; }
+.ufm__btn:disabled { opacity: .5; cursor: default; }

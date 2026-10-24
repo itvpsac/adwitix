@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import CustodianShell from '../../components/custodian/CustodianShell.jsx';
 import StopAction from '../../components/custodian/StopAction.jsx';
+import UserFormModal from '../../components/custodian/UserFormModal.jsx';
 import RatingChart from '../../components/custodian/RatingChart.jsx';
 import KycReviewPanel from '../../components/custodian/KycReviewPanel.jsx';
 import { Fields, Table, label } from '../../components/custodian/DossierParts.jsx';
@@ -27,6 +28,8 @@ export default function CustodianUser() {
   const [error, setError] = useState('');
   const [promoteTo, setPromoteTo] = useState('');
   const [note, setNote] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState('');
 
   const load = useCallback(() => {
     if (!id) return;
@@ -74,6 +77,7 @@ export default function CustodianUser() {
             </p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="cc-btn" style={{ height: 30, padding: '0 12px', borderRadius: 100, font: '600 12px var(--font-sans)' }} onClick={() => setEditing(true)}>Edit details</button>
           {isSeller && !p.seller_delisted_at && (
             <StopAction label="Delist Market Maker" verb="Delist" what={`${p.full_name || p.mobile_number} as a Market Maker`}
               note="BR-38: for confirmed fraud only — never for ordinary poor ratings. Their selling rights are removed on every TradeSphereX and all their active lots are suspended at once. No TSX Master can undo it. The reason is recorded in the Audit Ledger."
@@ -85,6 +89,8 @@ export default function CustodianUser() {
           </div>
         </div>
 
+        {editing && <UserFormModal party={p} onSubmit={(payload) => admin.editUser(id, payload)} onClose={() => setEditing(false)} onDone={(res) => { setEditing(false); setSaved(res.message || 'Details corrected.'); load(); }} />}
+        {saved && <p className="dq-notice" role="status" style={{ display: 'block' }}>{saved}</p>}
         {p.kyc_status === 'submitted' && <p className="cl-banner cl-banner--info">KYC submitted and waiting for review — <a href="#id" className="cc-link">review it below</a>.</p>}
         {p.frozen_at && <p className="cl-banner cl-banner--bad" role="status">Frozen since {p.frozen_at}: {p.frozen_reason}</p>}
         {p.seller_delisted_at && <p className="cl-banner cl-banner--bad">Seller delisted {p.seller_delisted_at}{p.seller_delisted_reason ? `: ${p.seller_delisted_reason}` : ''}</p>}
